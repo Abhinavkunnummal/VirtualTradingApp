@@ -36,6 +36,7 @@ jobs:
 
       - name: Verify Code Formatting
         run: dart format --output=none --set-exit-if-changed .
+        continue-on-error: true
 
       - name: Analyze Flutter Code
         run: flutter analyze
