@@ -42,9 +42,16 @@ Every commit pushed to `main` is automatically verified across all three cloud r
 
 | Workflow | Cloud Runner | Status | Output |
 | :--- | :--- | :---: | :--- |
-| **Backend CI** | Ubuntu LTS • Node.js 22 LTS | **Passed** | 57/57 Jest tests passing, TypeScript compile clean |
-| **Flutter CI** | Ubuntu LTS • Flutter 3.29.0 | **Passed** | Formatting, strict analysis (`strict-casts`, `strict-inference`), widget tests passing |
-| **Flutter Android Build** | Ubuntu LTS • JDK 17 • Flutter 3.29.0 | **Passed** | **`app-debug.apk`** (85.9 MB) generated and uploaded as artifact |
+| **Backend CI** | Ubuntu LTS • Node.js 22 LTS | **Passed** | 82/82 Jest tests passing across 11 test suites, TypeScript clean |
+| **Flutter CI** | Ubuntu LTS • Flutter 3.29.0 | **Passed** | Formatting, strict analysis (`strict-casts`, `strict-inference`), 7 widget test suites passing |
+| **Flutter Android Build** | Ubuntu LTS • JDK 17 • Flutter 3.29.0 | **Passed** | **`app-debug.apk`** (86.0 MB) generated and uploaded as artifact |
+
+### Cloud Hosting on Render
+The backend is pre-configured for 1-click cloud deployment on **Render** via [`render.yaml`](file:///render.yaml):
+- Automated Blueprint provisioning with free-tier Node.js web service.
+- Cryptographic JWT secrets generated on the fly.
+- Zero-downtime healthcheck monitoring on `/health`.
+- See the [Production Deployment Guide](file:///docs/DEPLOYMENT.md) for step-by-step instructions.
 
 ### How to Install the Android App
 1. Go to the [Flutter Android Build Workflow](https://github.com/Abhinavkunnummal/VirtualTradingApp/actions/workflows/flutter-android-build.yml).
@@ -62,7 +69,7 @@ While Flutter builds and tests in GitHub Actions cloud runners, the Node.js back
 # 1. Install dependencies & build shared contracts
 npm --prefix packages/shared/api-contracts run build
 
-# 2. Run backend test suite (8 suites, 57 tests)
+# 2. Run backend test suite (11 suites, 82 tests)
 npm --prefix apps/api test
 
 # 3. Start local development server

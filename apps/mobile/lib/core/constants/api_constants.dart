@@ -1,14 +1,14 @@
 class ApiConstants {
   // Configured via compile-time environment variable: --dart-define=API_BASE_URL=...
   // Default points to standard Android emulator loopback or localhost
-  // For Railway deployment: --dart-define=API_BASE_URL=https://<your-app>.up.railway.app/api/v1
+  // For Render deployment: --dart-define=API_BASE_URL=https://<your-app>.onrender.com/api/v1
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://10.0.2.2:5000/api/v1',
   );
 
-  static const Duration connectTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(seconds: 15);
+  static const Duration connectTimeout = Duration(seconds: 30);
+  static const Duration receiveTimeout = Duration(seconds: 30);
 
   // Auth endpoints
   static const String register = '/auth/register';

@@ -12,7 +12,7 @@
 | **Phase 6** | AI Trading Assistant (Educational Scenarios, Risk Evaluator) & News Feed | **Completed** | AI concept explainer, pre-trade risk evaluation, portfolio concentration review, prompt injection defenses, curated news pulse, 48/48 backend tests passed (`665670e`) |
 | **Phase 7** | Real-Time Chat Rooms, Socket.IO WebSockets & Community Floor | **Completed** | Socket.IO server, JWT handshake authentication, private room isolation (`user:<userId>`), public channels (`room:general`, `room:nifty`), message CRUD & ownership enforcement, 2-tab Flutter Community screen (`665670e`) |
 | **Phase 8** | Release Readiness, Security Audit, Trading Correctness & Cloud CI/CD Artifact Verification | **Completed** | All 3 cloud workflows passed: Backend CI (82/82 tests), Flutter CI (strict analysis & 7 widget tests), Flutter Android Build (`app-debug.apk` 86.0 MB artifact verified) (`2c3723a`) |
-| **Phase 9** | Railway Cloud Hosting, Advanced Orders (BO/CO/TSL), Real-time News & Notifications | **Completed** | Railway Dockerization & JSON, Bracket/Cover/Trailing SL engine, OCO logic, Live News Feed, In-app Notifications (`2c3723a`) |
+| **Phase 9** | Cloud Hosting on Render, Advanced Orders (BO/CO/TSL), Real-time News & Notifications | **Completed** | Render Blueprint (`render.yaml`), Bracket/Cover/Trailing SL engine, OCO logic, Live News Feed, In-app Notifications (`2c3723a`) |
 
 ---
 

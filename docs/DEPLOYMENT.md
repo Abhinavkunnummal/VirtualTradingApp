@@ -26,50 +26,74 @@ The repository includes three automated cloud workflows:
 
 ---
 
-## 3. Hosting on Railway (Step-by-Step Guide)
+## 3. Hosting on Render (render.com) — Step-by-Step Guide
 
-TradeVerse AI is fully pre-configured for instant zero-configuration deployment to **Railway** using the included `railway.json` and multi-stage `Dockerfile`.
+TradeVerse AI is fully configured for automated cloud deployment to **Render** using the included `render.yaml` Blueprint or as a manual Web Service.
 
-### Step 1: Create a Project on Railway
-1. Sign in to your [Railway Dashboard](https://railway.com/).
-2. Click **New Project** → **Deploy from GitHub repo**.
-3. Select your repository: `Abhinavkunnummal/VirtualTradingApp`.
+### Option A: Automated Blueprint Deployment (Recommended)
 
-### Step 2: Automatic Dockerfile Build
-Railway automatically detects `railway.json` located at the root of the repository:
-- Builder: `DOCKERFILE` (`apps/api/Dockerfile`)
-- Start command: `node dist/server.js`
-- Automated Healthcheck Probe: `/health` (120s timeout)
-- Restart policy: `ON_FAILURE` (max 5 retries)
+1. Sign in to your [Render Dashboard](https://dashboard.render.com/).
+2. Click **New +** → **Blueprint**.
+3. Connect and select your GitHub repository: `Abhinavkunnummal/VirtualTradingApp`.
+4. Render detects `render.yaml` at the root and presents the **`tradeverse-api`** service configuration:
+   - **Runtime**: Node.js
+   - **Root Directory**: `apps/api`
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `node dist/server.js`
+   - **Health Check Path**: `/health`
+5. Render prompts you for your `MONGODB_URI`:
+   - Enter your MongoDB Atlas connection string (e.g., `mongodb+srv://<user>:<password>@cluster0.mongodb.net/tradeverse?retryWrites=true&w=majority`).
+6. Click **Apply**. Render will generate high-entropy secrets for `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` automatically and provision the service.
 
-### Step 3: Configure Environment Variables in Railway
-In your Railway Service dashboard, open the **Variables** tab and add the following:
+---
+
+### Option B: Manual Web Service Setup
+
+If you prefer configuring the Web Service manually:
+
+1. In the Render Dashboard, click **New +** → **Web Service**.
+2. Select your repository: `Abhinavkunnummal/VirtualTradingApp`.
+3. Configure the service settings:
+   - **Name**: `tradeverse-api`
+   - **Region**: Choose the closest region to your users (e.g., `Singapore`, `Frankfurt`, or `Oregon`)
+   - **Branch**: `main`
+   - **Root Directory**: `apps/api`
+   - **Runtime**: `Node`
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `node dist/server.js`
+   - **Instance Type**: `Free`
+4. Expand **Advanced** and set **Health Check Path** to `/health`.
+5. Under **Environment Variables**, add:
 
 | Variable | Description | Example / Recommended Value |
 | :--- | :--- | :--- |
 | `NODE_ENV` | Production environment mode | `production` |
+| `PORT` | Listening port (Render default is 10000) | `10000` |
 | `MONGODB_URI` | MongoDB Atlas replica-set connection string | `mongodb+srv://<user>:<password>@cluster0.mongodb.net/tradeverse?retryWrites=true&w=majority` |
-| `JWT_ACCESS_SECRET` | 64-byte secret key for signing access tokens | `tradeverse_production_access_secret_key_minimum_32_chars_long!` |
-| `JWT_REFRESH_SECRET`| 64-byte secret key for signing refresh tokens | `tradeverse_production_refresh_secret_key_minimum_32_chars_long!` |
-| `CORS_ORIGINS` | Permitted origins | `*` (or your custom domain) |
-| `STARTING_CAPITAL` | Fictional sandbox balance for new users | `1000000` (₹10 Lakhs) |
+| `JWT_ACCESS_SECRET` | Secret key for signing access tokens (min 32 chars) | `openssl rand -hex 32` |
+| `JWT_REFRESH_SECRET`| Secret key for signing refresh tokens (min 32 chars) | `openssl rand -hex 32` |
+| `CORS_ORIGINS` | Permitted origins | `*` |
+| `STARTING_CAPITAL` | Fictional sandbox balance for new accounts | `1000000` (₹10 Lakhs) |
 
-> **Note on PORT:** Railway automatically injects the `$PORT` environment variable at runtime. The TradeVerse configuration parses this string automatically.
+6. Click **Create Web Service**.
+
+---
 
 ### Step 4: MongoDB Atlas IP Access List
 In your [MongoDB Atlas Console](https://cloud.mongodb.com/):
 1. Navigate to **Network Access** → **IP Access List**.
 2. Click **Add IP Address**.
-3. Select **Allow Access from Anywhere** (`0.0.0.0/0`) or configure Railway's static outbound IP addresses.
+3. Select **Allow Access from Anywhere** (`0.0.0.0/0`) or configure Render's outbound IP addresses.
 4. Ensure your database user credentials in `MONGODB_URI` have Read and Write privileges on the `tradeverse` database.
 
-### Step 5: Generate Public Domain
-1. In the Railway Service dashboard, open the **Settings** tab.
-2. Scroll to **Networking** → **Public Networking**.
-3. Click **Generate Domain** (e.g. `virtualtradingapp-production.up.railway.app`).
-4. Test health verification in your browser:
+---
+
+### Step 5: Verify Health
+Once Render finishes deploying:
+1. Copy your public service URL from the dashboard (e.g. `https://tradeverse-api.onrender.com`).
+2. Test health verification in your browser or terminal:
    ```bash
-   curl https://<your-railway-domain>.up.railway.app/health
+   curl https://tradeverse-api.onrender.com/health
    ```
    Expected response:
    ```json
@@ -84,12 +108,16 @@ In your [MongoDB Atlas Console](https://cloud.mongodb.com/):
    }
    ```
 
-### Step 6: Connect Flutter Mobile App to Railway Backend
-To point the mobile app to your Railway deployment, compile the APK in GitHub Actions with:
+> **Note on Render Free Tier:** Render free instances spin down after 15 minutes of inactivity. When a new request arrives, Render automatically spins up the instance (cold start ~30s). The Flutter mobile app's Dio client is configured with a 30-second `connectTimeout` to handle cold starts seamlessly.
+
+---
+
+### Step 6: Connect Flutter Mobile App to Render Backend
+To point the mobile app to your Render backend, compile the APK in GitHub Actions with:
 ```bash
-flutter build apk --debug --dart-define=API_BASE_URL=https://<your-railway-domain>.up.railway.app/api/v1
+flutter build apk --debug --dart-define=API_BASE_URL=https://<your-render-service>.onrender.com/api/v1
 ```
-The mobile application will seamlessly target your cloud API server.
+The mobile application will seamlessly target your live cloud API server.
 
 ---
 
