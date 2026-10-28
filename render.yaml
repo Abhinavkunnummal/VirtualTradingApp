@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: tradeverse-api
+    name: virtualtradingapp
     runtime: node
     plan: free
     region: oregon

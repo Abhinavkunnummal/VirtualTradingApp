@@ -1,10 +1,9 @@
 class ApiConstants {
   // Configured via compile-time environment variable: --dart-define=API_BASE_URL=...
-  // Default points to standard Android emulator loopback or localhost
-  // For Render deployment: --dart-define=API_BASE_URL=https://<your-app>.onrender.com/api/v1
+  // Default points to live Render cloud service: https://virtualtradingapp.onrender.com/api/v1
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:5000/api/v1',
+    defaultValue: 'https://virtualtradingapp.onrender.com/api/v1',
   );
 
   static const Duration connectTimeout = Duration(seconds: 30);
