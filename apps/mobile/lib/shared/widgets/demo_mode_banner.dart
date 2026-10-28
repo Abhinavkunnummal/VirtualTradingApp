@@ -12,9 +12,9 @@ class DemoModeBanner extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surfaceLowest,
-        border: const Border(
+        border: Border(
           bottom: BorderSide(color: AppColors.borderSubtle),
         ),
       ),

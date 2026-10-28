@@ -298,7 +298,7 @@ class HomeDashboardScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
@@ -469,8 +469,8 @@ class HomeDashboardScreen extends ConsumerWidget {
           final t = tickers[index];
           final isPos = t['isPos'] as bool;
           return Container(
-            width: 130,
-            padding: const EdgeInsets.all(10),
+            width: 155,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: AppColors.surfaceContainer,
               borderRadius: BorderRadius.circular(10),
@@ -485,7 +485,14 @@ class HomeDashboardScreen extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(t['price'] as String, style: AppTypography.numericTable),
+                    Flexible(
+                      child: Text(
+                        t['price'] as String,
+                        style: AppTypography.numericTable,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                     Text(
                       t['change'] as String,
                       style: AppTypography.numericTable.copyWith(
