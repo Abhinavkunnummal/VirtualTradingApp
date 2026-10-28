@@ -1,0 +1,44 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/flutter-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/flutter-ci.yml'
+
+jobs:
+  analyze_and_test:
+    name: Flutter Lint, Analyze & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Verify Code Formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze Flutter Code
+        run: flutter analyze
+
+      - name: Run Unit & Widget Tests
+        run: flutter test --coverage
