@@ -7,7 +7,12 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ) {
-  console.error('[API Error]', err);
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // Log error safely without exposing raw auth headers or credentials
+  if (!isProduction) {
+    console.error('[API Error]', err?.message || err);
+  }
 
   if (err instanceof ZodError) {
     return res.status(400).json({
@@ -17,12 +22,14 @@ export function errorHandler(
     });
   }
 
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
+  const statusCode = err.statusCode || (err.status && typeof err.status === 'number' ? err.status : 500);
+  const message = (isProduction && statusCode === 500)
+    ? 'An unexpected internal server error occurred.'
+    : (err.message || 'Internal Server Error');
 
   return res.status(statusCode).json({
     success: false,
     message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+    ...(!isProduction && { stack: err.stack })
   });
 }

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
-import '../../trade/presentation/providers/order_provider.dart';
-import '../domain/market_models.dart';
-import 'providers/markets_provider.dart';
+import 'package:tradeverse_mobile/core/theme/app_colors.dart';
+import 'package:tradeverse_mobile/core/theme/app_typography.dart';
+import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
+import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
+import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
 
 class MarketsScreen extends ConsumerStatefulWidget {
   const MarketsScreen({super.key});

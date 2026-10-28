@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
-import '../../../shared/widgets/loading_state_widget.dart';
-import '../../../shared/widgets/error_state_widget.dart';
-import '../providers/portfolio_provider.dart';
-import '../../domain/portfolio_models.dart';
+import 'package:tradeverse_mobile/core/theme/app_colors.dart';
+import 'package:tradeverse_mobile/core/theme/app_typography.dart';
+import 'package:tradeverse_mobile/shared/widgets/loading_state_widget.dart';
+import 'package:tradeverse_mobile/shared/widgets/error_state_widget.dart';
+import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
+import 'package:tradeverse_mobile/features/portfolio/domain/portfolio_models.dart';
 
 class PortfolioScreen extends ConsumerStatefulWidget {
   const PortfolioScreen({super.key});

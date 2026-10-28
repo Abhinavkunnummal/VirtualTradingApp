@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
-import '../../ai/presentation/providers/ai_provider.dart';
-import '../domain/community_models.dart';
-import 'providers/community_provider.dart';
+import 'package:tradeverse_mobile/core/theme/app_colors.dart';
+import 'package:tradeverse_mobile/core/theme/app_typography.dart';
+import 'package:tradeverse_mobile/features/ai/presentation/providers/ai_provider.dart';
+import 'package:tradeverse_mobile/features/community/domain/community_models.dart';
+import 'package:tradeverse_mobile/features/community/presentation/providers/community_provider.dart';
 
 class CommunityScreen extends ConsumerStatefulWidget {
   const CommunityScreen({super.key});

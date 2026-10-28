@@ -1,7 +1,7 @@
 import express, { Response } from 'express';
 import { z } from 'zod';
 import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.middleware';
-import { PaperAccount, Holding, Order } from '../../models';
+import { PaperAccount, Holding, Order, LedgerEntry } from '../../models';
 import { config } from '../../config';
 
 export const paperAccountRouter = express.Router();
@@ -72,6 +72,16 @@ paperAccountRouter.post('/reset', requireAuth, async (req: AuthenticatedRequest,
         { status: 'CANCELLED', rejectionReason: 'Sandbox reset by user' }
       );
     }
+
+    // Record auditable ledger entry for capital reset
+    await LedgerEntry.create({
+      userId: req.user!.userId,
+      paperAccountId: account._id,
+      type: 'CAPITAL_RESET',
+      amount: startingCapital,
+      balanceAfter: startingCapital,
+      description: `Virtual capital reset to INR ${startingCapital.toLocaleString('en-IN')} by user`,
+    });
 
     return res.status(200).json({
       success: true,

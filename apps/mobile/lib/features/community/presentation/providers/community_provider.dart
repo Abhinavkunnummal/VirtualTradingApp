@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/api_constants.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../domain/community_models.dart';
+import 'package:tradeverse_mobile/core/constants/api_constants.dart';
+import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:tradeverse_mobile/features/community/domain/community_models.dart';
 
 final selectedRoomIdProvider = StateProvider<String>((ref) => 'room:general');
 

@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/api_constants.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../portfolio/presentation/providers/portfolio_provider.dart';
-import '../../markets/domain/market_models.dart';
-import '../widgets/candlestick_chart_view.dart';
+import 'package:tradeverse_mobile/core/constants/api_constants.dart';
+import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
+import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
+import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestick_chart_view.dart';
 
 final selectedTradeInstrumentProvider = StateProvider<InstrumentModel>((ref) {
   return const InstrumentModel(

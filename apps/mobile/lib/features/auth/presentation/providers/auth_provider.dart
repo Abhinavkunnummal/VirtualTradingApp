@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/network/token_storage.dart';
-import '../../../../core/network/api_exceptions.dart';
-import '../../../../core/constants/api_constants.dart';
-import '../../domain/auth_models.dart';
+import 'package:tradeverse_mobile/core/network/api_client.dart';
+import 'package:tradeverse_mobile/core/network/token_storage.dart';
+import 'package:tradeverse_mobile/core/network/api_exceptions.dart';
+import 'package:tradeverse_mobile/core/constants/api_constants.dart';
+import 'package:tradeverse_mobile/features/auth/domain/auth_models.dart';
 
 final tokenStorageProvider = Provider<TokenStorage>((ref) {
   return TokenStorage();

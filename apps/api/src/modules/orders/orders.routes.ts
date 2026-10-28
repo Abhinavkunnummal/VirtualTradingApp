@@ -166,7 +166,10 @@ ordersRouter.post('/:id/cancel', requireAuth, async (req: AuthenticatedRequest, 
     const result = await PaperTradingEngine.cancelOrder(req.user!.userId, orderId);
     return res.status(200).json(result);
   } catch (err: any) {
-    if (err.message?.includes('Cannot cancel') || err.message?.includes('not found')) {
+    if (err.message?.includes('not found') || err.message?.includes('access denied')) {
+      return res.status(404).json({ success: false, message: err.message });
+    }
+    if (err.message?.includes('Cannot cancel')) {
       return res.status(400).json({ success: false, message: err.message });
     }
     return next(err);

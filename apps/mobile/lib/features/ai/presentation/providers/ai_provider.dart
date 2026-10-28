@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/api_constants.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../domain/ai_models.dart';
+import 'package:tradeverse_mobile/core/constants/api_constants.dart';
+import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:tradeverse_mobile/features/ai/domain/ai_models.dart';
 
 final selectedAiPromptProvider = StateProvider<String>((ref) => 'RSI Momentum');
 

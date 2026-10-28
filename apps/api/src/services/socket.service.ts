@@ -43,18 +43,27 @@ export class SocketService {
         socket.join(`user:${userId}`);
       }
 
-      // Handle joining discussion rooms
+      // Handle joining discussion rooms with strict boundary isolation
       socket.on('join_room', (data: { roomId: string }) => {
-        if (!data?.roomId) return;
-        const roomName = `room:${data.roomId}`;
+        if (!data?.roomId || typeof data.roomId !== 'string') return;
+        const cleanRoom = data.roomId.replace(/^room:/, '').trim();
+
+        // Security Barrier: Disallow joining private user channels or path traversal
+        if (cleanRoom.startsWith('user:') || cleanRoom.includes('..') || cleanRoom.includes('/')) {
+          socket.emit('error_event', { message: 'Unauthorized room subscription attempt.' });
+          return;
+        }
+
+        const roomName = `room:${cleanRoom}`;
         socket.join(roomName);
-        socket.emit('joined_room', { roomId: data.roomId, status: 'success' });
+        socket.emit('joined_room', { roomId: cleanRoom, status: 'success' });
       });
 
       // Handle leaving discussion rooms
       socket.on('leave_room', (data: { roomId: string }) => {
-        if (!data?.roomId) return;
-        socket.leave(`room:${data.roomId}`);
+        if (!data?.roomId || typeof data.roomId !== 'string') return;
+        const cleanRoom = data.roomId.replace(/^room:/, '').trim();
+        socket.leave(`room:${cleanRoom}`);
       });
 
       // Handle subscribing to ticker price stream

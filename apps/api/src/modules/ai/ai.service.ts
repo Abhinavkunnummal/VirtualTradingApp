@@ -70,15 +70,28 @@ export class AiAssistantService {
     /ignore (?:all )?(?:previous|above) instructions/i,
     /system (?:prompt|override)/i,
     /execute (?:order|trade|buy|sell)/i,
-    /you are now in developer mode/i,
-    /drop table/i,
+    /you are now in (?:developer|dan|god|unrestricted) mode/i,
+    /jailbreak/i,
+    /bypass (?:safety|guardrails|filters)/i,
+    /drop (?:table|database)/i,
     /<script/i,
+    /<\|im_start\|>/i,
+    /\[INST\]/i,
+    /```system/i,
   ];
 
   /**
-   * Guards against prompt injection and malicious commands.
+   * Multi-layered guard against prompt injection, delimiter breakout, and malicious command overrides.
    */
-  static validatePromptSafety(prompt: string): void {
+  static validatePromptSafety(prompt: string, maxLen: number = 300): void {
+    if (!prompt || typeof prompt !== 'string') {
+      throw new Error('Prompt security violation: Prompt input must be a non-empty string.');
+    }
+
+    if (prompt.length > maxLen) {
+      throw new Error(`Prompt security violation: Prompt length (${prompt.length}) exceeds maximum limit (${maxLen}).`);
+    }
+
     for (const pattern of this.INJECTION_PATTERNS) {
       if (pattern.test(prompt)) {
         throw new Error('Prompt security violation: Prompt contains prohibited instructions or override attempts.');
@@ -90,8 +103,8 @@ export class AiAssistantService {
    * Explains a financial concept, technical indicator, or order type.
    */
   static async explainConcept(concept: string, context?: string): Promise<ConceptExplanation> {
-    this.validatePromptSafety(concept);
-    if (context) this.validatePromptSafety(context);
+    this.validatePromptSafety(concept, 200);
+    if (context) this.validatePromptSafety(context, 500);
 
     const term = concept.trim().toUpperCase();
 

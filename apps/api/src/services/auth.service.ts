@@ -193,6 +193,14 @@ export class AuthService {
   }) {
     const tokenHash = this.hashToken(data.refreshToken);
 
+    // Security Check: Detect refresh token replay / reuse attack
+    const revokedSession = await RefreshSession.findOne({ tokenHash, revokedAt: { $ne: null } });
+    if (revokedSession) {
+      // Invalidate all active sessions for this compromised user family
+      await RefreshSession.updateMany({ userId: revokedSession.userId }, { revokedAt: new Date() });
+      throw new Error('Security violation: Token reuse detected. All active sessions have been revoked.');
+    }
+
     const session = await RefreshSession.findOne({
       tokenHash,
       revokedAt: null,

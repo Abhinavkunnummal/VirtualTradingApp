@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/api_constants.dart';
-import '../../auth/presentation/providers/auth_provider.dart';
-import '../../domain/market_models.dart';
+import 'package:tradeverse_mobile/core/constants/api_constants.dart';
+import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 
 final marketOverviewProvider = FutureProvider<List<InstrumentModel>>((ref) async {
   final authState = ref.watch(authProvider);

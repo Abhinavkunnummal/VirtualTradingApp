@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
-import '../../markets/presentation/providers/markets_provider.dart';
-import 'widgets/candlestick_chart_view.dart';
-import 'providers/order_provider.dart';
-import '../../portfolio/presentation/providers/portfolio_provider.dart';
+import 'package:tradeverse_mobile/core/theme/app_colors.dart';
+import 'package:tradeverse_mobile/core/theme/app_typography.dart';
+import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
+import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestick_chart_view.dart';
+import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
+import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
 
 class TradeScreen extends ConsumerStatefulWidget {
   const TradeScreen({super.key});
@@ -423,7 +423,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                           color: _isBuy ? AppColors.secondary : AppColors.borderSubtle,
                           width: 1.5,
                         ),
-                      ],
+                      ),
                       alignment: Alignment.center,
                       child: Text(
                         'BUY (LONG)',
@@ -450,7 +450,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                           color: !_isBuy ? AppColors.tertiary : AppColors.borderSubtle,
                           width: 1.5,
                         ),
-                      ],
+                      ),
                       alignment: Alignment.center,
                       child: Text(
                         'SELL (SHORT)',
