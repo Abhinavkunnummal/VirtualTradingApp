@@ -8,6 +8,10 @@ import 'package:tradeverse_mobile/features/community/presentation/community_scre
 void main() {
   testWidgets('CommunityScreen displays Discussion Rooms, posts messages, and renders AI Assistant tab',
       (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [

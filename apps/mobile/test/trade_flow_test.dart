@@ -13,6 +13,10 @@ import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestic
 void main() {
   testWidgets('TradeScreen renders candlestick chart, responds to product & order types, and executes order',
       (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
