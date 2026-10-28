@@ -18,8 +18,13 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   bool _isBuy = true;
   String _product = 'CNC'; // CNC (Delivery) or MIS (Intraday)
   String _orderType = 'MARKET'; // MARKET, LIMIT, SL, SL_M
+  String _orderVariety = 'REGULAR'; // REGULAR, COVER, BRACKET
   int _quantity = 10;
   double? _customPrice;
+  double? _targetPrice;
+  double? _stopLossPrice;
+  double? _trailingStopLoss;
+  bool _enableTrailing = false;
   bool _isSubmitting = false;
 
   double _getRequiredMargin(double currentLtp) {
@@ -31,12 +36,66 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   double get _brokerage => 20.00;
   double _getTaxes(double currentLtp) => _getRequiredMargin(currentLtp) * 0.001;
 
+  void _showErrorToast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.errorContainer,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: AppColors.error, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message, style: AppTypography.bodyMd.copyWith(color: AppColors.onError))),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _executeOrder(String symbol, String exchange, double currentLtp) async {
+    final effectivePrice = _orderType == 'MARKET' ? currentLtp : (_customPrice ?? currentLtp);
+
+    // Client-side validations for Cover and Bracket orders
+    if (_orderVariety == 'COVER') {
+      final sl = _stopLossPrice ?? (_isBuy ? effectivePrice * 0.98 : effectivePrice * 1.02);
+      if (_isBuy && sl >= effectivePrice) {
+        _showErrorToast('Cover order stop-loss must be lower than entry price (₹${effectivePrice.toStringAsFixed(2)})');
+        return;
+      }
+      if (!_isBuy && sl <= effectivePrice) {
+        _showErrorToast('Cover order stop-loss must be higher than entry price (₹${effectivePrice.toStringAsFixed(2)})');
+        return;
+      }
+    }
+
+    if (_orderVariety == 'BRACKET') {
+      final target = _targetPrice ?? (_isBuy ? effectivePrice * 1.02 : effectivePrice * 0.98);
+      final sl = _stopLossPrice ?? (_isBuy ? effectivePrice * 0.98 : effectivePrice * 1.02);
+      if (_isBuy) {
+        if (target <= effectivePrice) {
+          _showErrorToast('Bracket target must be higher than entry price (₹${effectivePrice.toStringAsFixed(2)})');
+          return;
+        }
+        if (sl >= effectivePrice) {
+          _showErrorToast('Bracket stop-loss must be lower than entry price (₹${effectivePrice.toStringAsFixed(2)})');
+          return;
+        }
+      } else {
+        if (target >= effectivePrice) {
+          _showErrorToast('Bracket target must be lower than entry price (₹${effectivePrice.toStringAsFixed(2)})');
+          return;
+        }
+        if (sl <= effectivePrice) {
+          _showErrorToast('Bracket stop-loss must be higher than entry price (₹${effectivePrice.toStringAsFixed(2)})');
+          return;
+        }
+      }
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
-      final effectivePrice = _orderType == 'MARKET' ? null : (_customPrice ?? currentLtp);
-
       final result = await ref.read(submitOrderProvider).submitOrder(
             symbol: symbol,
             exchange: exchange,
@@ -44,7 +103,16 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             orderType: _orderType,
             product: _product,
             quantity: _quantity,
-            limitPrice: effectivePrice,
+            limitPrice: _orderType == 'MARKET' ? null : (_customPrice ?? currentLtp),
+            orderVariety: _orderVariety,
+            targetPrice: _orderVariety == 'BRACKET'
+                ? (_targetPrice ?? (_isBuy ? effectivePrice * 1.02 : effectivePrice * 0.98))
+                : null,
+            stopLossPrice: (_orderVariety == 'COVER' || _orderVariety == 'BRACKET')
+                ? (_stopLossPrice ?? (_isBuy ? effectivePrice * 0.98 : effectivePrice * 1.02))
+                : null,
+            trailingStopLoss:
+                (_orderVariety == 'BRACKET' && _enableTrailing) ? (_trailingStopLoss ?? 2.0) : null,
           );
 
       if (!mounted) return;
@@ -607,6 +675,48 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Order Variety (Regular, Cover, Bracket)
+            Text('Order Variety', style: AppTypography.labelSm),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildChoiceCard(
+                    title: 'Regular',
+                    subtitle: 'Single Leg Order',
+                    isSelected: _orderVariety == 'REGULAR',
+                    onTap: () => setState(() => _orderVariety = 'REGULAR'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildChoiceCard(
+                    title: 'Cover (CO)',
+                    subtitle: 'Mandatory SL Protection',
+                    isSelected: _orderVariety == 'COVER',
+                    onTap: () => setState(() {
+                      _orderVariety = 'COVER';
+                      _stopLossPrice ??= _isBuy ? (priceToUse * 0.98) : (priceToUse * 1.02);
+                    }),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildChoiceCard(
+                    title: 'Bracket (BO)',
+                    subtitle: 'Target + SL + OCO',
+                    isSelected: _orderVariety == 'BRACKET',
+                    onTap: () => setState(() {
+                      _orderVariety = 'BRACKET';
+                      _targetPrice ??= _isBuy ? (priceToUse * 1.02) : (priceToUse * 0.98);
+                      _stopLossPrice ??= _isBuy ? (priceToUse * 0.98) : (priceToUse * 1.02);
+                    }),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
             // Quantity Stepper
             Text('Shares (Quantity)', style: AppTypography.labelSm),
             const SizedBox(height: 6),
@@ -674,6 +784,171 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                       icon: const Icon(Icons.add, color: AppColors.onSurface),
                       onPressed: () => setState(() => _customPrice = priceToUse + 0.50),
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Cover Order Stop-Loss Input
+            if (_orderVariety == 'COVER') ...[
+              Text('Cover Stop-Loss Trigger ($currency)', style: AppTypography.labelSm),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceLowest,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.tertiary.withOpacity(0.5)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove, color: AppColors.onSurface),
+                      onPressed: () => setState(() {
+                        final current = _stopLossPrice ?? (_isBuy ? priceToUse * 0.98 : priceToUse * 1.02);
+                        _stopLossPrice = current - 1.0;
+                      }),
+                    ),
+                    Text(
+                      '$currency${(_stopLossPrice ?? (_isBuy ? priceToUse * 0.98 : priceToUse * 1.02)).toStringAsFixed(2)}',
+                      style: AppTypography.numericTicker.copyWith(color: AppColors.tertiary),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: AppColors.onSurface),
+                      onPressed: () => setState(() {
+                        final current = _stopLossPrice ?? (_isBuy ? priceToUse * 0.98 : priceToUse * 1.02);
+                        _stopLossPrice = current + 1.0;
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Bracket Order Target & Stop-Loss Inputs
+            if (_orderVariety == 'BRACKET') ...[
+              Text('Target Profit Price ($currency)', style: AppTypography.labelSm),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceLowest,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.secondary.withOpacity(0.5)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove, color: AppColors.onSurface),
+                      onPressed: () => setState(() {
+                        final current = _targetPrice ?? (_isBuy ? priceToUse * 1.02 : priceToUse * 0.98);
+                        _targetPrice = current - 1.0;
+                      }),
+                    ),
+                    Text(
+                      '$currency${(_targetPrice ?? (_isBuy ? priceToUse * 1.02 : priceToUse * 0.98)).toStringAsFixed(2)}',
+                      style: AppTypography.numericTicker.copyWith(color: AppColors.secondary),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: AppColors.onSurface),
+                      onPressed: () => setState(() {
+                        final current = _targetPrice ?? (_isBuy ? priceToUse * 1.02 : priceToUse * 0.98);
+                        _targetPrice = current + 1.0;
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Text('Stop-Loss Trigger Price ($currency)', style: AppTypography.labelSm),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceLowest,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.tertiary.withOpacity(0.5)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove, color: AppColors.onSurface),
+                      onPressed: () => setState(() {
+                        final current = _stopLossPrice ?? (_isBuy ? priceToUse * 0.98 : priceToUse * 1.02);
+                        _stopLossPrice = current - 1.0;
+                      }),
+                    ),
+                    Text(
+                      '$currency${(_stopLossPrice ?? (_isBuy ? priceToUse * 0.98 : priceToUse * 1.02)).toStringAsFixed(2)}',
+                      style: AppTypography.numericTicker.copyWith(color: AppColors.tertiary),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: AppColors.onSurface),
+                      onPressed: () => setState(() {
+                        final current = _stopLossPrice ?? (_isBuy ? priceToUse * 0.98 : priceToUse * 1.02);
+                        _stopLossPrice = current + 1.0;
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Trailing Stop-Loss Toggle & Step
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceLowest,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Trailing Stop-Loss', style: AppTypography.labelMd),
+                        Switch(
+                          value: _enableTrailing,
+                          activeColor: AppColors.primaryBrand,
+                          onChanged: (val) => setState(() => _enableTrailing = val),
+                        ),
+                      ],
+                    ),
+                    if (_enableTrailing) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Trailing Step (₹)', style: AppTypography.labelSm),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove, size: 18),
+                                onPressed: () {
+                                  final current = _trailingStopLoss ?? 2.0;
+                                  if (current > 0.5) setState(() => _trailingStopLoss = current - 0.5);
+                                },
+                              ),
+                              Text('₹${(_trailingStopLoss ?? 2.0).toStringAsFixed(1)}', style: AppTypography.numericTable),
+                              IconButton(
+                                icon: const Icon(Icons.add, size: 18),
+                                onPressed: () {
+                                  final current = _trailingStopLoss ?? 2.0;
+                                  setState(() => _trailingStopLoss = current + 0.5);
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

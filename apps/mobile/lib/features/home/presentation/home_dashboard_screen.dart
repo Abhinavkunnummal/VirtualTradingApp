@@ -10,6 +10,7 @@ import 'package:tradeverse_mobile/shared/widgets/tradeverse_logo.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/domain/portfolio_models.dart';
+import 'package:tradeverse_mobile/features/notifications/presentation/providers/notification_provider.dart';
 
 class HomeDashboardScreen extends ConsumerWidget {
   const HomeDashboardScreen({super.key});
@@ -225,34 +226,48 @@ class HomeDashboardScreen extends ConsumerWidget {
                   }
                 },
               ),
-              Stack(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainer,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.borderSubtle),
+              Builder(
+                builder: (context) {
+                  final unreadCount = ref.watch(unreadNotificationsCountProvider);
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => _showNotificationsSheet(context, ref),
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainer,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.borderSubtle),
+                          ),
+                          child: const Icon(Icons.notifications_none, size: 20, color: AppColors.onSurface),
+                        ),
+                        if (unreadCount > 0)
+                          Positioned(
+                            right: 2,
+                            top: 2,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primaryBrand,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '$unreadCount',
+                                style: AppTypography.labelSm.copyWith(
+                                  fontSize: 8,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    child: const Icon(Icons.notifications_none, size: 20, color: AppColors.onSurface),
-                  ),
-                  Positioned(
-                    right: 2,
-                    top: 2,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primaryBrand,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '3',
-                        style: AppTypography.labelSm.copyWith(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ],
           ),
@@ -549,6 +564,154 @@ class HomeDashboardScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showNotificationsSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final notifsAsync = ref.watch(notificationsProvider);
+
+          return SizedBox(
+            height: MediaQuery.of(context).size.height * 0.75,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.notifications, color: AppColors.primaryBrand, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Notifications', style: AppTypography.headlineSm),
+                      ],
+                    ),
+                    TextButton(
+                      onPressed: () => ref.read(notificationsProvider.notifier).markAllAsRead(),
+                      child: Text('Mark all as read', style: AppTypography.labelSm.copyWith(color: AppColors.primary)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: notifsAsync.when(
+                    data: (items) {
+                      if (items.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.notifications_off_outlined, size: 48, color: AppColors.outline),
+                              const SizedBox(height: 12),
+                              Text('No notifications yet', style: AppTypography.bodyMd),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final n = items[index];
+                          Color iconColor = AppColors.primaryBrand;
+                          IconData iconData = Icons.notifications;
+
+                          if (n.type == 'ORDER_FILL') {
+                            iconColor = AppColors.secondary;
+                            iconData = Icons.check_circle;
+                          } else if (n.type == 'BRACKET_OCO') {
+                            iconColor = AppColors.primary;
+                            iconData = Icons.alt_route;
+                          } else if (n.type == 'TRAILING_STOP') {
+                            iconColor = AppColors.warning;
+                            iconData = Icons.trending_up;
+                          } else if (n.type == 'TOPUP') {
+                            iconColor = AppColors.secondary;
+                            iconData = Icons.account_balance_wallet;
+                          } else if (n.type == 'ORDER_CANCEL') {
+                            iconColor = AppColors.tertiary;
+                            iconData = Icons.cancel;
+                          }
+
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () {
+                              if (!n.read) {
+                                ref.read(notificationsProvider.notifier).markAsRead(n.id);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: n.read ? AppColors.surfaceLowest : AppColors.surfaceHighest.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: n.read ? AppColors.borderSubtle : AppColors.primaryBrand.withOpacity(0.4),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(iconData, size: 20, color: iconColor),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          n.title,
+                                          style: AppTypography.bodyLg.copyWith(
+                                            fontSize: 13,
+                                            fontWeight: n.read ? FontWeight.w500 : FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          n.message,
+                                          style: AppTypography.bodyMd.copyWith(
+                                            fontSize: 11,
+                                            color: AppColors.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (!n.read)
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      margin: const EdgeInsets.only(top: 4, left: 6),
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.primaryBrand,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Center(child: Text('Error loading notifications', style: AppTypography.bodyMd)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

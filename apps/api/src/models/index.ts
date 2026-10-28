@@ -9,3 +9,4 @@ export * from './Holding';
 export * from './LedgerEntry';
 export * from './CommunityMessage';
 export * from './CommunityRoom';
+export * from './Notification';

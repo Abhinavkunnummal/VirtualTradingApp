@@ -12,6 +12,8 @@ import { ordersRouter } from './modules/orders/orders.routes';
 import { marketDataRouter } from './modules/market-data/marketData.routes';
 import { communityRouter } from './modules/community/community.routes';
 import { aiRouter } from './modules/ai/ai.routes';
+import { newsRouter } from './modules/news/news.routes';
+import { notificationRouter } from './modules/notifications/notification.routes';
 
 export function createApp(): express.Application {
   const app = express();
@@ -77,6 +79,8 @@ export function createApp(): express.Application {
   apiV1Router.use('/market-data', marketDataRouter);
   apiV1Router.use('/community', communityRouter);
   apiV1Router.use('/ai', aiRouter);
+  apiV1Router.use('/news', newsRouter);
+  apiV1Router.use('/notifications', notificationRouter);
 
   app.use('/api/v1', apiV1Router);
 

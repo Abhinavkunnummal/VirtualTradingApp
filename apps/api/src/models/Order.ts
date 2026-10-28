@@ -4,6 +4,8 @@ export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'MARKET' | 'LIMIT' | 'SL' | 'SL_M';
 export type ProductType = 'CNC' | 'MIS';
 export type OrderStatus = 'PENDING' | 'FILLED' | 'REJECTED' | 'CANCELLED';
+export type OrderVariety = 'REGULAR' | 'BRACKET' | 'COVER' | 'AMO';
+export type BracketLegType = 'ENTRY' | 'TARGET' | 'STOP_LOSS';
 
 export interface IOrder extends Document {
   userId: mongoose.Types.ObjectId;
@@ -22,6 +24,17 @@ export interface IOrder extends Document {
   status: OrderStatus;
   rejectionReason?: string;
   idempotencyKey?: string;
+
+  // Advanced order parameters (Bracket Orders, Cover Orders, Trailing Stop-Loss)
+  orderVariety: OrderVariety;
+  bracketLegType?: BracketLegType | null;
+  parentOrderId?: mongoose.Types.ObjectId | null;
+  targetPrice?: number | null;
+  stopLossPrice?: number | null;
+  trailingStopLoss?: number | null;
+  highestObservedPrice?: number | null;
+  lowestObservedPrice?: number | null;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -104,6 +117,45 @@ const OrderSchema = new Schema<IOrder>(
       unique: true,
       sparse: true,
       index: true,
+    },
+
+    // Advanced order variety fields
+    orderVariety: {
+      type: String,
+      enum: ['REGULAR', 'BRACKET', 'COVER', 'AMO'],
+      default: 'REGULAR',
+      index: true,
+    },
+    bracketLegType: {
+      type: String,
+      enum: ['ENTRY', 'TARGET', 'STOP_LOSS'],
+      default: null,
+    },
+    parentOrderId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Order',
+      default: null,
+      index: true,
+    },
+    targetPrice: {
+      type: Number,
+      default: null,
+    },
+    stopLossPrice: {
+      type: Number,
+      default: null,
+    },
+    trailingStopLoss: {
+      type: Number,
+      default: null,
+    },
+    highestObservedPrice: {
+      type: Number,
+      default: null,
+    },
+    lowestObservedPrice: {
+      type: Number,
+      default: null,
     },
   },
   {

@@ -182,6 +182,10 @@ class SubmitOrderService {
     required int quantity,
     double? limitPrice,
     double? triggerPrice,
+    String orderVariety = 'REGULAR',
+    double? targetPrice,
+    double? stopLossPrice,
+    double? trailingStopLoss,
   }) async {
     if (isDemo) {
       // Demo execution simulation
@@ -196,13 +200,14 @@ class SubmitOrderService {
 
       return {
         'success': true,
-        'message': 'Simulated order executed in Demo Sandbox.',
+        'message': 'Simulated $orderVariety order executed in Demo Sandbox.',
         'order': {
           'id': 'ord_demo_${DateTime.now().millisecondsSinceEpoch}',
           'symbol': symbol,
           'status': 'FILLED',
           'filledQuantity': quantity,
           'averagePrice': fillPrice,
+          'orderVariety': orderVariety,
         },
         'execution': {
           'executionPrice': fillPrice,
@@ -225,6 +230,10 @@ class SubmitOrderService {
           'quantity': quantity,
           if (limitPrice != null) 'limitPrice': limitPrice,
           if (triggerPrice != null) 'triggerPrice': triggerPrice,
+          'orderVariety': orderVariety,
+          if (targetPrice != null) 'targetPrice': targetPrice,
+          if (stopLossPrice != null) 'stopLossPrice': stopLossPrice,
+          if (trailingStopLoss != null) 'trailingStopLoss': trailingStopLoss,
           'idempotencyKey': 'app_${DateTime.now().millisecondsSinceEpoch}_$symbol',
         },
       );

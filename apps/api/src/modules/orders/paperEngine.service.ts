@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
-import { PaperAccount, Order, Execution, Holding, LedgerEntry } from '../../models';
+import { PaperAccount, Order, Execution, Holding, LedgerEntry, IOrder } from '../../models';
 import { MarketDataService, MarketQuote } from '../market-data/marketData.service';
 import { SocketService } from '../../services/socket.service';
+import { NotificationService } from '../notifications/notification.service';
 
 export interface SubmitOrderParams {
   userId: string;
@@ -14,6 +15,14 @@ export interface SubmitOrderParams {
   limitPrice?: number;
   triggerPrice?: number;
   idempotencyKey?: string;
+
+  // Advanced order parameters
+  orderVariety?: 'REGULAR' | 'BRACKET' | 'COVER' | 'AMO';
+  bracketLegType?: 'ENTRY' | 'TARGET' | 'STOP_LOSS';
+  parentOrderId?: string | mongoose.Types.ObjectId;
+  targetPrice?: number;
+  stopLossPrice?: number;
+  trailingStopLoss?: number;
 }
 
 export interface FeeBreakdown {
@@ -89,6 +98,7 @@ export class PaperTradingEngine {
    * Submits and matches a simulated paper-trading order with server-side validation.
    */
   static async submitOrder(params: SubmitOrderParams) {
+    const variety = params.orderVariety || 'REGULAR';
     const quote = MarketDataService.getQuote(params.symbol);
     if (!quote) {
       throw new Error(`Symbol ${params.symbol} not available in market master.`);
@@ -115,6 +125,45 @@ export class PaperTradingEngine {
       params.product === 'MIS'
         ? parseFloat((turnover / 5 + estimatedFees).toFixed(2)) // 5x leverage
         : parseFloat((turnover + estimatedFees).toFixed(2)); // 100% cash
+
+    // Validate Cover Order parameters
+    if (variety === 'COVER') {
+      if (!params.stopLossPrice) {
+        throw new Error('Cover order requires a mandatory stop-loss trigger price (stopLossPrice).');
+      }
+      if (params.side === 'BUY' && params.stopLossPrice >= referencePrice) {
+        throw new Error(`Cover order stop-loss trigger (₹${params.stopLossPrice}) must be lower than entry price (₹${referencePrice}).`);
+      }
+      if (params.side === 'SELL' && params.stopLossPrice <= referencePrice) {
+        throw new Error(`Cover order stop-loss trigger (₹${params.stopLossPrice}) must be higher than entry price (₹${referencePrice}).`);
+      }
+    }
+
+    // Validate Bracket Order parameters
+    if (variety === 'BRACKET') {
+      if (!params.targetPrice || !params.stopLossPrice) {
+        throw new Error('Bracket order requires both targetPrice and stopLossPrice.');
+      }
+      if (params.side === 'BUY') {
+        if (params.targetPrice <= referencePrice) {
+          throw new Error(`Bracket target price (₹${params.targetPrice}) must be higher than entry price (₹${referencePrice}).`);
+        }
+        if (params.stopLossPrice >= referencePrice) {
+          throw new Error(`Bracket stop-loss price (₹${params.stopLossPrice}) must be lower than entry price (₹${referencePrice}).`);
+        }
+      } else {
+        if (params.targetPrice >= referencePrice) {
+          throw new Error(`Bracket target price (₹${params.targetPrice}) must be lower than entry price (₹${referencePrice}).`);
+        }
+        if (params.stopLossPrice <= referencePrice) {
+          throw new Error(`Bracket stop-loss price (₹${params.stopLossPrice}) must be higher than entry price (₹${referencePrice}).`);
+        }
+      }
+
+      if (params.trailingStopLoss !== undefined && params.trailingStopLoss <= 0) {
+        throw new Error('Trailing stop-loss step must be a positive value.');
+      }
+    }
 
     // Validate SELL delivery (CNC) requires sufficient existing holding
     if (params.side === 'SELL' && params.product === 'CNC') {
@@ -178,7 +227,17 @@ export class PaperTradingEngine {
       limitPrice: params.limitPrice || null,
       triggerPrice: params.triggerPrice || null,
       status: canExecuteImmediately ? 'FILLED' : 'PENDING',
-      idempotencyKey: params.idempotencyKey || null,
+      ...(params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : {}),
+
+      // Advanced order variety metadata
+      orderVariety: variety,
+      bracketLegType: params.bracketLegType || (variety === 'REGULAR' ? null : 'ENTRY'),
+      parentOrderId: params.parentOrderId || null,
+      targetPrice: params.targetPrice || null,
+      stopLossPrice: params.stopLossPrice || null,
+      trailingStopLoss: params.trailingStopLoss || null,
+      highestObservedPrice: quote.price,
+      lowestObservedPrice: quote.price,
     });
 
     if (!canExecuteImmediately) {
@@ -202,35 +261,71 @@ export class PaperTradingEngine {
       return {
         order,
         execution: null,
-        message: `Simulated ${params.orderType} order placed in pending queue. Margin reserved.`,
+        childLegs: [],
+        message: `Simulated ${variety} ${params.orderType} order placed in pending queue. Margin reserved.`,
       };
     }
 
     // Execute Immediate Fill
+    return this.executeOrderFill(order, account, quote, baseExecutionPrice, false);
+  }
+
+  /**
+   * Completes an order fill, updates ledger and portfolio, emits events, and spawns/clears child legs.
+   */
+  private static async executeOrderFill(
+    order: IOrder,
+    account: any,
+    quote: MarketQuote,
+    baseExecutionPrice: number,
+    wasPending: boolean
+  ) {
     const feeInfo = this.calculateFeesAndSlippage(
       quote,
-      params.side,
-      params.product,
-      params.quantity,
+      order.side,
+      order.product,
+      order.quantity,
       baseExecutionPrice
     );
 
-    const actualTurnover = parseFloat((feeInfo.executionPrice * params.quantity).toFixed(2));
+    const actualTurnover = parseFloat((feeInfo.executionPrice * order.quantity).toFixed(2));
     const totalCost = parseFloat((actualTurnover + feeInfo.totalFeesAndTaxes).toFixed(2));
+
+    // Release previously reserved margin if this was pending
+    if (wasPending && order.side === 'BUY') {
+      const estimatedReserved =
+        order.product === 'MIS'
+          ? parseFloat((((order.limitPrice || quote.price) * order.quantity) / 5 + 25.0).toFixed(2))
+          : parseFloat((((order.limitPrice || quote.price) * order.quantity) + 25.0).toFixed(2));
+
+      account.availableCash = parseFloat((account.availableCash + estimatedReserved).toFixed(2));
+      account.reservedMargin = parseFloat(Math.max(0, account.reservedMargin - estimatedReserved).toFixed(2));
+      await account.save();
+
+      await LedgerEntry.create({
+        userId: order.userId,
+        paperAccountId: account._id,
+        orderId: order._id,
+        type: 'MARGIN_RELEASE',
+        amount: estimatedReserved,
+        balanceAfter: account.availableCash,
+        description: `Released reserved margin prior to execution fill #${order._id.toString().slice(-6)}`,
+      });
+    }
 
     // Update Order to FILLED
     order.status = 'FILLED';
-    order.filledQuantity = params.quantity;
+    order.filledQuantity = order.quantity;
     order.averagePrice = feeInfo.executionPrice;
     await order.save();
 
     // Create Execution Record
     const execution = await Execution.create({
       orderId: order._id,
-      userId: params.userId,
+      userId: order.userId,
       paperAccountId: account._id,
       executionPrice: feeInfo.executionPrice,
-      executedQuantity: params.quantity,
+      executedQuantity: order.quantity,
       fees: feeInfo.totalFeesAndTaxes,
       slippage: feeInfo.slippage,
       isSimulated: true,
@@ -239,43 +334,56 @@ export class PaperTradingEngine {
     });
 
     // Update Portfolio Holdings & Cash
-    if (params.side === 'BUY') {
+    if (order.side === 'BUY') {
       account.availableCash = parseFloat((account.availableCash - totalCost).toFixed(2));
       await account.save();
 
       await LedgerEntry.create({
-        userId: params.userId,
+        userId: order.userId,
         paperAccountId: account._id,
         orderId: order._id,
         type: 'TRADE_FILL',
         amount: -totalCost,
         balanceAfter: account.availableCash,
-        description: `Executed BUY ${params.quantity} ${params.symbol} @ ₹${feeInfo.executionPrice} (Fees: ₹${feeInfo.totalFeesAndTaxes})`,
+        description: `Executed BUY ${order.quantity} ${order.symbol} @ ₹${feeInfo.executionPrice} (Fees: ₹${feeInfo.totalFeesAndTaxes})`,
       });
 
       // Update Delivery Holding if CNC
-      if (params.product === 'CNC') {
-        const existingHolding = await Holding.findOne({
-          userId: params.userId,
-          symbol: params.symbol,
-        });
+      if (order.product === 'CNC') {
+        let retries = 5;
+        while (retries > 0) {
+          try {
+            const existingHolding = await Holding.findOne({
+              userId: order.userId,
+              symbol: order.symbol,
+            });
 
-        if (existingHolding) {
-          const totalNewQty = existingHolding.quantity + params.quantity;
-          const totalNewCost = existingHolding.quantity * existingHolding.averageCost + actualTurnover;
-          existingHolding.averageCost = parseFloat((totalNewCost / totalNewQty).toFixed(2));
-          existingHolding.quantity = totalNewQty;
-          await existingHolding.save();
-        } else {
-          await Holding.create({
-            userId: params.userId,
-            paperAccountId: account._id,
-            instrumentId: `${params.exchange}:${params.symbol}`,
-            symbol: params.symbol,
-            exchange: params.exchange,
-            quantity: params.quantity,
-            averageCost: feeInfo.executionPrice,
-          });
+            if (existingHolding) {
+              const totalNewQty = existingHolding.quantity + order.quantity;
+              const totalNewCost = existingHolding.quantity * existingHolding.averageCost + actualTurnover;
+              existingHolding.averageCost = parseFloat((totalNewCost / totalNewQty).toFixed(2));
+              existingHolding.quantity = totalNewQty;
+              await existingHolding.save();
+            } else {
+              await Holding.create({
+                userId: order.userId,
+                paperAccountId: account._id,
+                instrumentId: order.instrumentId,
+                symbol: order.symbol,
+                exchange: order.exchange,
+                quantity: order.quantity,
+                averageCost: feeInfo.executionPrice,
+              });
+            }
+            break;
+          } catch (err: any) {
+            if ((err.code === 11000 || err.message?.includes('E11000')) && retries > 1) {
+              retries--;
+              await new Promise((res) => setTimeout(res, 25));
+              continue;
+            }
+            throw err;
+          }
         }
       }
     } else {
@@ -285,35 +393,37 @@ export class PaperTradingEngine {
       await account.save();
 
       await LedgerEntry.create({
-        userId: params.userId,
+        userId: order.userId,
         paperAccountId: account._id,
         orderId: order._id,
         type: 'TRADE_FILL',
         amount: netProceeds,
         balanceAfter: account.availableCash,
-        description: `Executed SELL ${params.quantity} ${params.symbol} @ ₹${feeInfo.executionPrice} (Net credit: ₹${netProceeds})`,
+        description: `Executed SELL ${order.quantity} ${order.symbol} @ ₹${feeInfo.executionPrice} (Net credit: ₹${netProceeds})`,
       });
 
       // Decrement Delivery Holding if CNC
-      if (params.product === 'CNC') {
+      if (order.product === 'CNC') {
         const existingHolding = await Holding.findOne({
-          userId: params.userId,
-          symbol: params.symbol,
+          userId: order.userId,
+          symbol: order.symbol,
         });
 
         if (existingHolding) {
-          if (existingHolding.quantity <= params.quantity) {
+          if (existingHolding.quantity <= order.quantity) {
             await Holding.deleteOne({ _id: existingHolding._id });
           } else {
-            existingHolding.quantity -= params.quantity;
+            existingHolding.quantity -= order.quantity;
             await existingHolding.save();
           }
         }
       }
     }
 
+    const conciseNotification = `${order.side} ${order.quantity} ${order.symbol} — Paper order filled`;
+
     // Emit real-time order update and execution notification to user's isolated private channel
-    SocketService.emitToUser(params.userId, 'order_update', {
+    SocketService.emitToUser(order.userId.toString(), 'order_update', {
       orderId: order._id.toString(),
       symbol: order.symbol,
       status: order.status,
@@ -321,35 +431,271 @@ export class PaperTradingEngine {
       quantity: order.quantity,
       filledQuantity: order.filledQuantity,
       averagePrice: order.averagePrice,
+      orderVariety: order.orderVariety,
+      bracketLegType: order.bracketLegType,
       timestamp: new Date().toISOString(),
     });
 
-    const conciseNotification = `${params.side} ${params.quantity} ${params.symbol} — Paper order filled`;
-
-    SocketService.emitToUser(params.userId, 'execution_notice', {
+    SocketService.emitToUser(order.userId.toString(), 'execution_notice', {
       orderId: order._id.toString(),
-      symbol: params.symbol,
-      side: params.side,
+      symbol: order.symbol,
+      side: order.side,
       executionPrice: feeInfo.executionPrice,
-      executedQuantity: params.quantity,
+      executedQuantity: order.quantity,
       fees: feeInfo.totalFeesAndTaxes,
       slippage: feeInfo.slippage,
       notification: conciseNotification,
       timestamp: new Date().toISOString(),
     });
 
-    SocketService.emitToUser(params.userId, 'portfolio_update', {
+    SocketService.emitToUser(order.userId.toString(), 'portfolio_update', {
       availableCash: account.availableCash,
       reservedMargin: account.reservedMargin,
       timestamp: new Date().toISOString(),
     });
 
+    // Send persistent in-app notification
+    await NotificationService.send({
+      userId: order.userId,
+      title: `Order Filled: ${order.side} ${order.quantity} ${order.symbol}`,
+      message: `Executed @ ₹${feeInfo.executionPrice.toFixed(2)}. ${conciseNotification}`,
+      type: 'ORDER_FILL',
+      data: {
+        orderId: order._id.toString(),
+        symbol: order.symbol,
+        side: order.side,
+        averagePrice: feeInfo.executionPrice,
+        fees: feeInfo.totalFeesAndTaxes,
+      },
+    });
+
+    // Spawn child legs for Cover or Bracket Entry orders
+    const childLegs: IOrder[] = [];
+    const oppositeSide = order.side === 'BUY' ? 'SELL' : 'BUY';
+
+    if (order.orderVariety === 'COVER' && order.bracketLegType === 'ENTRY' && order.stopLossPrice) {
+      // Spawn Cover Stop-Loss Leg
+      const slLeg = await Order.create({
+        userId: order.userId,
+        paperAccountId: account._id,
+        instrumentId: order.instrumentId,
+        symbol: order.symbol,
+        exchange: order.exchange,
+        side: oppositeSide,
+        orderType: 'SL_M',
+        product: order.product,
+        quantity: order.quantity,
+        triggerPrice: order.stopLossPrice,
+        status: 'PENDING',
+        orderVariety: 'COVER',
+        bracketLegType: 'STOP_LOSS',
+        parentOrderId: order._id,
+        highestObservedPrice: feeInfo.executionPrice,
+        lowestObservedPrice: feeInfo.executionPrice,
+      });
+      childLegs.push(slLeg);
+
+      await NotificationService.send({
+        userId: order.userId,
+        title: `Cover Stop-Loss Active: ${order.symbol}`,
+        message: `Cover SL trigger placed at ₹${order.stopLossPrice} to protect position.`,
+        type: 'ORDER_FILL',
+        data: { orderId: slLeg._id.toString(), triggerPrice: order.stopLossPrice },
+      });
+    } else if (order.orderVariety === 'BRACKET' && order.bracketLegType === 'ENTRY' && order.targetPrice && order.stopLossPrice) {
+      // Spawn Bracket Target Leg
+      const targetLeg = await Order.create({
+        userId: order.userId,
+        paperAccountId: account._id,
+        instrumentId: order.instrumentId,
+        symbol: order.symbol,
+        exchange: order.exchange,
+        side: oppositeSide,
+        orderType: 'LIMIT',
+        product: order.product,
+        quantity: order.quantity,
+        limitPrice: order.targetPrice,
+        status: 'PENDING',
+        orderVariety: 'BRACKET',
+        bracketLegType: 'TARGET',
+        parentOrderId: order._id,
+      });
+      childLegs.push(targetLeg);
+
+      // Spawn Bracket Stop-Loss Leg (with optional trailing)
+      const slLeg = await Order.create({
+        userId: order.userId,
+        paperAccountId: account._id,
+        instrumentId: order.instrumentId,
+        symbol: order.symbol,
+        exchange: order.exchange,
+        side: oppositeSide,
+        orderType: 'SL_M',
+        product: order.product,
+        quantity: order.quantity,
+        triggerPrice: order.stopLossPrice,
+        trailingStopLoss: order.trailingStopLoss || null,
+        highestObservedPrice: feeInfo.executionPrice,
+        lowestObservedPrice: feeInfo.executionPrice,
+        status: 'PENDING',
+        orderVariety: 'BRACKET',
+        bracketLegType: 'STOP_LOSS',
+        parentOrderId: order._id,
+      });
+      childLegs.push(slLeg);
+
+      await NotificationService.send({
+        userId: order.userId,
+        title: `Bracket Order Active: ${order.symbol}`,
+        message: `Target Profit: ₹${order.targetPrice} | Stop-Loss: ₹${order.stopLossPrice}${order.trailingStopLoss ? ` (Trailing: ₹${order.trailingStopLoss})` : ''}`,
+        type: 'ORDER_FILL',
+        data: {
+          targetOrderId: targetLeg._id.toString(),
+          slOrderId: slLeg._id.toString(),
+          targetPrice: order.targetPrice,
+          stopLossPrice: order.stopLossPrice,
+        },
+      });
+    }
+
+    // OCO (One-Cancels-the-Other) Handler:
+    // If this executed order was a Bracket child leg (TARGET or STOP_LOSS), cancel sibling leg!
+    if (order.parentOrderId && order.orderVariety === 'BRACKET' && (order.bracketLegType === 'TARGET' || order.bracketLegType === 'STOP_LOSS')) {
+      const siblingLeg = await Order.findOne({
+        parentOrderId: order.parentOrderId,
+        _id: { $ne: order._id },
+        status: 'PENDING',
+      });
+
+      if (siblingLeg) {
+        siblingLeg.status = 'CANCELLED';
+        siblingLeg.rejectionReason = `Cancelled: Sibling ${order.bracketLegType} leg filled (OCO)`;
+        await siblingLeg.save();
+
+        SocketService.emitToUser(order.userId.toString(), 'order_update', {
+          orderId: siblingLeg._id.toString(),
+          symbol: siblingLeg.symbol,
+          status: 'CANCELLED',
+          side: siblingLeg.side,
+          bracketLegType: siblingLeg.bracketLegType,
+          reason: siblingLeg.rejectionReason,
+          timestamp: new Date().toISOString(),
+        });
+
+        await NotificationService.send({
+          userId: order.userId,
+          title: `Bracket Order Completed (OCO): ${order.symbol}`,
+          message: `${order.bracketLegType} leg filled @ ₹${feeInfo.executionPrice}. Sibling ${siblingLeg.bracketLegType} automatically cancelled.`,
+          type: 'BRACKET_OCO',
+          data: {
+            filledOrderId: order._id.toString(),
+            cancelledOrderId: siblingLeg._id.toString(),
+            filledLeg: order.bracketLegType,
+          },
+        });
+      }
+    }
+
     return {
       order,
       execution,
-      message: `Simulated ${params.side} order filled @ ₹${feeInfo.executionPrice.toFixed(2)} (Slippage: ₹${feeInfo.slippage}, Fees: ₹${feeInfo.totalFeesAndTaxes})`,
+      childLegs,
+      message: `Simulated ${order.side} order filled @ ₹${feeInfo.executionPrice.toFixed(2)} (Slippage: ₹${feeInfo.slippage}, Fees: ₹${feeInfo.totalFeesAndTaxes})`,
       conciseNotification,
     };
+  }
+
+  /**
+   * Evaluates pending orders against the latest simulated market tick.
+   * Handles dynamic Trailing Stop-Loss ratcheting and OCO execution.
+   */
+  static async evaluateOpenOrders(symbol: string, quote: MarketQuote) {
+    const pendingOrders = await Order.find({ symbol, status: 'PENDING' });
+    if (!pendingOrders.length) return;
+
+    for (const order of pendingOrders) {
+      try {
+        const account = await PaperAccount.findById(order.paperAccountId);
+        if (!account || account.status !== 'ACTIVE') continue;
+
+        // 1. Dynamic Trailing Stop-Loss Ratcheting
+        if (order.trailingStopLoss && order.bracketLegType === 'STOP_LOSS' && order.triggerPrice) {
+          if (order.side === 'SELL') {
+            // Position was LONG (BUY entry). SL leg is SELL.
+            // When market price climbs above highest observed, ratchet trigger price up.
+            const highest = order.highestObservedPrice ?? quote.price;
+            if (quote.price > highest) {
+              const delta = quote.price - highest;
+              if (delta >= order.trailingStopLoss) {
+                const steps = Math.floor(delta / order.trailingStopLoss);
+                const ratchet = steps * order.trailingStopLoss;
+                order.triggerPrice = parseFloat((order.triggerPrice + ratchet).toFixed(2));
+                order.highestObservedPrice = quote.price;
+                await order.save();
+
+                await NotificationService.send({
+                  userId: order.userId,
+                  title: `Trailing Stop-Loss Ratcheted: ${order.symbol}`,
+                  message: `New stop-loss trigger raised to ₹${order.triggerPrice} following upward move to ₹${quote.price}.`,
+                  type: 'TRAILING_STOP',
+                  data: { orderId: order._id.toString(), triggerPrice: order.triggerPrice },
+                });
+              }
+            }
+          } else if (order.side === 'BUY') {
+            // Position was SHORT (MIS SELL entry). SL leg is BUY.
+            // When market price drops below lowest observed, ratchet trigger price down.
+            const lowest = order.lowestObservedPrice ?? quote.price;
+            if (quote.price < lowest) {
+              const delta = lowest - quote.price;
+              if (delta >= order.trailingStopLoss) {
+                const steps = Math.floor(delta / order.trailingStopLoss);
+                const ratchet = steps * order.trailingStopLoss;
+                order.triggerPrice = parseFloat((order.triggerPrice - ratchet).toFixed(2));
+                order.lowestObservedPrice = quote.price;
+                await order.save();
+
+                await NotificationService.send({
+                  userId: order.userId,
+                  title: `Trailing Stop-Loss Ratcheted: ${order.symbol}`,
+                  message: `New stop-loss trigger lowered to ₹${order.triggerPrice} following downward move to ₹${quote.price}.`,
+                  type: 'TRAILING_STOP',
+                  data: { orderId: order._id.toString(), triggerPrice: order.triggerPrice },
+                });
+              }
+            }
+          }
+        }
+
+        // 2. Check if Order Conditions are met to Execute Fill
+        let shouldFill = false;
+        let execPrice = quote.price;
+
+        if (order.orderType === 'LIMIT' && order.limitPrice) {
+          if (order.side === 'BUY' && quote.ask <= order.limitPrice) {
+            shouldFill = true;
+            execPrice = order.limitPrice;
+          } else if (order.side === 'SELL' && quote.bid >= order.limitPrice) {
+            shouldFill = true;
+            execPrice = order.limitPrice;
+          }
+        } else if (order.orderType === 'SL_M' && order.triggerPrice) {
+          if (order.side === 'BUY' && quote.price >= order.triggerPrice) {
+            shouldFill = true;
+            execPrice = quote.ask;
+          } else if (order.side === 'SELL' && quote.price <= order.triggerPrice) {
+            shouldFill = true;
+            execPrice = quote.bid;
+          }
+        }
+
+        if (shouldFill) {
+          await this.executeOrderFill(order, account, quote, execPrice, true);
+        }
+      } catch (err: any) {
+        console.error(`Error evaluating open order ${order._id}:`, err?.message || err);
+      }
+    }
   }
 
   /**
@@ -366,8 +712,8 @@ export class PaperTradingEngine {
     }
 
     const account = await PaperAccount.findOne({ userId });
-    if (account && order.side === 'BUY') {
-      // Release reserved margin
+    if (account && order.side === 'BUY' && order.bracketLegType !== 'STOP_LOSS' && order.bracketLegType !== 'TARGET') {
+      // Release reserved margin for regular BUY orders
       const turnover = (order.limitPrice || 0) * order.quantity;
       const marginToRelease =
         order.product === 'MIS' ? parseFloat((turnover / 5 + 25.0).toFixed(2)) : parseFloat((turnover + 25.0).toFixed(2));
@@ -398,6 +744,14 @@ export class PaperTradingEngine {
       status: 'CANCELLED',
       side: order.side,
       timestamp: new Date().toISOString(),
+    });
+
+    await NotificationService.send({
+      userId,
+      title: `Order Cancelled: ${order.symbol}`,
+      message: `Your pending ${order.side} ${order.quantity} ${order.symbol} order has been cancelled.`,
+      type: 'ORDER_CANCEL',
+      data: { orderId: order._id.toString(), symbol: order.symbol },
     });
 
     return {

@@ -1,0 +1,7 @@
+apps/mobile
+apps/api/node_modules
+apps/api/dist
+apps/api/tests
+.git
+.github
+*.log

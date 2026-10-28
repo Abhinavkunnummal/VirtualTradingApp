@@ -16,7 +16,7 @@ The repository includes three automated cloud workflows:
 | :--- | :--- | :--- | :--- |
 | **Flutter CI** | `.github/workflows/flutter-ci.yml` | Push & PR to `main` | Format check, Static Analysis (`strict-casts`, `strict-inference`), Unit & Widget tests |
 | **Flutter Android Build** | `.github/workflows/flutter-android-build.yml` | Push to `main`, Manual dispatch | `tradeverse-mobile-debug-apk` (`app-debug.apk`) |
-| **Backend CI** | `.github/workflows/backend-ci.yml` | Push & PR to `main` | TypeScript compile, 8 Jest test suites (57 tests) on Node.js 22 LTS with MongoDB service container |
+| **Backend CI** | `.github/workflows/backend-ci.yml` | Push & PR to `main` | TypeScript compile, 11 Jest test suites (82 tests) on Node.js 22 LTS with MongoDB service container |
 
 ### How to Download Android APK Artifact
 1. Push commits to `main` or trigger manually from the GitHub Actions tab.
@@ -26,25 +26,89 @@ The repository includes three automated cloud workflows:
 
 ---
 
-## 3. Production Environment Configuration
+## 3. Hosting on Railway (Step-by-Step Guide)
 
-Configure the following environment variables on your cloud hosting platform (Render, AWS ECS, GCP Cloud Run, Railway, or Fly.io):
+TradeVerse AI is fully pre-configured for instant zero-configuration deployment to **Railway** using the included `railway.json` and multi-stage `Dockerfile`.
+
+### Step 1: Create a Project on Railway
+1. Sign in to your [Railway Dashboard](https://railway.com/).
+2. Click **New Project** → **Deploy from GitHub repo**.
+3. Select your repository: `Abhinavkunnummal/VirtualTradingApp`.
+
+### Step 2: Automatic Dockerfile Build
+Railway automatically detects `railway.json` located at the root of the repository:
+- Builder: `DOCKERFILE` (`apps/api/Dockerfile`)
+- Start command: `node dist/server.js`
+- Automated Healthcheck Probe: `/health` (120s timeout)
+- Restart policy: `ON_FAILURE` (max 5 retries)
+
+### Step 3: Configure Environment Variables in Railway
+In your Railway Service dashboard, open the **Variables** tab and add the following:
+
+| Variable | Description | Example / Recommended Value |
+| :--- | :--- | :--- |
+| `NODE_ENV` | Production environment mode | `production` |
+| `MONGODB_URI` | MongoDB Atlas replica-set connection string | `mongodb+srv://<user>:<password>@cluster0.mongodb.net/tradeverse?retryWrites=true&w=majority` |
+| `JWT_ACCESS_SECRET` | 64-byte secret key for signing access tokens | `tradeverse_production_access_secret_key_minimum_32_chars_long!` |
+| `JWT_REFRESH_SECRET`| 64-byte secret key for signing refresh tokens | `tradeverse_production_refresh_secret_key_minimum_32_chars_long!` |
+| `CORS_ORIGINS` | Permitted origins | `*` (or your custom domain) |
+| `STARTING_CAPITAL` | Fictional sandbox balance for new users | `1000000` (₹10 Lakhs) |
+
+> **Note on PORT:** Railway automatically injects the `$PORT` environment variable at runtime. The TradeVerse configuration parses this string automatically.
+
+### Step 4: MongoDB Atlas IP Access List
+In your [MongoDB Atlas Console](https://cloud.mongodb.com/):
+1. Navigate to **Network Access** → **IP Access List**.
+2. Click **Add IP Address**.
+3. Select **Allow Access from Anywhere** (`0.0.0.0/0`) or configure Railway's static outbound IP addresses.
+4. Ensure your database user credentials in `MONGODB_URI` have Read and Write privileges on the `tradeverse` database.
+
+### Step 5: Generate Public Domain
+1. In the Railway Service dashboard, open the **Settings** tab.
+2. Scroll to **Networking** → **Public Networking**.
+3. Click **Generate Domain** (e.g. `virtualtradingapp-production.up.railway.app`).
+4. Test health verification in your browser:
+   ```bash
+   curl https://<your-railway-domain>.up.railway.app/health
+   ```
+   Expected response:
+   ```json
+   {
+     "status": "healthy",
+     "version": "1.0.0",
+     "services": {
+       "database": "configured",
+       "paperEngine": "active",
+       "marketData": "active"
+     }
+   }
+   ```
+
+### Step 6: Connect Flutter Mobile App to Railway Backend
+To point the mobile app to your Railway deployment, compile the APK in GitHub Actions with:
+```bash
+flutter build apk --debug --dart-define=API_BASE_URL=https://<your-railway-domain>.up.railway.app/api/v1
+```
+The mobile application will seamlessly target your cloud API server.
+
+---
+
+## 4. Production Environment Configuration Reference
 
 | Variable | Description | Production Example |
 | :--- | :--- | :--- |
 | `PORT` | HTTP/WebSocket listening port | `5000` |
 | `NODE_ENV` | Runtime environment | `production` |
-| `MONGODB_URI` | MongoDB Atlas replica-set connection string | `mongodb+srv://app_user:<pass>@cluster0.mongodb.net/tradeverse?retryWrites=true&w=majority` |
+| `MONGODB_URI` | MongoDB Atlas connection string | `mongodb+srv://app_user:<pass>@cluster0.mongodb.net/tradeverse?retryWrites=true&w=majority` |
 | `JWT_ACCESS_SECRET` | 64-byte high-entropy key for signing access tokens | `openssl rand -hex 32` |
 | `JWT_REFRESH_SECRET`| 64-byte high-entropy key for signing refresh tokens | `openssl rand -hex 32` |
-| `CORS_ORIGINS` | Permitted origins (comma-separated, no wildcards in prod) | `https://app.tradeverse.ai,https://admin.tradeverse.ai` |
+| `CORS_ORIGINS` | Permitted origins | `*` |
 | `STARTING_CAPITAL` | Fictional capital allocated to newly registered accounts | `1000000` (₹10 Lakhs) |
-| `GEMINI_API_KEY` | Google Gemini API key for AI assistant & news analysis | `AIzaSy...` (optional; falls back to deterministic engine) |
-| `MARKET_DATA_PROVIDER_KEY` | External quote stream provider token | Optional |
+| `GEMINI_API_KEY` | Google Gemini API key for AI assistant & news analysis | Optional; fallback to deterministic engine |
 
 ---
 
-## 4. MongoDB Atlas Indexing & Backup Recommendations
+## 5. MongoDB Atlas Indexing & Backup Recommendations
 
 ### Recommended Database Indexes
 Execute these index definitions to ensure sub-millisecond query performance under production loads:
@@ -56,51 +120,36 @@ db.users.createIndex({ email: 1 }, { unique: true });
 // 2. Paper Accounts Collection
 db.paperaccounts.createIndex({ userId: 1 }, { unique: true });
 
-// 3. Orders Collection
+// 3. Orders Collection (Regular, Bracket, Cover & Child Legs)
 db.orders.createIndex({ userId: 1, createdAt: -1 });
 db.orders.createIndex({ userId: 1, status: 1 });
 db.orders.createIndex({ idempotencyKey: 1 }, { unique: true, sparse: true });
-db.orders.createIndex({ status: 1, triggerPrice: 1 }); // For trigger engine polling
+db.orders.createIndex({ parentOrderId: 1 });
+db.orders.createIndex({ symbol: 1, status: 1 }); // For tick-matching & trailing stop evaluation
 
-// 4. Positions & Holdings Collection
-db.positions.createIndex({ userId: 1, symbol: 1, product: 1 }, { unique: true });
+// 4. Holdings Collection
+db.holdings.createIndex({ paperAccountId: 1, instrumentId: 1 }, { unique: true });
+db.holdings.createIndex({ userId: 1, symbol: 1 });
 
 // 5. Ledger Entries Collection (Immutable Audit Trail)
 db.ledgerentries.createIndex({ userId: 1, createdAt: -1 });
-db.ledgerentries.createIndex({ referenceId: 1 });
+db.ledgerentries.createIndex({ orderId: 1 });
 
-// 6. Refresh Tokens Collection (Session Security)
-db.refreshtokens.createIndex({ tokenHash: 1 }, { unique: true });
-db.refreshtokens.createIndex({ userId: 1, revoked: 1 });
-db.refreshtokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // Automatic TTL expiration
+// 6. In-App Notifications Collection
+db.notifications.createIndex({ userId: 1, createdAt: -1 });
+db.notifications.createIndex({ userId: 1, read: 1 });
 
-// 7. Community Messages Collection
+// 7. Refresh Sessions Collection (Session Security)
+db.refreshsessions.createIndex({ tokenHash: 1 }, { unique: true });
+db.refreshsessions.createIndex({ userId: 1, revoked: 1 });
+db.refreshsessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // Automatic TTL expiration
+
+// 8. Community Messages Collection
 db.communitymessages.createIndex({ roomId: 1, createdAt: -1 });
 
-// 8. Watchlists Collection
+// 9. Watchlists Collection
 db.watchlists.createIndex({ userId: 1, isDefault: 1 });
 ```
-
-### Backup & Disaster Recovery Strategy
-1. **Continuous Cloud Backups**: Enable MongoDB Atlas Continuous Cloud Backups (Point-in-Time Recovery) with a 7-day granular recovery window.
-2. **Scheduled Snapshots**: Configure daily automated snapshots with a 30-day retention schedule and monthly snapshots with 1-year retention.
-3. **Cross-Region Snapshot Copying**: Replicate snapshots to a secondary cloud region (e.g., AWS Mumbai `ap-south-1` to Singapore `ap-southeast-1`) for disaster resilience.
-4. **Recovery Objectives**:
-   - **RPO (Recovery Point Objective)**: < 1 minute (via Atlas oplog PITR).
-   - **RTO (Recovery Time Objective)**: < 15 minutes to provision a replacement restored cluster.
-
----
-
-## 5. Health Check Probes & Monitoring
-
-The API exposes standard Kubernetes/Cloud Run health probes:
-
-- **Liveness Probe**: `GET /health/liveness`
-  - Returns `200 OK` with `{ status: 'live', uptime: <seconds> }`. Used by orchestrators to determine if the container needs restart.
-- **Readiness Probe**: `GET /health/readiness`
-  - Returns `200 OK` with `{ status: 'ready', database: 'connected' }`. Used to determine if the container is ready to accept user traffic.
-- **Diagnostics**: `GET /health`
-  - Returns subsystem operational status, software version, and environment.
 
 ---
 
