@@ -13,9 +13,6 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   final tokenStorage = ref.watch(tokenStorageProvider);
   return ApiClient(
     tokenStorage: tokenStorage,
-    onSessionExpired: () {
-      ref.read(authProvider.notifier).handleSessionExpired();
-    },
   );
 });
 
@@ -37,6 +34,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required this.apiClient,
     required this.tokenStorage,
   }) : super(AuthState.initial()) {
+    apiClient.onSessionExpired = handleSessionExpired;
     checkAuthStatus();
   }
 
@@ -55,9 +53,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return;
       }
 
-      final response = await apiClient.get(ApiConstants.me);
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        final user = UserModel.fromJson(response.data['user'] as Map<String, dynamic>);
+      final response = await apiClient.get<Map<String, dynamic>>(ApiConstants.me);
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final user = UserModel.fromJson(response.data!['user'] as Map<String, dynamic>);
         state = AuthState.authenticated(user);
       } else {
         await tokenStorage.clearTokens();
@@ -77,22 +75,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> login({required String email, required String password}) async {
     state = AuthState.loading();
     try {
-      final response = await apiClient.post(
+      final response = await apiClient.post<Map<String, dynamic>>(
         ApiConstants.login,
         data: {'email': email.trim(), 'password': password},
       );
 
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        final accessToken = response.data['accessToken'] as String;
-        final refreshToken = response.data['refreshToken'] as String;
-        final user = UserModel.fromJson(response.data['user'] as Map<String, dynamic>);
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final accessToken = response.data!['accessToken'] as String;
+        final refreshToken = response.data!['refreshToken'] as String;
+        final user = UserModel.fromJson(response.data!['user'] as Map<String, dynamic>);
 
         await tokenStorage.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
         await tokenStorage.setDemoMode(false);
         state = AuthState.authenticated(user);
         return true;
       } else {
-        state = AuthState.unauthenticated(response.data['message'] as String? ?? 'Login failed');
+        state = AuthState.unauthenticated(response.data?['message'] as String? ?? 'Login failed');
         return false;
       }
     } on ApiException catch (e) {
@@ -112,7 +110,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     state = AuthState.loading();
     try {
-      final response = await apiClient.post(
+      final response = await apiClient.post<Map<String, dynamic>>(
         ApiConstants.register,
         data: {
           'email': email.trim(),
@@ -122,17 +120,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
         },
       );
 
-      if (response.statusCode == 201 && response.data['success'] == true) {
-        final accessToken = response.data['accessToken'] as String;
-        final refreshToken = response.data['refreshToken'] as String;
-        final user = UserModel.fromJson(response.data['user'] as Map<String, dynamic>);
+      if (response.statusCode == 201 && response.data?['success'] == true) {
+        final accessToken = response.data!['accessToken'] as String;
+        final refreshToken = response.data!['refreshToken'] as String;
+        final user = UserModel.fromJson(response.data!['user'] as Map<String, dynamic>);
 
         await tokenStorage.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
         await tokenStorage.setDemoMode(false);
         state = AuthState.authenticated(user);
         return true;
       } else {
-        state = AuthState.unauthenticated(response.data['message'] as String? ?? 'Registration failed');
+        state = AuthState.unauthenticated(response.data?['message'] as String? ?? 'Registration failed');
         return false;
       }
     } on ApiException catch (e) {
@@ -153,7 +151,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final refreshToken = await tokenStorage.getRefreshToken();
       if (refreshToken != null) {
-        await apiClient.post(ApiConstants.logout, data: {'refreshToken': refreshToken});
+        await apiClient.post<dynamic>(ApiConstants.logout, data: {'refreshToken': refreshToken});
       }
     } catch (_) {}
     await tokenStorage.clearTokens();

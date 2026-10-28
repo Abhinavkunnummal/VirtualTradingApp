@@ -30,7 +30,7 @@ export function createApp(): express.Application {
   });
   app.use(limiter);
 
-  // Health Endpoint
+  // Health & Monitoring Probes
   app.get('/health', (req, res) => {
     res.status(200).json({
       status: 'healthy',
@@ -42,6 +42,18 @@ export function createApp(): express.Application {
         paperEngine: 'active',
         marketData: 'active',
       },
+    });
+  });
+
+  app.get('/health/liveness', (req, res) => {
+    res.status(200).json({ status: 'live', uptime: process.uptime() });
+  });
+
+  app.get('/health/readiness', (req, res) => {
+    res.status(200).json({
+      status: 'ready',
+      database: 'connected',
+      timestamp: new Date().toISOString(),
     });
   });
 

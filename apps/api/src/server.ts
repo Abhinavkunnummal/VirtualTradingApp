@@ -29,6 +29,26 @@ async function bootstrap() {
   server.listen(config.port, () => {
     console.log(`TradeVerse AI API running on http://localhost:${config.port} (env: ${config.nodeEnv})`);
   });
+
+  const shutdown = async (signal: string) => {
+    console.log(`Received ${signal}. Initiating graceful shutdown...`);
+    server.close(async () => {
+      console.log('HTTP and WebSocket server closed.');
+      if (mongoose.connection.readyState !== 0) {
+        await mongoose.connection.close();
+        console.log('MongoDB connection closed.');
+      }
+      process.exit(0);
+    });
+
+    setTimeout(() => {
+      console.error('Forced shutdown due to 10s timeout.');
+      process.exit(1);
+    }, 10000).unref();
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 if (process.env.NODE_ENV !== 'test') {

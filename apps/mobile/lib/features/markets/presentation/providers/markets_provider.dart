@@ -9,9 +9,9 @@ final marketOverviewProvider = FutureProvider<List<InstrumentModel>>((ref) async
   if (!authState.isDemoMode) {
     final apiClient = ref.watch(apiClientProvider);
     try {
-      final response = await apiClient.get('/market-data/quotes');
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        final list = response.data['quotes'] as List<dynamic>? ?? [];
+      final response = await apiClient.get<Map<String, dynamic>>('/market-data/quotes');
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final list = response.data!['quotes'] as List<dynamic>? ?? [];
         if (list.isNotEmpty) {
           return list.map((q) => InstrumentModel.fromJson(q as Map<String, dynamic>)).toList();
         }
@@ -151,9 +151,9 @@ final watchlistsProvider = FutureProvider<List<WatchlistModel>>((ref) async {
 
   final apiClient = ref.watch(apiClientProvider);
   try {
-    final response = await apiClient.get(ApiConstants.watchlists);
-    if (response.statusCode == 200 && response.data['success'] == true) {
-      final list = response.data['watchlists'] as List<dynamic>? ?? [];
+    final response = await apiClient.get<Map<String, dynamic>>(ApiConstants.watchlists);
+    if (response.statusCode == 200 && response.data?['success'] == true) {
+      final list = response.data!['watchlists'] as List<dynamic>? ?? [];
       return list.map((w) => WatchlistModel.fromJson(w as Map<String, dynamic>)).toList();
     }
   } catch (_) {}

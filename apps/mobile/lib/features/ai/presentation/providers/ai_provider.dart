@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tradeverse_mobile/core/constants/api_constants.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/ai/domain/ai_models.dart';
 
@@ -14,13 +13,13 @@ final aiExplanationProvider = FutureProvider.family<ConceptExplanationModel, Str
 
   final apiClient = ref.watch(apiClientProvider);
   try {
-    final response = await apiClient.post(
+    final response = await apiClient.post<Map<String, dynamic>>(
       '/ai/explain',
       data: {'concept': concept},
     );
 
-    if (response.statusCode == 200 && response.data['success'] == true) {
-      return ConceptExplanationModel.fromJson(response.data['data'] as Map<String, dynamic>);
+    if (response.statusCode == 200 && response.data?['success'] == true) {
+      return ConceptExplanationModel.fromJson(response.data!['data'] as Map<String, dynamic>);
     }
   } catch (_) {}
 
@@ -33,9 +32,9 @@ final aiNewsProvider = FutureProvider<List<NewsArticleModel>>((ref) async {
   if (!authState.isDemoMode) {
     final apiClient = ref.watch(apiClientProvider);
     try {
-      final response = await apiClient.get('/ai/news-summary');
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        final list = response.data['articles'] as List<dynamic>? ?? [];
+      final response = await apiClient.get<Map<String, dynamic>>('/ai/news-summary');
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final list = response.data!['articles'] as List<dynamic>? ?? [];
         return list.map((a) => NewsArticleModel.fromJson(a as Map<String, dynamic>)).toList();
       }
     } catch (_) {}
@@ -85,9 +84,9 @@ final aiPortfolioReviewProvider = FutureProvider<PortfolioReviewModel>((ref) asy
 
   final apiClient = ref.watch(apiClientProvider);
   try {
-    final response = await apiClient.get('/ai/portfolio-review');
-    if (response.statusCode == 200 && response.data['success'] == true) {
-      return PortfolioReviewModel.fromJson(response.data['data'] as Map<String, dynamic>);
+    final response = await apiClient.get<Map<String, dynamic>>('/ai/portfolio-review');
+    if (response.statusCode == 200 && response.data?['success'] == true) {
+      return PortfolioReviewModel.fromJson(response.data!['data'] as Map<String, dynamic>);
     }
   } catch (_) {}
 

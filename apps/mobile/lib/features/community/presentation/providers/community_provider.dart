@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tradeverse_mobile/core/constants/api_constants.dart';
+import 'package:tradeverse_mobile/core/network/api_client.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/community/domain/community_models.dart';
 
@@ -11,9 +11,9 @@ final communityRoomsProvider = FutureProvider<List<CommunityRoomModel>>((ref) as
   if (!authState.isDemoMode) {
     final apiClient = ref.watch(apiClientProvider);
     try {
-      final response = await apiClient.get('/community/rooms');
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        final list = response.data['rooms'] as List<dynamic>? ?? [];
+      final response = await apiClient.get<Map<String, dynamic>>('/community/rooms');
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final list = response.data!['rooms'] as List<dynamic>? ?? [];
         if (list.isNotEmpty) {
           return list.map((r) => CommunityRoomModel.fromJson(r as Map<String, dynamic>)).toList();
         }
@@ -60,9 +60,9 @@ final roomMessagesProvider = FutureProvider.family<List<CommunityMessageModel>, 
   if (!authState.isDemoMode) {
     final apiClient = ref.watch(apiClientProvider);
     try {
-      final response = await apiClient.get('/community/rooms/$roomId/messages');
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        final list = response.data['messages'] as List<dynamic>? ?? [];
+      final response = await apiClient.get<Map<String, dynamic>>('/community/rooms/$roomId/messages');
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final list = response.data!['messages'] as List<dynamic>? ?? [];
         return list.map((m) => CommunityMessageModel.fromJson(m as Map<String, dynamic>)).toList();
       }
     } catch (_) {}
@@ -113,7 +113,7 @@ final postMessageProvider = Provider<PostMessageService>((ref) {
 });
 
 class PostMessageService {
-  final dynamic apiClient;
+  final ApiClient apiClient;
   final bool isDemo;
   final Ref ref;
 
@@ -131,7 +131,7 @@ class PostMessageService {
     }
 
     try {
-      final response = await apiClient.post(
+      final response = await apiClient.post<Map<String, dynamic>>(
         '/community/rooms/$roomId/messages',
         data: {
           'content': content,
@@ -141,7 +141,7 @@ class PostMessageService {
         },
       );
 
-      if (response.statusCode == 201 && response.data['success'] == true) {
+      if (response.statusCode == 201 && response.data?['success'] == true) {
         ref.invalidate(roomMessagesProvider(roomId));
         return true;
       }

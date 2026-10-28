@@ -54,7 +54,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
       final message = result['message'] as String? ?? 'Execution status';
       final execution = result['execution'] as Map<String, dynamic>?;
 
-      showDialog(
+      showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: AppColors.surfaceContainer,
@@ -121,7 +121,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   }
 
   void _showOrderHistorySheet() {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surfaceContainer,
       shape: const RoundedRectangleBorder(
@@ -220,7 +220,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   }
 
   void _showInstrumentPickerSheet() {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surfaceContainer,
       shape: const RoundedRectangleBorder(

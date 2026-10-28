@@ -181,9 +181,9 @@ class HomeDashboardScreen extends ConsumerWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBrand.withOpacity(0.15),
+                  color: AppColors.primaryBrand.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.primaryBrand.withOpacity(0.35)),
+                  border: Border.all(color: AppColors.primaryBrand.withValues(alpha: 0.35)),
                 ),
                 child: const Icon(Icons.bolt, color: AppColors.primary, size: 20),
               ),

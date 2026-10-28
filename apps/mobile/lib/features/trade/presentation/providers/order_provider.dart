@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tradeverse_mobile/core/constants/api_constants.dart';
+import 'package:tradeverse_mobile/core/network/api_client.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
@@ -52,13 +52,13 @@ final candlesProvider = FutureProvider.family<List<CandleData>, String>((ref, sy
 
   final apiClient = ref.watch(apiClientProvider);
   try {
-    final response = await apiClient.get(
+    final response = await apiClient.get<Map<String, dynamic>>(
       '/market-data/candles/$symbol',
       queryParameters: {'interval': interval, 'limit': 45},
     );
 
-    if (response.statusCode == 200 && response.data['success'] == true) {
-      final list = response.data['candles'] as List<dynamic>? ?? [];
+    if (response.statusCode == 200 && response.data?['success'] == true) {
+      final list = response.data!['candles'] as List<dynamic>? ?? [];
       return list.map((c) => CandleData.fromJson(c as Map<String, dynamic>)).toList();
     }
   } catch (_) {}
@@ -86,9 +86,9 @@ final orderHistoryProvider = FutureProvider<List<Map<String, dynamic>>>((ref) as
 
   final apiClient = ref.watch(apiClientProvider);
   try {
-    final response = await apiClient.get('/orders');
-    if (response.statusCode == 200 && response.data['success'] == true) {
-      return (response.data['orders'] as List<dynamic>? ?? [])
+    final response = await apiClient.get<Map<String, dynamic>>('/orders');
+    if (response.statusCode == 200 && response.data?['success'] == true) {
+      return (response.data!['orders'] as List<dynamic>? ?? [])
           .map((o) => o as Map<String, dynamic>)
           .toList();
     }
@@ -104,7 +104,7 @@ final submitOrderProvider = Provider<SubmitOrderService>((ref) {
 });
 
 class SubmitOrderService {
-  final dynamic apiClient;
+  final ApiClient apiClient;
   final bool isDemo;
   final Ref ref;
 
@@ -151,7 +151,7 @@ class SubmitOrderService {
     }
 
     try {
-      final response = await apiClient.post(
+      final response = await apiClient.post<Map<String, dynamic>>(
         '/orders',
         data: {
           'symbol': symbol,
@@ -166,14 +166,14 @@ class SubmitOrderService {
         },
       );
 
-      if (response.statusCode == 201 && response.data['success'] == true) {
+      if (response.statusCode == 201 && response.data?['success'] == true) {
         ref.invalidate(portfolioProvider);
         ref.invalidate(orderHistoryProvider);
-        return response.data as Map<String, dynamic>;
+        return response.data!;
       } else {
         return {
           'success': false,
-          'message': response.data['message'] as String? ?? 'Order execution failed.',
+          'message': response.data?['message'] as String? ?? 'Order execution failed.',
         };
       }
     } catch (e) {

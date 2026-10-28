@@ -6,7 +6,7 @@ import 'token_storage.dart';
 class ApiClient {
   late final Dio dio;
   final TokenStorage tokenStorage;
-  final void Function()? onSessionExpired;
+  void Function()? onSessionExpired;
 
   ApiClient({
     required this.tokenStorage,
@@ -42,15 +42,15 @@ class ApiClient {
             final refreshToken = await tokenStorage.getRefreshToken();
             if (refreshToken != null) {
               try {
-                final refreshResponse = await dio.post(
+                final refreshResponse = await dio.post<Map<String, dynamic>>(
                   ApiConstants.refresh,
                   data: {'refreshToken': refreshToken},
                 );
 
                 if (refreshResponse.statusCode == 200 &&
-                    refreshResponse.data['success'] == true) {
-                  final newAccess = refreshResponse.data['accessToken'] as String;
-                  final newRefresh = refreshResponse.data['refreshToken'] as String;
+                    refreshResponse.data?['success'] == true) {
+                  final newAccess = refreshResponse.data!['accessToken'] as String;
+                  final newRefresh = refreshResponse.data!['refreshToken'] as String;
                   await tokenStorage.saveTokens(
                     accessToken: newAccess,
                     refreshToken: newRefresh,
@@ -59,7 +59,7 @@ class ApiClient {
                   // Retry the original request
                   final clonedRequest = error.requestOptions;
                   clonedRequest.headers['Authorization'] = 'Bearer $newAccess';
-                  final retryResponse = await dio.fetch(clonedRequest);
+                  final retryResponse = await dio.fetch<dynamic>(clonedRequest);
                   return handler.resolve(retryResponse);
                 }
               } catch (_) {

@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradeverse_mobile/features/auth/domain/auth_models.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/community/presentation/community_screen.dart';
-import 'package:tradeverse_mobile/features/community/presentation/providers/community_provider.dart';
-import 'package:tradeverse_mobile/features/ai/presentation/providers/ai_provider.dart';
 
 void main() {
   testWidgets('CommunityScreen displays Discussion Rooms, posts messages, and renders AI Assistant tab',

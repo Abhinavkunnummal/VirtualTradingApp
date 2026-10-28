@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradeverse_mobile/core/constants/api_constants.dart';
+import 'package:tradeverse_mobile/core/network/api_client.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/domain/portfolio_models.dart';
 
@@ -19,9 +20,9 @@ final paperAccountProvider = FutureProvider<PaperAccountModel>((ref) async {
   }
 
   final apiClient = ref.watch(apiClientProvider);
-  final response = await apiClient.get(ApiConstants.paperAccount);
-  if (response.statusCode == 200 && response.data['success'] == true) {
-    return PaperAccountModel.fromJson(response.data['account'] as Map<String, dynamic>);
+  final response = await apiClient.get<Map<String, dynamic>>(ApiConstants.paperAccount);
+  if (response.statusCode == 200 && response.data?['success'] == true) {
+    return PaperAccountModel.fromJson(response.data!['account'] as Map<String, dynamic>);
   }
   throw Exception('Failed to load virtual paper account');
 });
@@ -33,7 +34,7 @@ final portfolioProvider = StateNotifierProvider<PortfolioNotifier, AsyncValue<Po
 });
 
 class PortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> {
-  final dynamic apiClient;
+  final ApiClient apiClient;
   final bool isDemo;
 
   PortfolioNotifier({required this.apiClient, required this.isDemo})
@@ -49,9 +50,9 @@ class PortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> {
     }
 
     try {
-      final response = await apiClient.get(ApiConstants.portfolio);
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        final model = PortfolioModel.fromJson(response.data['portfolio'] as Map<String, dynamic>);
+      final response = await apiClient.get<Map<String, dynamic>>(ApiConstants.portfolio);
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final model = PortfolioModel.fromJson(response.data!['portfolio'] as Map<String, dynamic>);
         state = AsyncValue.data(model);
       } else {
         state = AsyncValue.error('Unable to fetch portfolio data', StackTrace.current);
@@ -79,11 +80,11 @@ class PortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> {
     }
 
     try {
-      final response = await apiClient.post(
+      final response = await apiClient.post<Map<String, dynamic>>(
         ApiConstants.resetCapital,
         data: {'startingCapital': newCapital, 'resetPortfolio': true},
       );
-      if (response.statusCode == 200 && response.data['success'] == true) {
+      if (response.statusCode == 200 && response.data?['success'] == true) {
         await fetchPortfolio();
         return true;
       }
