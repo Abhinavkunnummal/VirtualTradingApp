@@ -10,7 +10,7 @@ async function bootstrap() {
 
   // Initialize Socket.IO
   const io = new SocketIOServer(server, {
-    cors: { origin: config.corsOrigin, methods: ['GET', 'POST'] }
+    cors: { origin: config.corsOrigins, methods: ['GET', 'POST'] }
   });
 
   io.on('connection', (socket) => {

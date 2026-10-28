@@ -1,0 +1,115 @@
+import 'package:dio/dio.dart';
+import '../constants/api_constants.dart';
+import 'api_exceptions.dart';
+import 'token_storage.dart';
+
+class ApiClient {
+  late final Dio dio;
+  final TokenStorage tokenStorage;
+  final void Function()? onSessionExpired;
+
+  ApiClient({
+    required this.tokenStorage,
+    this.onSessionExpired,
+    String? baseUrl,
+  }) {
+    dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl ?? ApiConstants.baseUrl,
+        connectTimeout: ApiConstants.connectTimeout,
+        receiveTimeout: ApiConstants.receiveTimeout,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
+
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          // Attach authorization token if present
+          final token = await tokenStorage.getAccessToken();
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          return handler.next(options);
+        },
+        onError: (DioException error, handler) async {
+          // If 401 Unauthorized, attempt refresh session once
+          if (error.response?.statusCode == 401 &&
+              !error.requestOptions.path.contains('/auth/')) {
+            final refreshToken = await tokenStorage.getRefreshToken();
+            if (refreshToken != null) {
+              try {
+                final refreshResponse = await dio.post(
+                  ApiConstants.refresh,
+                  data: {'refreshToken': refreshToken},
+                );
+
+                if (refreshResponse.statusCode == 200 &&
+                    refreshResponse.data['success'] == true) {
+                  final newAccess = refreshResponse.data['accessToken'] as String;
+                  final newRefresh = refreshResponse.data['refreshToken'] as String;
+                  await tokenStorage.saveTokens(
+                    accessToken: newAccess,
+                    refreshToken: newRefresh,
+                  );
+
+                  // Retry the original request
+                  final clonedRequest = error.requestOptions;
+                  clonedRequest.headers['Authorization'] = 'Bearer $newAccess';
+                  final retryResponse = await dio.fetch(clonedRequest);
+                  return handler.resolve(retryResponse);
+                }
+              } catch (_) {
+                // Refresh failed; clear session and notify
+                await tokenStorage.clearTokens();
+                onSessionExpired?.call();
+              }
+            } else {
+              await tokenStorage.clearTokens();
+              onSessionExpired?.call();
+            }
+          }
+          return handler.next(error);
+        },
+      ),
+    );
+  }
+
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    try {
+      return await dio.get<T>(path, queryParameters: queryParameters);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  Future<Response<T>> post<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    try {
+      return await dio.post<T>(path, data: data, queryParameters: queryParameters);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  Future<Response<T>> delete<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    try {
+      return await dio.delete<T>(path, data: data, queryParameters: queryParameters);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+}

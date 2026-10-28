@@ -1,55 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../shared/widgets/loading_state_widget.dart';
+import '../../../shared/widgets/error_state_widget.dart';
+import '../providers/portfolio_provider.dart';
+import '../../domain/portfolio_models.dart';
 
-class PortfolioScreen extends StatefulWidget {
+class PortfolioScreen extends ConsumerStatefulWidget {
   const PortfolioScreen({super.key});
 
   @override
-  State<PortfolioScreen> createState() => _PortfolioScreenState();
+  ConsumerState<PortfolioScreen> createState() => _PortfolioScreenState();
 }
 
-class _PortfolioScreenState extends State<PortfolioScreen> with SingleTickerProviderStateMixin {
+class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  final List<Map<String, dynamic>> _holdings = [
-    {
-      'symbol': 'RELIANCE',
-      'exchange': 'NSE',
-      'qty': 150,
-      'avg': 2880.00,
-      'ltp': 2945.50,
-      'curVal': 441825.00,
-      'invVal': 432000.00,
-      'pnl': 9825.00,
-      'pnlPct': 2.27,
-      'isPos': true,
-    },
-    {
-      'symbol': 'HDFCBANK',
-      'exchange': 'NSE',
-      'qty': 200,
-      'avg': 1680.00,
-      'ltp': 1720.80,
-      'curVal': 344160.00,
-      'invVal': 336000.00,
-      'pnl': 8160.00,
-      'pnlPct': 2.43,
-      'isPos': true,
-    },
-    {
-      'symbol': 'TCS',
-      'exchange': 'NSE',
-      'qty': 50,
-      'avg': 4180.00,
-      'ltp': 4120.00,
-      'curVal': 206000.00,
-      'invVal': 209000.00,
-      'pnl': -3000.00,
-      'pnlPct': -1.44,
-      'isPos': false,
-    },
-  ];
 
   final List<Map<String, dynamic>> _positions = [
     {
@@ -117,7 +83,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> with SingleTickerProv
               style: AppTypography.bodyMd,
             ),
             const SizedBox(height: 16),
-            ...[500000, 1000000, 2500000, 5000000].map((amt) {
+            ...[500000.0, 1000000.0, 2500000.0, 5000000.0].map((amt) {
               final formatted = '₹${(amt / 100000).toStringAsFixed(0)} Lakh';
               return ListTile(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -125,11 +91,14 @@ class _PortfolioScreenState extends State<PortfolioScreen> with SingleTickerProv
                 title: Text(formatted, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold)),
                 subtitle: Text('Virtual Currency • No Real Money', style: AppTypography.labelSm),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.outline),
-                onTap: () {
+                onTap: () async {
                   Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Sandbox balance reset to $formatted')),
-                  );
+                  final success = await ref.read(portfolioProvider.notifier).resetCapital(amt);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(success ? 'Sandbox balance reset to $formatted' : 'Reset failed. Check connection.')),
+                    );
+                  }
                 },
               );
             }),
@@ -141,6 +110,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final portfolioAsync = ref.watch(portfolioProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -153,44 +124,53 @@ class _PortfolioScreenState extends State<PortfolioScreen> with SingleTickerProv
           ),
         ],
       ),
-      body: NestedScrollView(
-        headerSliverBuilder: (context, _) => [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: _buildPortfolioSummary(),
-            ),
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SliverAppBarDelegate(
-              TabBar(
-                controller: _tabController,
-                indicatorColor: AppColors.primaryBrand,
-                indicatorWeight: 2.5,
-                labelColor: AppColors.primary,
-                unselectedLabelColor: AppColors.outline,
-                labelStyle: AppTypography.labelSm.copyWith(fontWeight: FontWeight.w600),
-                tabs: const [
-                  Tab(text: 'Holdings (Delivery)'),
-                  Tab(text: 'Positions (Intraday)'),
-                ],
+      body: portfolioAsync.when(
+        data: (portfolio) => NestedScrollView(
+          headerSliverBuilder: (context, _) => [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: _buildPortfolioSummary(portfolio),
               ),
             ),
-          ),
-        ],
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildHoldingsList(),
-            _buildPositionsList(),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  indicatorColor: AppColors.primaryBrand,
+                  indicatorWeight: 2.5,
+                  labelColor: AppColors.primary,
+                  unselectedLabelColor: AppColors.outline,
+                  labelStyle: AppTypography.labelSm.copyWith(fontWeight: FontWeight.w600),
+                  tabs: const [
+                    Tab(text: 'Holdings (Delivery)'),
+                    Tab(text: 'Positions (Intraday)'),
+                  ],
+                ),
+              ),
+            ),
           ],
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildHoldingsList(portfolio.holdings),
+              _buildPositionsList(),
+            ],
+          ),
+        ),
+        loading: () => const LoadingStateWidget(message: 'Loading active portfolio holdings...'),
+        error: (err, _) => ErrorStateWidget(
+          title: 'Unable to Load Portfolio',
+          message: err.toString(),
+          onRetry: () => ref.refresh(portfolioProvider),
         ),
       ),
     );
   }
 
-  Widget _buildPortfolioSummary() {
+  Widget _buildPortfolioSummary(PortfolioModel portfolio) {
+    final isPos = portfolio.totalPnl >= 0;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -216,14 +196,17 @@ class _PortfolioScreenState extends State<PortfolioScreen> with SingleTickerProv
             ],
           ),
           const SizedBox(height: 4),
-          Text('₹12,48,750.00', style: AppTypography.numericTicker.copyWith(fontSize: 26, fontWeight: FontWeight.bold)),
+          Text(
+            '₹${portfolio.totalPortfolioValue.toStringAsFixed(2)}',
+            style: AppTypography.numericTicker.copyWith(fontSize: 26, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 6),
           Row(
             children: [
               Text(
-                '+₹48,750.00 (+4.06%)',
+                '${isPos ? '+' : ''}₹${portfolio.totalPnl.toStringAsFixed(2)} (${portfolio.totalPnlPercent}%)',
                 style: AppTypography.numericTable.copyWith(
-                  color: AppColors.secondary,
+                  color: isPos ? AppColors.secondary : AppColors.tertiary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -237,9 +220,9 @@ class _PortfolioScreenState extends State<PortfolioScreen> with SingleTickerProv
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMetric('Virtual Cash', '₹4,25,000.00'),
-              _buildMetric('Invested', '₹8,23,750.00'),
-              _buildMetric('Realized P&L', '+₹14,200.00', color: AppColors.secondary),
+              _buildMetric('Virtual Cash', '₹${portfolio.availableCash.toStringAsFixed(2)}'),
+              _buildMetric('Invested', '₹${portfolio.investedValue.toStringAsFixed(2)}'),
+              _buildMetric('Starting Capital', '₹${portfolio.startingCapital.toStringAsFixed(2)}'),
             ],
           ),
         ],
@@ -265,14 +248,29 @@ class _PortfolioScreenState extends State<PortfolioScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildHoldingsList() {
+  Widget _buildHoldingsList(List<HoldingModel> holdings) {
+    if (holdings.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.account_balance_wallet_outlined, size: 48, color: AppColors.outline),
+            const SizedBox(height: 12),
+            Text('No active simulated holdings', style: AppTypography.bodyMd),
+            const SizedBox(height: 6),
+            Text('Place paper orders in the Trade ticket to build your portfolio.', style: AppTypography.labelSm),
+          ],
+        ),
+      );
+    }
+
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: _holdings.length,
+      itemCount: holdings.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        final h = _holdings[index];
-        final isPos = h['isPos'] as bool;
+        final h = holdings[index];
+        final isPos = h.unrealizedPnl >= 0;
 
         return Container(
           padding: const EdgeInsets.all(12),
@@ -288,13 +286,13 @@ class _PortfolioScreenState extends State<PortfolioScreen> with SingleTickerProv
                 children: [
                   Row(
                     children: [
-                      Text(h['symbol'] as String, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
+                      Text(h.symbol, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
                       const SizedBox(width: 6),
-                      Text('(${h['qty']} Qty)', style: AppTypography.labelSm),
+                      Text('(${h.quantity} Qty)', style: AppTypography.labelSm),
                     ],
                   ),
                   Text(
-                    '${isPos ? '+' : ''}₹${h['pnl'].toStringAsFixed(2)} (${h['pnlPct']}%)',
+                    '${isPos ? '+' : ''}₹${h.unrealizedPnl.toStringAsFixed(2)} (${h.unrealizedPnlPercent}%)',
                     style: AppTypography.numericTable.copyWith(
                       color: isPos ? AppColors.secondary : AppColors.tertiary,
                       fontWeight: FontWeight.bold,
@@ -306,9 +304,12 @@ class _PortfolioScreenState extends State<PortfolioScreen> with SingleTickerProv
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Avg: ₹${h['avg']}', style: AppTypography.labelSm),
-                  Text('LTP: ₹${h['ltp']}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
-                  Text('Cur Val: ₹${h['curVal']}', style: AppTypography.numericTable.copyWith(fontSize: 12, fontWeight: FontWeight.w600)),
+                  Text('Avg: ₹${h.averageBuyPrice}', style: AppTypography.labelSm),
+                  Text('LTP: ₹${h.ltp}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
+                  Text(
+                    'Cur Val: ₹${h.currentValue.toStringAsFixed(2)}',
+                    style: AppTypography.numericTable.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                 ],
               ),
             ],

@@ -19,9 +19,25 @@ jobs:
   test_and_build:
     name: Backend Lint, Test & Build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
+
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd mongosh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      MONGODB_URI: mongodb://127.0.0.1:27017/tradeverse_test
+      JWT_ACCESS_SECRET: tradeverse_test_jwt_access_secret_key_32_chars_minimum!
+      JWT_REFRESH_SECRET: tradeverse_test_jwt_refresh_secret_key_32_chars_minimum!
+      CORS_ORIGINS: "*"
 
     steps:
       - name: Checkout Repository
@@ -32,13 +48,24 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: apps/api/package-lock.json
+          cache-dependency-path: |
+            packages/shared/api-contracts/package-lock.json
+            apps/api/package-lock.json
 
-      - name: Install Dependencies
+      - name: Build Shared Contracts
+        working-directory: packages/shared/api-contracts
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Backend Dependencies
+        working-directory: apps/api
         run: npm ci
 
       - name: Type Check & Build
+        working-directory: apps/api
         run: npm run build
 
-      - name: Run Tests
+      - name: Run Backend Tests
+        working-directory: apps/api
         run: npm test

@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../shared/widgets/demo_mode_banner.dart';
+import '../../../shared/widgets/loading_state_widget.dart';
+import '../../../shared/widgets/error_state_widget.dart';
+import '../../auth/presentation/providers/auth_provider.dart';
+import '../../portfolio/presentation/providers/portfolio_provider.dart';
+import '../../domain/portfolio_models.dart';
 
-class HomeDashboardScreen extends StatelessWidget {
+class HomeDashboardScreen extends ConsumerWidget {
   const HomeDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final portfolioAsync = ref.watch(portfolioProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -16,17 +26,48 @@ class HomeDashboardScreen extends StatelessWidget {
           slivers: [
             // Top App Bar
             SliverToBoxAdapter(
-              child: _buildHeader(context),
+              child: _buildHeader(context, ref, authState.user?.displayName),
             ),
+            // Explicit Demo Mode Banner (if in demo mode)
+            if (authState.isDemoMode)
+              SliverToBoxAdapter(
+                child: DemoModeBanner(
+                  onLoginTap: () => context.go('/login'),
+                ),
+              ),
             // Simulation Banner
             SliverToBoxAdapter(
               child: _buildDisclaimerBanner(),
             ),
-            // Virtual Portfolio Card
+            // Virtual Portfolio Card with Loading & Error States
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: _buildPortfolioCard(context),
+                child: portfolioAsync.when(
+                  data: (portfolio) => _buildPortfolioCard(context, portfolio),
+                  loading: () => Container(
+                    height: 180,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainer,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderSubtle),
+                    ),
+                    child: const LoadingStateWidget(message: 'Calculating sandbox portfolio value...'),
+                  ),
+                  error: (err, _) => Container(
+                    height: 180,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainer,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderSubtle),
+                    ),
+                    child: ErrorStateWidget(
+                      title: 'Portfolio Offline',
+                      message: 'Using cached sandbox telemetry.',
+                      onRetry: () => ref.refresh(portfolioProvider),
+                    ),
+                  ),
+                ),
               ),
             ),
             // Quick Action Buttons
@@ -128,7 +169,7 @@ class HomeDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, WidgetRef ref, String? displayName) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
@@ -150,7 +191,10 @@ class HomeDashboardScreen extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('TradeVerse AI', style: AppTypography.headlineSm),
+                  Text(
+                    displayName ?? 'TradeVerse AI',
+                    style: AppTypography.headlineSm.copyWith(fontSize: 15),
+                  ),
                   Row(
                     children: [
                       Container(
@@ -177,32 +221,46 @@ class HomeDashboardScreen extends StatelessWidget {
               ),
             ],
           ),
-          Stack(
+          Row(
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainer,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: const Icon(Icons.notifications_none, size: 20, color: AppColors.onSurface),
+              IconButton(
+                icon: const Icon(Icons.logout, size: 20, color: AppColors.outline),
+                tooltip: 'Logout',
+                onPressed: () async {
+                  await ref.read(authProvider.notifier).logout();
+                  if (context.mounted) {
+                    context.go('/login');
+                  }
+                },
               ),
-              Positioned(
-                right: 2,
-                top: 2,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: AppColors.primaryBrand,
-                    shape: BoxShape.circle,
+              Stack(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainer,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.borderSubtle),
+                    ),
+                    child: const Icon(Icons.notifications_none, size: 20, color: AppColors.onSurface),
                   ),
-                  child: Text(
-                    '3',
-                    style: AppTypography.labelSm.copyWith(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
+                  Positioned(
+                    right: 2,
+                    top: 2,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppColors.primaryBrand,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '3',
+                        style: AppTypography.labelSm.copyWith(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -235,7 +293,8 @@ class HomeDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPortfolioCard(BuildContext context) {
+  Widget _buildPortfolioCard(BuildContext context, PortfolioModel portfolio) {
+    final isPos = portfolio.totalPnl >= 0;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -282,24 +341,31 @@ class HomeDashboardScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text('₹12,48,750.00', style: AppTypography.numericTicker.copyWith(fontSize: 28, fontWeight: FontWeight.w700)),
+          Text(
+            '₹${portfolio.totalPortfolioValue.toStringAsFixed(2)}',
+            style: AppTypography.numericTicker.copyWith(fontSize: 28, fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 6),
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.12),
+                  color: (isPos ? AppColors.secondary : AppColors.tertiary).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.trending_up, size: 14, color: AppColors.secondary),
+                    Icon(
+                      isPos ? Icons.trending_up : Icons.trending_down,
+                      size: 14,
+                      color: isPos ? AppColors.secondary : AppColors.tertiary,
+                    ),
                     const SizedBox(width: 4),
                     Text(
-                      '+₹48,750.00 (+4.06%)',
+                      '${isPos ? '+' : ''}₹${portfolio.totalPnl.toStringAsFixed(2)} (${portfolio.totalPnlPercent}%)',
                       style: AppTypography.numericTable.copyWith(
-                        color: AppColors.secondary,
+                        color: isPos ? AppColors.secondary : AppColors.tertiary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -321,7 +387,10 @@ class HomeDashboardScreen extends StatelessWidget {
                   children: [
                     Text('Virtual Cash Available', style: AppTypography.labelSm),
                     const SizedBox(height: 2),
-                    Text('₹4,25,000.00', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                      '₹${portfolio.availableCash.toStringAsFixed(2)}',
+                      style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
               ),
@@ -333,7 +402,10 @@ class HomeDashboardScreen extends StatelessWidget {
                   children: [
                     Text('Invested Exposure', style: AppTypography.labelSm),
                     const SizedBox(height: 2),
-                    Text('₹8,23,750.00', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                      '₹${portfolio.investedValue.toStringAsFixed(2)}',
+                      style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
               ),
@@ -351,11 +423,7 @@ class HomeDashboardScreen extends StatelessWidget {
         _QuickActionButton(
           icon: Icons.add_circle_outline,
           label: 'Add Cash',
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sandbox Funds Manager: Configurable Virtual Capital')),
-            );
-          },
+          onTap: () => context.go('/portfolio'),
         ),
         _QuickActionButton(
           icon: Icons.swap_horiz,
