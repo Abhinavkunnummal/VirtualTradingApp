@@ -3,27 +3,18 @@ import { Server as SocketIOServer } from 'socket.io';
 import mongoose from 'mongoose';
 import { createApp } from './app';
 import { config } from './config';
+import { SocketService } from './services/socket.service';
 
 async function bootstrap() {
   const app = createApp();
   const server = http.createServer(app);
 
-  // Initialize Socket.IO
+  // Initialize Socket.IO with centralized service
   const io = new SocketIOServer(server, {
-    cors: { origin: config.corsOrigins, methods: ['GET', 'POST'] }
+    cors: { origin: config.corsOrigins, methods: ['GET', 'POST'] },
   });
 
-  io.on('connection', (socket) => {
-    console.log(`[Socket.IO] Client connected: ${socket.id}`);
-
-    socket.on('join_ticker', (data) => {
-      console.log(`[Socket.IO] ${socket.id} subscribed to symbols:`, data?.symbols);
-    });
-
-    socket.on('disconnect', () => {
-      console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
-    });
-  });
+  SocketService.init(io);
 
   // Attempt MongoDB connection if configured
   if (config.mongoUri && !config.mongoUri.includes('127.0.0.1')) {

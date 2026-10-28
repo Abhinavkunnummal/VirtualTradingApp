@@ -214,10 +214,126 @@ export const AiAnalysisRequestSchema = z.object({
   prompt: z.string().min(3),
 });
 
+export const ExplainConceptSchema = z.object({
+  concept: z.string().min(2).max(100).trim(),
+  context: z.string().max(500).optional(),
+});
+
+export const TradeRiskAnalysisSchema = z.object({
+  symbol: z.string().min(1).trim().toUpperCase(),
+  exchange: z.enum(['NSE', 'BSE', 'MCX', 'US', 'CRYPTO']).default('NSE'),
+  side: z.enum(['BUY', 'SELL']),
+  orderType: z.enum(['MARKET', 'LIMIT', 'SL', 'SL_M']),
+  product: z.enum(['CNC', 'MIS']).default('CNC'),
+  quantity: z.number().int().positive('Quantity must be positive'),
+  price: z.number().positive('Price must be positive'),
+});
+
+export interface ExplainConceptResponse {
+  concept: string;
+  simpleExplanation: string;
+  keyTakeaways: string[];
+  bullishScenario?: string;
+  bearishScenario?: string;
+  riskFactors: string[];
+  isAiGenerated: true;
+  disclaimer: string;
+}
+
+export interface TradeRiskAnalysisResponse {
+  symbol: string;
+  turnover: number;
+  estimatedMargin: number;
+  estimatedFees: {
+    brokerage: number;
+    stt: number;
+    exchangeFee: number;
+    gst: number;
+    totalFees: number;
+  };
+  slippageAssumption: string;
+  downsideRisk: string;
+  bullishScenario: string;
+  bearishScenario: string;
+  riskScore: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  summary: string;
+  isAiGenerated: true;
+  disclaimer: string;
+}
+
+export interface PortfolioReviewResponse {
+  totalValue: number;
+  holdingsCount: number;
+  concentrationRisk: {
+    topAsset: string;
+    topAssetWeight: number;
+    isConcentrated: boolean;
+    advice: string;
+  };
+  assetClassDistribution: Record<string, number>;
+  volatilityAssessment: 'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE';
+  recommendations: string[];
+  isAiGenerated: true;
+  disclaimer: string;
+}
+
+export interface NewsArticle {
+  id: string;
+  title: string;
+  source: string;
+  category: string;
+  summary: string;
+  sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  publishedAt: string;
+  disclaimer: string;
+}
+
+export interface NewsSummaryResponse {
+  marketMood: string;
+  articles: NewsArticle[];
+  isAiGenerated: true;
+  disclaimer: string;
+}
+
+// ==========================================
+// Community & Messaging
+// ==========================================
+export interface CommunityRoom {
+  id: string;
+  roomId: string;
+  name: string;
+  description: string;
+  category: 'GENERAL' | 'EQUITIES' | 'COMMODITIES' | 'CRYPTO' | 'AI_INSIGHTS';
+  symbol?: string;
+  memberCount: number;
+  isPrivate: boolean;
+}
+
+export interface CommunityMessage {
+  id: string;
+  roomId: string;
+  userId: string;
+  authorName: string;
+  content: string;
+  type: 'CHAT' | 'EDUCATIONAL' | 'AI_SUMMARY' | 'SYSTEM';
+  tradeTag?: string;
+  sentiment?: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  likesCount: number;
+  isAiGenerated: boolean;
+  createdAt: string;
+}
+
 export const CreatePostSchema = z.object({
   title: z.string().min(3).max(150),
   content: z.string().min(10).max(2000),
   symbolTag: z.string().optional(),
+});
+
+export const CreateMessageSchema = z.object({
+  content: z.string().min(1).max(1000).trim(),
+  type: z.enum(['CHAT', 'EDUCATIONAL', 'AI_SUMMARY']).default('CHAT'),
+  tradeTag: z.string().max(100).optional(),
+  sentiment: z.enum(['BULLISH', 'BEARISH', 'NEUTRAL']).optional(),
 });
 
 export const SendMessageSchema = z.object({

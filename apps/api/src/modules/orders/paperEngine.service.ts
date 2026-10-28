@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { PaperAccount, Order, Execution, Holding, LedgerEntry } from '../../models';
 import { MarketDataService, MarketQuote } from '../market-data/marketData.service';
+import { SocketService } from '../../services/socket.service';
 
 export interface SubmitOrderParams {
   userId: string;
@@ -311,6 +312,29 @@ export class PaperTradingEngine {
       }
     }
 
+    // Emit real-time order update and execution notification to user's isolated private channel
+    SocketService.emitToUser(params.userId, 'order_update', {
+      orderId: order._id.toString(),
+      symbol: order.symbol,
+      status: order.status,
+      side: order.side,
+      quantity: order.quantity,
+      filledQuantity: order.filledQuantity,
+      averagePrice: order.averagePrice,
+      timestamp: new Date().toISOString(),
+    });
+
+    SocketService.emitToUser(params.userId, 'execution_notice', {
+      orderId: order._id.toString(),
+      symbol: params.symbol,
+      side: params.side,
+      executionPrice: feeInfo.executionPrice,
+      executedQuantity: params.quantity,
+      fees: feeInfo.totalFeesAndTaxes,
+      slippage: feeInfo.slippage,
+      timestamp: new Date().toISOString(),
+    });
+
     return {
       order,
       execution,
@@ -356,6 +380,15 @@ export class PaperTradingEngine {
     order.status = 'CANCELLED';
     order.rejectionReason = 'Cancelled by user';
     await order.save();
+
+    // Emit real-time cancellation notice to user's isolated private channel
+    SocketService.emitToUser(userId, 'order_update', {
+      orderId: order._id.toString(),
+      symbol: order.symbol,
+      status: 'CANCELLED',
+      side: order.side,
+      timestamp: new Date().toISOString(),
+    });
 
     return {
       success: true,

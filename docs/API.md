@@ -337,3 +337,101 @@ Creates a new custom watchlist.
 
 ### `DELETE /api/v1/watchlists/:id`
 Deletes a custom watchlist (enforces ownership; default watchlist cannot be deleted).
+
+---
+
+## 8. AI Trading Assistant (`/api/v1/ai`)
+
+Educational AI assistance for market concepts, indicators, pre-trade risk evaluation, and portfolio health checks. Never executes trades autonomously. All outputs include disclaimers and explicit `isAiGenerated: true` metadata.
+
+### `POST /api/v1/ai/explain`
+Explains technical indicators, candlestick patterns, order types, and risk concepts with key takeaways and bullish/bearish scenario modeling. Includes prompt injection defenses.
+- **Request Body**:
+```json
+{
+  "concept": "Relative Strength Index (RSI)"
+}
+```
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "data": {
+    "concept": "Relative Strength Index (RSI)",
+    "simpleExplanation": "RSI is a momentum oscillator measuring price velocity from 0 to 100...",
+    "keyTakeaways": [
+      "Values above 70 indicate strong upward momentum but potential for consolidation.",
+      "Values below 30 indicate intense selling pressure."
+    ],
+    "bullishScenario": "Crossing back above 30 indicates buyers stepping in.",
+    "bearishScenario": "Bearish divergence at key resistance points to momentum deceleration.",
+    "riskFactors": ["In strong trending regimes, RSI can remain overbought for extended periods."],
+    "isAiGenerated": true,
+    "disclaimer": "Educational use only. Not financial advice. TradeVerse AI never executes real-money trades."
+  }
+}
+```
+
+### `POST /api/v1/ai/trade-risk`
+Pre-trade risk assessment: computes turnover, margin requirements (5x leverage for MIS), fee breakdowns (brokerage, STT, GST), slippage assumptions, and downside scenarios.
+- **Request Body**:
+```json
+{
+  "symbol": "RELIANCE",
+  "exchange": "NSE",
+  "side": "BUY",
+  "orderType": "MARKET",
+  "product": "CNC",
+  "quantity": 10,
+  "price": 2945.50
+}
+```
+
+### `GET /api/v1/ai/portfolio-review`
+Requires authentication. Analyzes authenticated user's portfolio for single-asset concentration, cash buffer adequacy, and asset class allocation. Enforces strict user isolation.
+
+### `GET /api/v1/ai/news-summary`
+Curated financial news summaries from permitted market sources with sentiment analysis (`BULLISH`, `BEARISH`, `NEUTRAL`) and source citations.
+
+---
+
+## 9. Community & Discussion Rooms (`/api/v1/community`)
+
+Real-time social trading floor and discussion rooms.
+
+### `GET /api/v1/community/rooms`
+Retrieves all public discussion channels (`room:general`, `room:nifty`, `room:crypto`, `room:commodities`, `room:ai_insights`).
+
+### `GET /api/v1/community/rooms/:roomId/messages?limit=50&before=<iso_timestamp>`
+Retrieves paginated message history for a room in chronological order.
+
+### `POST /api/v1/community/rooms/:roomId/messages`
+Requires authentication. Posts a message to a discussion room. Automatically broadcasts via Socket.IO to connected room members.
+- **Request Body**:
+```json
+{
+  "content": "RELIANCE closed above 20 EMA with expanding volume. Paper long initiated.",
+  "type": "EDUCATIONAL",
+  "tradeTag": "PAPER BUY • RELIANCE",
+  "sentiment": "BULLISH"
+}
+```
+
+### `DELETE /api/v1/community/messages/:id`
+Requires authentication. Deletes a user's own message (enforces author ownership).
+
+---
+
+## 10. Real-Time WebSocket Events (Socket.IO)
+
+- **Handshake Authentication**: Send JWT access token via `auth.token` or `Authorization: Bearer <token>`.
+- **Private User Isolation**: Authenticated sockets automatically join `user:<userId>`.
+- **Server Events**:
+  - `order_update`: Emitted to `user:<userId>` when an order status changes (`FILLED`, `CANCELLED`, `REJECTED`).
+  - `execution_notice`: Emitted to `user:<userId>` with execution price, slippage, and fees.
+  - `new_message`: Emitted to `room:<roomId>` when a participant posts a message.
+  - `ticker_tick`: Emitted to `ticker:<symbol>` on price changes.
+- **Client Events**:
+  - `join_room` / `leave_room`: Subscribe / unsubscribe from community discussion channels.
+  - `join_ticker`: Subscribe to real-time quotes for given ticker symbols.
+  - `send_message`: Real-time chat message broadcast.

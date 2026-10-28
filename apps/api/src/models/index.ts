@@ -7,3 +7,5 @@ export * from './Order';
 export * from './Execution';
 export * from './Holding';
 export * from './LedgerEntry';
+export * from './CommunityMessage';
+export * from './CommunityRoom';
