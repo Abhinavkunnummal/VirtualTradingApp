@@ -32,7 +32,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> with SingleTi
   }
 
   void _showComposeSheet(BuildContext context, String currentRoom) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceContainer,

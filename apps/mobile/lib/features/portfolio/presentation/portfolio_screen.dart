@@ -55,7 +55,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
   }
 
   void _showResetCapitalModal() {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surfaceContainer,
       shape: const RoundedRectangleBorder(
