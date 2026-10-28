@@ -580,7 +580,7 @@ class HomeDashboardScreen extends ConsumerWidget {
         builder: (context, ref, _) {
           final notifsAsync = ref.watch(notificationsProvider);
 
-          return SizedBox(
+          return Container(
             height: MediaQuery.of(context).size.height * 0.75,
             padding: const EdgeInsets.all(16),
             child: Column(

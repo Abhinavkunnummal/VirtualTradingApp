@@ -37,6 +37,8 @@ class AppColors {
   // Alerts & Warnings
   static const Color error = Color(0xFFFFB4AB);
   static const Color errorContainer = Color(0xFF93000A);
+  static const Color onError = Color(0xFF690005);
+  static const Color onErrorContainer = Color(0xFFFFDAD6);
   static const Color warning = Color(0xFFF5B942);
 
   // Text & Borders

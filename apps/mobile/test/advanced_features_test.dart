@@ -14,16 +14,18 @@ import 'package:tradeverse_mobile/features/trade/presentation/providers/order_pr
 import 'package:tradeverse_mobile/features/trade/presentation/trade_screen.dart';
 import 'package:tradeverse_mobile/features/home/presentation/home_dashboard_screen.dart';
 
-class _MockAuthNotifier extends AuthNotifier {
-  _MockAuthNotifier(AuthState initial) : super(FakeApiClient()) {
-    state = initial;
-  }
+class _MockAuthNotifier extends StateNotifier<AuthState> implements AuthNotifier {
+  _MockAuthNotifier(super.state);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _MockPortfolioNotifier extends PortfolioNotifier {
-  _MockPortfolioNotifier(PortfolioModel initial) : super(FakeApiClient(), false) {
-    state = AsyncValue.data(initial);
-  }
+class _MockPortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> implements PortfolioNotifier {
+  _MockPortfolioNotifier(PortfolioModel model) : super(AsyncValue.data(model));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {

@@ -1,13 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/news_models.dart';
 
 final newsCategoryProvider = StateProvider<String>((ref) => 'ALL');
 
 final newsProvider = FutureProvider<List<NewsArticle>>((ref) async {
   final category = ref.watch(newsCategoryProvider);
-  final dio = ref.watch(dioProvider);
+  final apiClient = ref.watch(apiClientProvider);
 
   try {
     final queryParams = <String, dynamic>{};
@@ -15,7 +16,7 @@ final newsProvider = FutureProvider<List<NewsArticle>>((ref) async {
       queryParams['category'] = category;
     }
 
-    final response = await dio.get(
+    final response = await apiClient.dio.get(
       ApiConstants.news,
       queryParameters: queryParams,
     );

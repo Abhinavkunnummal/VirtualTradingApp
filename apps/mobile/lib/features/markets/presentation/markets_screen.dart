@@ -311,7 +311,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
 
               return RefreshIndicator(
                 onRefresh: () async {
-                  ref.refresh(newsProvider);
+                  await ref.refresh(newsProvider.future);
                 },
                 child: ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
