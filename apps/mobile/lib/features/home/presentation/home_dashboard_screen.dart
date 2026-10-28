@@ -6,6 +6,7 @@ import 'package:tradeverse_mobile/core/theme/app_typography.dart';
 import 'package:tradeverse_mobile/shared/widgets/demo_mode_banner.dart';
 import 'package:tradeverse_mobile/shared/widgets/loading_state_widget.dart';
 import 'package:tradeverse_mobile/shared/widgets/error_state_widget.dart';
+import 'package:tradeverse_mobile/shared/widgets/tradeverse_logo.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/domain/portfolio_models.dart';
@@ -177,16 +178,7 @@ class HomeDashboardScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryBrand.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.primaryBrand.withValues(alpha: 0.35)),
-                ),
-                child: const Icon(Icons.bolt, color: AppColors.primary, size: 20),
-              ),
+              const TradeVerseLogo(size: 36),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -431,13 +423,9 @@ class HomeDashboardScreen extends ConsumerWidget {
           onTap: () => context.go('/trade'),
         ),
         _QuickActionButton(
-          icon: Icons.auto_awesome,
-          label: 'AI Copilot',
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('AI Assistant: Educational Market Scenarios')),
-            );
-          },
+          icon: Icons.school_outlined,
+          label: 'Learn AI',
+          onTap: () => context.push('/learn'),
         ),
         _QuickActionButton(
           icon: Icons.bookmark_border,

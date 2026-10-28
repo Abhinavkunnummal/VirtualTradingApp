@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { createApp } from './app';
 import { config } from './config';
 import { SocketService } from './services/socket.service';
+import { MarketDataService } from './modules/market-data/marketData.service';
 
 async function bootstrap() {
   const app = createApp();
@@ -17,14 +18,27 @@ async function bootstrap() {
   SocketService.init(io);
 
   // Attempt MongoDB connection if configured
-  if (config.mongoUri && !config.mongoUri.includes('127.0.0.1')) {
+  if (config.mongoUri) {
     try {
-      await mongoose.connect(config.mongoUri);
-      console.log('Connected to MongoDB Atlas');
+      await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 5000 });
+      const isAtlas = config.mongoUri.includes('mongodb+srv') || config.mongoUri.includes('.mongodb.net');
+      console.log(`Connected to MongoDB ${isAtlas ? 'Atlas (Cloud)' : 'Local'}`);
     } catch (err) {
       console.warn('MongoDB connection warning:', (err as Error).message);
+      console.info('Tip: Verify IP address whitelist in MongoDB Atlas Network Access and MONGODB_URI credentials.');
     }
   }
+
+  // Start background real-time simulated ticker broadcaster (2.5s cycle)
+  const activeSymbols = ['RELIANCE', 'TCS', 'HDFCBANK', 'NIFTY 50', 'SENSEX', 'BTC/USDT', 'ETH/USDT', 'GOLD 1KG', 'NVDA', 'AAPL'];
+  const tickerInterval = setInterval(() => {
+    for (const sym of activeSymbols) {
+      const quote = MarketDataService.getQuote(sym);
+      if (quote) {
+        SocketService.emitTickerUpdate(sym, quote);
+      }
+    }
+  }, 2500);
 
   server.listen(config.port, () => {
     console.log(`TradeVerse AI API running on http://localhost:${config.port} (env: ${config.nodeEnv})`);
@@ -32,6 +46,7 @@ async function bootstrap() {
 
   const shutdown = async (signal: string) => {
     console.log(`Received ${signal}. Initiating graceful shutdown...`);
+    clearInterval(tickerInterval);
     server.close(async () => {
       console.log('HTTP and WebSocket server closed.');
       if (mongoose.connection.readyState !== 0) {

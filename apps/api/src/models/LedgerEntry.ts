@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export type LedgerType =
   | 'CAPITAL_INIT'
   | 'CAPITAL_RESET'
+  | 'CAPITAL_TOPUP'
   | 'MARGIN_RESERVE'
   | 'MARGIN_RELEASE'
   | 'TRADE_FILL'
@@ -45,6 +46,7 @@ const LedgerEntrySchema = new Schema<ILedgerEntry>(
       enum: [
         'CAPITAL_INIT',
         'CAPITAL_RESET',
+        'CAPITAL_TOPUP',
         'MARGIN_RESERVE',
         'MARGIN_RELEASE',
         'TRADE_FILL',

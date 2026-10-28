@@ -110,3 +110,72 @@ aiRouter.get('/news-summary', async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 });
+
+const QuizSubmitSchema = z.object({
+  moduleId: z.string().min(1),
+  answers: z.array(
+    z.object({
+      questionIndex: z.number().int().min(0),
+      selectedIndex: z.number().int().min(0),
+    })
+  ),
+});
+
+const TutorQuerySchema = z.object({
+  question: z.string().min(2, 'Question must be at least 2 characters').max(300, 'Question cannot exceed 300 characters').trim(),
+  contextModuleId: z.string().optional(),
+});
+
+/**
+ * GET /api/v1/ai/lessons
+ * Returns the 8 comprehensive trading education modules.
+ */
+aiRouter.get('/lessons', (req: Request, res: Response) => {
+  const modules = AiAssistantService.getLearningModules();
+  return res.status(200).json({
+    success: true,
+    count: modules.length,
+    modules,
+  });
+});
+
+/**
+ * POST /api/v1/ai/quiz/submit
+ * Submits answers for a learning module quiz and returns evaluation.
+ */
+aiRouter.post('/quiz/submit', (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validated = QuizSubmitSchema.parse(req.body);
+    const evaluation = AiAssistantService.evaluateQuiz(validated.moduleId, validated.answers);
+    return res.status(200).json({
+      success: true,
+      data: evaluation,
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * POST /api/v1/ai/tutor
+ * Interactive AI trading tutor response.
+ */
+aiRouter.post('/tutor', (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validated = TutorQuerySchema.parse(req.body);
+    const response = AiAssistantService.askTutor(validated.question, validated.contextModuleId);
+    return res.status(200).json({
+      success: true,
+      data: response,
+    });
+  } catch (err: any) {
+    if (err.message?.includes('Prompt security violation')) {
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+        isBlocked: true,
+      });
+    }
+    return next(err);
+  }
+});

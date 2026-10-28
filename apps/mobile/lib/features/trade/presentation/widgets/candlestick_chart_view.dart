@@ -63,6 +63,16 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
   CandleData? _inspectedCandle;
 
   @override
+  void didUpdateWidget(covariant CandlestickChartView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.symbol != widget.symbol ||
+        oldWidget.selectedInterval != widget.selectedInterval ||
+        oldWidget.candles != widget.candles) {
+      _inspectedCandle = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final activeCandle = _inspectedCandle ?? (widget.candles.isNotEmpty ? widget.candles.last : null);
 
@@ -126,7 +136,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
           SizedBox(
             height: 180,
             child: widget.isLoading
-                ? const LoadingStateWidget(message: 'Loading candles...')
+                ? LoadingStateWidget(message: 'Loading ${widget.symbol} (${widget.selectedInterval}) candles...')
                 : widget.errorMessage != null
                     ? ErrorStateWidget(
                         title: 'Chart Unavailable',
@@ -135,7 +145,10 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                       )
                     : widget.candles.isEmpty
                         ? Center(
-                            child: Text('No historical ticks available.', style: AppTypography.bodyMd),
+                            child: Text(
+                              'No ${widget.selectedInterval} historical ticks for ${widget.symbol}.',
+                              style: AppTypography.bodyMd,
+                            ),
                           )
                         : LayoutBuilder(
                             builder: (context, constraints) {

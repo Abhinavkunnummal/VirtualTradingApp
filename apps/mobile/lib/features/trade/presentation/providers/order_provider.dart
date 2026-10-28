@@ -5,6 +5,21 @@ import 'package:tradeverse_mobile/features/portfolio/presentation/providers/port
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestick_chart_view.dart';
 
+class CandleQuery {
+  final String symbol;
+  final String interval;
+
+  const CandleQuery({required this.symbol, required this.interval});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CandleQuery && other.symbol == symbol && other.interval == interval);
+
+  @override
+  int get hashCode => Object.hash(symbol, interval);
+}
+
 final selectedTradeInstrumentProvider = StateProvider<InstrumentModel>((ref) {
   return const InstrumentModel(
     symbol: 'RELIANCE',
@@ -21,31 +36,39 @@ final selectedTradeInstrumentProvider = StateProvider<InstrumentModel>((ref) {
 
 final selectedCandleIntervalProvider = StateProvider<String>((ref) => '15m');
 
-final candlesProvider = FutureProvider.family<List<CandleData>, String>((ref, symbol) async {
-  final interval = ref.watch(selectedCandleIntervalProvider);
+final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((ref, query) async {
   final authState = ref.watch(authProvider);
 
   if (authState.isDemoMode) {
-    // Return deterministic demo candles
+    // Generate deterministic demo candles scaled to the instrument's price and interval
+    final selectedInst = ref.watch(selectedTradeInstrumentProvider);
+    final double basePrice = (selectedInst.symbol == query.symbol)
+        ? selectedInst.price
+        : _getDefaultPrice(query.symbol);
+
+    final intervalSeconds = _intervalToSeconds(query.interval);
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final List<CandleData> demoCandles = [];
-    double base = 2940.0;
-    for (int i = 30; i >= 0; i--) {
-      final t = now - (i * 900);
-      final change = (i % 3 == 0) ? -6.0 : 8.0;
-      final o = base;
-      final c = base + change;
-      final h = (o > c ? o : c) + 4.0;
-      final l = (o < c ? o : c) - 3.0;
+    double current = basePrice;
+
+    for (int i = 35; i >= 0; i--) {
+      final t = now - (i * intervalSeconds);
+      final seed = ((query.symbol.codeUnitAt(0) + i) % 7) - 3;
+      final change = (basePrice * 0.003 * seed);
+      final o = current;
+      final c = (current + change) > 0 ? (current + change) : current;
+      final h = (o > c ? o : c) + (basePrice * 0.002);
+      final l = (o < c ? o : c) - (basePrice * 0.002);
+
       demoCandles.add(CandleData(
         timestamp: t,
-        open: o,
-        high: h,
-        low: l,
-        close: c,
-        volume: 25000 + (i * 1200).toDouble(),
+        open: double.parse(o.toStringAsFixed(2)),
+        high: double.parse(h.toStringAsFixed(2)),
+        low: double.parse((l > 0 ? l : 0.01).toStringAsFixed(2)),
+        close: double.parse(c.toStringAsFixed(2)),
+        volume: 15000 + (i * 1100).toDouble(),
       ));
-      base = c;
+      current = c;
     }
     return demoCandles;
   }
@@ -53,8 +76,8 @@ final candlesProvider = FutureProvider.family<List<CandleData>, String>((ref, sy
   final apiClient = ref.watch(apiClientProvider);
   try {
     final response = await apiClient.get<Map<String, dynamic>>(
-      '/market-data/candles/$symbol',
-      queryParameters: {'interval': interval, 'limit': 45},
+      '/market-data/candles/${query.symbol}',
+      queryParameters: {'interval': query.interval, 'limit': 45},
     );
 
     if (response.statusCode == 200 && response.data?['success'] == true) {
@@ -65,6 +88,46 @@ final candlesProvider = FutureProvider.family<List<CandleData>, String>((ref, sy
 
   return const [];
 });
+
+int _intervalToSeconds(String interval) {
+  switch (interval) {
+    case '1m':
+      return 60;
+    case '5m':
+      return 300;
+    case '15m':
+      return 900;
+    case '1h':
+      return 3600;
+    case '1d':
+      return 86400;
+    case '1w':
+      return 604800;
+    default:
+      return 900;
+  }
+}
+
+double _getDefaultPrice(String symbol) {
+  switch (symbol.toUpperCase()) {
+    case 'BTC/USDT':
+      return 67420.0;
+    case 'ETH/USDT':
+      return 2540.0;
+    case 'TCS':
+      return 4120.0;
+    case 'HDFCBANK':
+      return 1720.80;
+    case 'GOLD 1KG':
+      return 78450.0;
+    case 'NVDA':
+      return 141.54;
+    case 'NIFTY 50':
+      return 24852.15;
+    default:
+      return 2945.50;
+  }
+}
 
 final orderHistoryProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final authState = ref.watch(authProvider);

@@ -93,4 +93,40 @@ class PortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> {
       return false;
     }
   }
+
+  Future<bool> topUpVirtualFunds(double amount) async {
+    if (isDemo) {
+      final current = state.valueOrNull ?? PortfolioModel.demo();
+      state = AsyncValue.data(
+        PortfolioModel(
+          totalPortfolioValue: current.totalPortfolioValue + amount,
+          availableCash: current.availableCash + amount,
+          investedValue: current.investedValue,
+          startingCapital: current.startingCapital,
+          totalPnl: current.totalPnl,
+          totalPnlPercent: current.totalPnlPercent,
+          isSimulated: true,
+          holdings: current.holdings,
+        ),
+      );
+      return true;
+    }
+
+    try {
+      final response = await apiClient.post<Map<String, dynamic>>(
+        '/paper-account/top-up',
+        data: {
+          'amount': amount,
+          'idempotencyKey': 'topup_${DateTime.now().millisecondsSinceEpoch}',
+        },
+      );
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        await fetchPortfolio();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
 }

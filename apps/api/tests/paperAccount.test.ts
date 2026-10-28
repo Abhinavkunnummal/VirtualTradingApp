@@ -96,6 +96,48 @@ describe('Paper Account, Portfolio & Watchlist Tests', () => {
     });
   });
 
+  describe('POST /api/v1/paper-account/top-up', () => {
+    it('should successfully credit virtual funds and record auditable ledger entry', async () => {
+      const res = await request(app)
+        .post('/api/v1/paper-account/top-up')
+        .set('Authorization', `Bearer ${token1}`)
+        .send({
+          amount: 500000,
+          idempotencyKey: 'topup_test_key_1',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.account.availableCash).toBe(1500000); // 1,000,000 + 500,000
+
+      // Test idempotency: sending again with same key should return without duplicate credit
+      const resDuplicate = await request(app)
+        .post('/api/v1/paper-account/top-up')
+        .set('Authorization', `Bearer ${token1}`)
+        .send({
+          amount: 500000,
+          idempotencyKey: 'topup_test_key_1',
+        });
+
+      expect(resDuplicate.status).toBe(200);
+      expect(resDuplicate.body.account.availableCash).toBe(1500000);
+    });
+
+    it('should reject non-positive or excessive top-up amounts', async () => {
+      const resNegative = await request(app)
+        .post('/api/v1/paper-account/top-up')
+        .set('Authorization', `Bearer ${token1}`)
+        .send({ amount: -500 });
+      expect(resNegative.status).toBe(400);
+
+      const resExcessive = await request(app)
+        .post('/api/v1/paper-account/top-up')
+        .set('Authorization', `Bearer ${token1}`)
+        .send({ amount: 999999999 });
+      expect(resExcessive.status).toBe(400);
+    });
+  });
+
   describe('GET /api/v1/portfolio', () => {
     it('should calculate portfolio values and P&L accurately', async () => {
       const account = await PaperAccount.findOne({ userId: userId1 });

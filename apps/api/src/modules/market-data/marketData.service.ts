@@ -31,7 +31,7 @@ export interface Candle {
   volume: number;
 }
 
-interface InstrumentMeta {
+export interface InstrumentMeta {
   symbol: string;
   name: string;
   exchange: ExchangeType;
@@ -41,6 +41,14 @@ interface InstrumentMeta {
   lotSize: number;
   tickSize: number;
   volatility: number;
+}
+
+export interface IMarketDataProvider {
+  getInstrument(symbol: string): InstrumentMeta | undefined;
+  getAllInstruments(filter?: { exchange?: string; category?: string; query?: string }): InstrumentMeta[];
+  getQuote(symbol: string): MarketQuote | null;
+  getQuotes(symbols: string[]): MarketQuote[];
+  getCandles(symbol: string, interval?: CandleInterval, limit?: number): Candle[];
 }
 
 export class MarketDataService {
@@ -142,34 +150,76 @@ export class MarketDataService {
       .filter((q): q is MarketQuote => q !== null);
   }
 
-  static getCandles(symbol: string, interval: CandleInterval = '15m', limit: number = 60): Candle[] {
-    const meta = this.getInstrument(symbol);
-    if (!meta) return [];
+  /**
+   * Aggregates sub-period candles into target timeframe candles
+   * strictly adhering to standard financial OHLCV aggregation:
+   * - Open = first candle's open
+   * - High = highest high across the aggregated period
+   * - Low = lowest low across the aggregated period
+   * - Close = last candle's close
+   * - Volume = sum of all volumes
+   */
+  static aggregateCandles(
+    baseCandles: Candle[],
+    targetIntervalSeconds: number
+  ): Candle[] {
+    if (!baseCandles || baseCandles.length === 0) return [];
 
-    const intervalSecondsMap: Record<CandleInterval, number> = {
-      '1m': 60,
-      '5m': 300,
-      '15m': 900,
-      '1h': 3600,
-      '1d': 86400,
-      '1w': 604800,
-    };
+    // Ensure chronological order
+    const sorted = [...baseCandles].sort((a, b) => a.timestamp - b.timestamp);
 
-    const stepSeconds = intervalSecondsMap[interval] || 900;
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    // Align to interval boundary
-    const endSeconds = nowSeconds - (nowSeconds % stepSeconds);
+    const buckets = new Map<number, Candle[]>();
+    for (const c of sorted) {
+      const bucketTime = c.timestamp - (c.timestamp % targetIntervalSeconds);
+      let bucket = buckets.get(bucketTime);
+      if (!bucket) {
+        bucket = [];
+        buckets.set(bucketTime, bucket);
+      }
+      bucket.push(c);
+    }
 
+    const aggregated: Candle[] = [];
+    const sortedBucketTimes = Array.from(buckets.keys()).sort((a, b) => a - b);
+
+    for (const bucketTime of sortedBucketTimes) {
+      const group = buckets.get(bucketTime)!;
+      if (group.length === 0) continue;
+
+      const open = group[0].open;
+      const high = Math.max(...group.map((c) => c.high));
+      const low = Math.min(...group.map((c) => c.low));
+      const close = group[group.length - 1].close;
+      const volume = group.reduce((sum, c) => sum + c.volume, 0);
+
+      aggregated.push({
+        timestamp: bucketTime,
+        open: parseFloat(open.toFixed(2)),
+        high: parseFloat(high.toFixed(2)),
+        low: parseFloat(low.toFixed(2)),
+        close: parseFloat(close.toFixed(2)),
+        volume: Math.round(volume),
+      });
+    }
+
+    return aggregated;
+  }
+
+  private static generateRawCandles(
+    meta: InstrumentMeta,
+    stepSeconds: number,
+    count: number,
+    endSeconds: number
+  ): Candle[] {
     const candles: Candle[] = [];
     let prevClose = meta.basePrice;
 
-    // Generate historical candles deterministically backwards
-    for (let i = limit - 1; i >= 0; i--) {
+    for (let i = count - 1; i >= 0; i--) {
       const candleTime = endSeconds - i * stepSeconds;
 
       // Seed pseudo-random movement using candleTime
       const seed = Math.sin(candleTime + meta.symbol.length);
-      const movePercent = seed * meta.volatility;
+      const movePercent = seed * meta.volatility * (stepSeconds / 60 >= 1 ? Math.sqrt(stepSeconds / 60) * 0.3 : 1);
 
       const open = prevClose;
       const close = parseFloat((open * (1 + movePercent)).toFixed(2));
@@ -193,6 +243,53 @@ export class MarketDataService {
     }
 
     return candles;
+  }
+
+  static getCandles(symbol: string, interval: CandleInterval = '15m', limit: number = 60): Candle[] {
+    const meta = this.getInstrument(symbol);
+    if (!meta) return [];
+
+    const intervalSecondsMap: Record<CandleInterval, number> = {
+      '1m': 60,
+      '5m': 300,
+      '15m': 900,
+      '1h': 3600,
+      '1d': 86400,
+      '1w': 604800,
+    };
+
+    const targetSeconds = intervalSecondsMap[interval] || 900;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const endSeconds = nowSeconds - (nowSeconds % targetSeconds);
+
+    if (interval === '1m') {
+      return this.generateRawCandles(meta, 60, limit, endSeconds);
+    }
+
+    // Determine sub-period interval and factor for genuine OHLC aggregation
+    let subIntervalSeconds = 60;
+    let factor = 5;
+
+    if (interval === '5m') {
+      subIntervalSeconds = 60;
+      factor = 5;
+    } else if (interval === '15m') {
+      subIntervalSeconds = 300;
+      factor = 3;
+    } else if (interval === '1h') {
+      subIntervalSeconds = 900;
+      factor = 4;
+    } else if (interval === '1d') {
+      subIntervalSeconds = 3600;
+      factor = 24;
+    } else if (interval === '1w') {
+      subIntervalSeconds = 86400;
+      factor = 7;
+    }
+
+    const rawCandles = this.generateRawCandles(meta, subIntervalSeconds, limit * factor, endSeconds + targetSeconds - subIntervalSeconds);
+    const aggregated = this.aggregateCandles(rawCandles, targetSeconds);
+    return aggregated.slice(-limit);
   }
 
   static getMarketStatus() {

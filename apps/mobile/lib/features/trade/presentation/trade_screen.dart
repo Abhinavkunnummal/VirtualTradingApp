@@ -53,6 +53,37 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
       final isSuccess = result['success'] == true;
       final message = result['message'] as String? ?? 'Execution status';
       final execution = result['execution'] as Map<String, dynamic>?;
+      final conciseNotification = result['conciseNotification'] as String? ??
+          '${_isBuy ? 'BUY' : 'SELL'} $_quantity $symbol — Paper order filled';
+
+      if (isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.surfaceContainer,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: _isBuy ? AppColors.secondary : AppColors.tertiary),
+            ),
+            content: Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: _isBuy ? AppColors.secondary : AppColors.tertiary,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    conciseNotification,
+                    style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
 
       showDialog<void>(
         context: context,
@@ -222,83 +253,129 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   void _showInstrumentPickerSheet() {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => Consumer(
-        builder: (context, ref, _) {
-          final marketsAsync = ref.watch(marketOverviewProvider);
+      builder: (ctx) {
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) => Consumer(
+            builder: (context, ref, _) {
+              final marketsAsync = ref.watch(marketOverviewProvider);
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Select Instrument', style: AppTypography.headlineSm),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                    ),
-                  ],
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 16,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                 ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: marketsAsync.when(
-                    data: (instruments) => ListView.separated(
-                      itemCount: instruments.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 6),
-                      itemBuilder: (context, index) {
-                        final inst = instruments[index];
-                        final currency = inst.category == 'US' || inst.category == 'CRYPTO' ? '\$' : '₹';
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.7,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Select Instrument', style: AppTypography.headlineSm),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(ctx).pop(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Search stock, crypto, commodity...',
+                          prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.outline),
+                          filled: true,
+                          fillColor: AppColors.surfaceLowest,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: AppColors.borderSubtle),
+                          ),
+                        ),
+                        onChanged: (val) {
+                          setModalState(() {
+                            searchQuery = val.trim().toLowerCase();
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: marketsAsync.when(
+                          data: (instruments) {
+                            final filtered = instruments.where((inst) {
+                              if (searchQuery.isEmpty) return true;
+                              return inst.symbol.toLowerCase().contains(searchQuery) ||
+                                  inst.name.toLowerCase().contains(searchQuery);
+                            }).toList();
 
-                        return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                          tileColor: AppColors.surfaceLowest,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: const BorderSide(color: AppColors.borderSubtle),
-                          ),
-                          onTap: () {
-                            ref.read(selectedTradeInstrumentProvider.notifier).state = inst;
-                            setState(() => _customPrice = null);
-                            Navigator.of(ctx).pop();
+                            if (filtered.isEmpty) {
+                              return Center(
+                                child: Text('No instruments matching "$searchQuery"', style: AppTypography.bodyMd),
+                              );
+                            }
+
+                            return ListView.separated(
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 6),
+                              itemBuilder: (context, index) {
+                                final inst = filtered[index];
+                                final currency = inst.category == 'US' || inst.category == 'CRYPTO' ? '\$' : '₹';
+
+                                return ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                  tileColor: AppColors.surfaceLowest,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: const BorderSide(color: AppColors.borderSubtle),
+                                  ),
+                                  onTap: () {
+                                    ref.read(selectedTradeInstrumentProvider.notifier).state = inst;
+                                    setState(() => _customPrice = null);
+                                    Navigator.of(ctx).pop();
+                                  },
+                                  title: Row(
+                                    children: [
+                                      Text(inst.symbol, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
+                                      const SizedBox(width: 6),
+                                      Text(inst.exchange, style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                                    ],
+                                  ),
+                                  subtitle: Text(inst.name, style: AppTypography.bodyMd.copyWith(fontSize: 11)),
+                                  trailing: Text(
+                                    '$currency${inst.price.toStringAsFixed(2)}',
+                                    style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                );
+                              },
+                            );
                           },
-                          title: Row(
-                            children: [
-                              Text(inst.symbol, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
-                              const SizedBox(width: 6),
-                              Text(inst.exchange, style: AppTypography.labelSm.copyWith(fontSize: 10)),
-                            ],
-                          ),
-                          subtitle: Text(inst.name, style: AppTypography.bodyMd.copyWith(fontSize: 11)),
-                          trailing: Text(
-                            '$currency${inst.price.toStringAsFixed(2)}',
-                            style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        );
-                      },
-                    ),
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, _) => Center(child: Text(err.toString(), style: AppTypography.bodyMd)),
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (err, _) => Center(child: Text(err.toString(), style: AppTypography.bodyMd)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final instrument = ref.watch(selectedTradeInstrumentProvider);
-    final candlesAsync = ref.watch(candlesProvider(instrument.symbol));
     final interval = ref.watch(selectedCandleIntervalProvider);
+    final candlesAsync = ref.watch(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval)));
     final portfolioAsync = ref.watch(portfolioProvider);
 
     final availableCash = portfolioAsync.valueOrNull?.availableCash ?? 1000000.0;
@@ -403,7 +480,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               onIntervalChanged: (newInterval) {
                 ref.read(selectedCandleIntervalProvider.notifier).state = newInterval;
               },
-              onRetry: () => ref.refresh(candlesProvider(instrument.symbol)),
+              onRetry: () => ref.refresh(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval))),
             ),
             const SizedBox(height: 16),
 

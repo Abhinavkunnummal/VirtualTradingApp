@@ -129,8 +129,8 @@ export class PaperTradingEngine {
       }
     }
 
-    // Validate BUY cash/margin availability
-    if (params.side === 'BUY') {
+    // Validate BUY or Intraday SELL (MIS Short) cash/margin availability
+    if (params.side === 'BUY' || (params.side === 'SELL' && params.product === 'MIS')) {
       if (account.availableCash < requiredMargin) {
         throw new Error(
           `Insufficient virtual margin. Required: INR ${requiredMargin.toLocaleString('en-IN')}, Available: INR ${account.availableCash.toLocaleString('en-IN')}`
@@ -324,6 +324,8 @@ export class PaperTradingEngine {
       timestamp: new Date().toISOString(),
     });
 
+    const conciseNotification = `${params.side} ${params.quantity} ${params.symbol} — Paper order filled`;
+
     SocketService.emitToUser(params.userId, 'execution_notice', {
       orderId: order._id.toString(),
       symbol: params.symbol,
@@ -332,6 +334,13 @@ export class PaperTradingEngine {
       executedQuantity: params.quantity,
       fees: feeInfo.totalFeesAndTaxes,
       slippage: feeInfo.slippage,
+      notification: conciseNotification,
+      timestamp: new Date().toISOString(),
+    });
+
+    SocketService.emitToUser(params.userId, 'portfolio_update', {
+      availableCash: account.availableCash,
+      reservedMargin: account.reservedMargin,
       timestamp: new Date().toISOString(),
     });
 
@@ -339,6 +348,7 @@ export class PaperTradingEngine {
       order,
       execution,
       message: `Simulated ${params.side} order filled @ ₹${feeInfo.executionPrice.toFixed(2)} (Slippage: ₹${feeInfo.slippage}, Fees: ₹${feeInfo.totalFeesAndTaxes})`,
+      conciseNotification,
     };
   }
 

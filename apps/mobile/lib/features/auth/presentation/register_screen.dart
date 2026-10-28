@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../shared/widgets/tradeverse_logo.dart';
 import 'providers/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -64,6 +65,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: TradeVerseLogo(size: 48),
+                ),
+                const SizedBox(height: 14),
                 Text('Join TradeVerse AI', style: AppTypography.displaySm),
                 const SizedBox(height: 4),
                 Text(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../shared/widgets/tradeverse_logo.dart';
 import 'providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -62,17 +63,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // App Icon & Brand
-                  Center(
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryBrand.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.primaryBrand, width: 1.5),
-                      ),
-                      child: const Icon(Icons.bolt, color: AppColors.primary, size: 32),
-                    ),
+                  const Center(
+                    child: TradeVerseLogo(size: 64),
                   ),
                   const SizedBox(height: 16),
                   Center(

@@ -11,6 +11,7 @@ import '../../features/markets/presentation/markets_screen.dart';
 import '../../features/trade/presentation/trade_screen.dart';
 import '../../features/community/presentation/community_screen.dart';
 import '../../features/portfolio/presentation/portfolio_screen.dart';
+import '../../features/learn/presentation/learn_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -54,6 +55,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'register',
         pageBuilder: (context, state) => const NoTransitionPage(
           child: RegisterScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/learn',
+        name: 'learn',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => const MaterialPage(
+          child: LearnScreen(),
         ),
       ),
       StatefulShellRoute.indexedStack(

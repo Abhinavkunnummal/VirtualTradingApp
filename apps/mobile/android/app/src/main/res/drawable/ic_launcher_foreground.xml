@@ -4,7 +4,33 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Horizontal Crossbar of 'T' (Resistance breakout level) in Electric Violet -->
     <path
-        android:fillColor="#00E5FF"
-        android:pathData="M54,24 L82,78 L26,78 Z"/>
+        android:fillColor="#6C63FF"
+        android:pathData="M26,28 H82 V38 H26 Z"/>
+
+    <!-- Central Candlestick Stem of 'T' -->
+    <!-- Wicks -->
+    <path
+        android:fillColor="#6C63FF"
+        android:pathData="M52,38 H56 V84 H52 Z"/>
+    <!-- Candle Body -->
+    <path
+        android:fillColor="#6C63FF"
+        android:pathData="M46,44 H62 V74 H46 Z"/>
+
+    <!-- Right Bullish Signal Candlestick in Neon Cyan -->
+    <!-- Wick -->
+    <path
+        android:fillColor="#00F5D4"
+        android:pathData="M73,42 H77 V78 H73 Z"/>
+    <!-- Candle Body -->
+    <path
+        android:fillColor="#00F5D4"
+        android:pathData="M68,48 H82 V70 H68 Z"/>
+
+    <!-- Left Accumulation Candlestick in Muted Violet -->
+    <path
+        android:fillColor="#4D46B8"
+        android:pathData="M28,58 H40 V76 H28 Z"/>
 </vector>

@@ -11,6 +11,11 @@ const ResetCapitalSchema = z.object({
   resetPortfolio: z.boolean().default(true),
 });
 
+const TopUpCapitalSchema = z.object({
+  amount: z.number().positive('Top-up amount must be positive').min(1000, 'Minimum top-up is INR 1,000').max(10000000, 'Maximum top-up is INR 1,00,00,000'),
+  idempotencyKey: z.string().optional(),
+});
+
 // GET /api/v1/paper-account
 paperAccountRouter.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response, next) => {
   try {
@@ -91,6 +96,77 @@ paperAccountRouter.post('/reset', requireAuth, async (req: AuthenticatedRequest,
         startingCapital: account.startingCapital,
         availableCash: account.availableCash,
         reservedMargin: account.reservedMargin,
+        isSimulated: true,
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// POST /api/v1/paper-account/top-up
+paperAccountRouter.post('/top-up', requireAuth, async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { amount, idempotencyKey } = TopUpCapitalSchema.parse(req.body);
+
+    let account = await PaperAccount.findOne({ userId: req.user!.userId });
+    if (!account) {
+      account = await PaperAccount.create({
+        userId: req.user!.userId,
+        startingCapital: config.startingCapital,
+        availableCash: config.startingCapital,
+        reservedMargin: 0,
+        baseCurrency: 'INR',
+        isSimulated: true,
+      });
+    }
+
+    // Check idempotency if key provided
+    if (idempotencyKey) {
+      const existingEntry = await LedgerEntry.findOne({
+        userId: req.user!.userId,
+        description: { $regex: new RegExp(`idemp:${idempotencyKey}`) },
+      });
+      if (existingEntry) {
+        return res.status(200).json({
+          success: true,
+          message: `Idempotent request: Virtual funds already credited.`,
+          account: {
+            id: account._id.toString(),
+            availableCash: account.availableCash,
+            reservedMargin: account.reservedMargin,
+            isSimulated: true,
+          },
+        });
+      }
+    }
+
+    const updatedAccount = await PaperAccount.findOneAndUpdate(
+      { _id: account._id },
+      { $inc: { availableCash: amount } },
+      { new: true }
+    );
+
+    const description = idempotencyKey
+      ? `Virtual fund top-up of INR ${amount.toLocaleString('en-IN')} [idemp:${idempotencyKey}]`
+      : `Virtual fund top-up of INR ${amount.toLocaleString('en-IN')}`;
+
+    await LedgerEntry.create({
+      userId: req.user!.userId,
+      paperAccountId: account._id,
+      type: 'CAPITAL_TOPUP',
+      amount,
+      balanceAfter: updatedAccount!.availableCash,
+      description,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully credited INR ${amount.toLocaleString('en-IN')} in virtual practice funds.`,
+      account: {
+        id: updatedAccount!._id.toString(),
+        availableCash: updatedAccount!.availableCash,
+        reservedMargin: updatedAccount!.reservedMargin,
         isSimulated: true,
       },
     });
