@@ -21,7 +21,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify Title & Brand
-    expect(find.text('TradeVerse AI'), findsWidgets);
+    expect(find.text('Simulated Trader (Demo)'), findsOneWidget);
 
     // Verify Demo Mode banner & Virtual Capital Card
     expect(find.text('DEMO MODE'), findsOneWidget);

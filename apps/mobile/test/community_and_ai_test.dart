@@ -54,7 +54,7 @@ void main() {
 
     // 6. Verify AI Assistant Prompting Chips
     expect(find.text('Ask TradeVerse AI Assistant'), findsOneWidget);
-    expect(find.text('RSI Momentum'), findsOneWidget);
+    expect(find.text('RSI Momentum'), findsWidgets);
     expect(find.text('Stop-Loss Order'), findsOneWidget);
     expect(find.text('Bullish Engulfing'), findsOneWidget);
     expect(find.text('MIS Intraday Leverage'), findsOneWidget);

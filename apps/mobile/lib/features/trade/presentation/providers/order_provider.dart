@@ -124,7 +124,7 @@ class SubmitOrderService {
       // Demo execution simulation
       final fillPrice = limitPrice ?? 2945.50;
       final turnover = fillPrice * quantity;
-      final brokerage = 20.0;
+      const brokerage = 20.0;
       final taxes = turnover * 0.001;
 
       // Refresh portfolio in UI

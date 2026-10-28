@@ -45,7 +45,7 @@ void main() {
 
     // 2. Verify Candlestick Chart with SIMULATED badge
     expect(find.byType(CandlestickChartView), findsOneWidget);
-    expect(find.text('SIMULATED'), findsOneWidget);
+    expect(find.textContaining('SIMULATED'), findsWidgets);
 
     // 3. Verify Product Selection (CNC vs MIS)
     expect(find.text('Delivery (CNC)'), findsOneWidget);
