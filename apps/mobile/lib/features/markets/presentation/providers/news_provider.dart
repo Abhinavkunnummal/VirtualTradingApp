@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/news_models.dart';
 
@@ -16,7 +15,7 @@ final newsProvider = FutureProvider<List<NewsArticle>>((ref) async {
       queryParams['category'] = category;
     }
 
-    final response = await apiClient.dio.get(
+    final response = await apiClient.dio.get<Map<String, dynamic>>(
       ApiConstants.news,
       queryParameters: queryParams,
     );

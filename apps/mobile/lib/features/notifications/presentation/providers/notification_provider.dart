@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/notification_models.dart';
 
@@ -14,7 +13,7 @@ class NotificationNotifier extends StateNotifier<AsyncValue<List<AppNotification
   Future<void> loadNotifications() async {
     try {
       final apiClient = _ref.read(apiClientProvider);
-      final response = await apiClient.dio.get(ApiConstants.notifications);
+      final response = await apiClient.dio.get<Map<String, dynamic>>(ApiConstants.notifications);
 
       if (response.statusCode == 200 && response.data['success'] == true) {
         final List<dynamic> notifsJson = response.data['notifications'] as List<dynamic>;
@@ -64,7 +63,7 @@ class NotificationNotifier extends StateNotifier<AsyncValue<List<AppNotification
 
     try {
       final apiClient = _ref.read(apiClientProvider);
-      await apiClient.dio.patch('${ApiConstants.notifications}/$id/read');
+      await apiClient.dio.patch<dynamic>('${ApiConstants.notifications}/$id/read');
     } catch (_) {}
   }
 
@@ -76,7 +75,7 @@ class NotificationNotifier extends StateNotifier<AsyncValue<List<AppNotification
 
     try {
       final apiClient = _ref.read(apiClientProvider);
-      await apiClient.dio.post(ApiConstants.notificationsReadAll);
+      await apiClient.dio.post<dynamic>(ApiConstants.notificationsReadAll);
     } catch (_) {}
   }
 }
