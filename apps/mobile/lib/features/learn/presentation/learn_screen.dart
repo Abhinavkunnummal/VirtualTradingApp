@@ -339,11 +339,11 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Row(
                           children: [
-                            Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
-                            SizedBox(width: 8),
+                            const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
+                            const SizedBox(width: 8),
                             Text('AI Trading Tutor', style: AppTypography.headlineSm),
                           ],
                         ),
