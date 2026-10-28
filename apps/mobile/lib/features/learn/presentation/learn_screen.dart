@@ -23,15 +23,16 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (_, scrollController) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.85,
           child: ListView(
-            controller: scrollController,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
