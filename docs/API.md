@@ -99,49 +99,38 @@ Rotates the refresh token and returns a fresh access token. Invalidates the prev
   "refreshToken": "4a18b76e..."
 }
 ```
-- **Response `200 OK`**:
-```json
-{
-  "success": true,
-  "message": "Session refreshed successfully.",
-  "accessToken": "eyJhbGciOi...",
-  "refreshToken": "88ef12..."
-}
-```
 
 ### `POST /api/v1/auth/logout`
-Revokes the refresh session.
+Revokes the refresh token and invalidates the session.
 - **Request Body**:
 ```json
 {
-  "refreshToken": "88ef12..."
+  "refreshToken": "4a18b76e..."
 }
 ```
 
 ### `GET /api/v1/auth/me`
-Requires `Authorization: Bearer <accessToken>`.
-Returns authenticated profile and active paper account ID.
+Requires authentication. Returns current user profile and linked virtual paper account.
 
 ---
 
-## 3. Paper Accounts & Capital (`/api/v1/paper-account`)
+## 3. Paper Trading Accounts (`/api/v1/paper-account`)
 
 ### `GET /api/v1/paper-account`
-Requires authentication. Returns current virtual balance, cash available, and simulated disclaimer.
+Requires authentication. Retrieves user's sandbox balance, available cash, and reserved margin.
 - **Response `200 OK`**:
 ```json
 {
   "success": true,
   "account": {
     "id": "671fb0a456...",
-    "accountName": "Sandbox v2.4 (Default)",
-    "baseCurrency": "INR",
-    "startingCapital": 1000000.00,
-    "availableCash": 425000.00,
+    "userId": "671fb0a123...",
+    "availableCash": 1000000.00,
     "reservedMargin": 0.00,
+    "startingCapital": 1000000.00,
+    "currency": "INR",
     "isSimulated": true,
-    "disclaimer": "Fictional capital for paper trading simulation only. No real funds.",
-    "status": "ACTIVE"
+    "disclaimer": "This account uses virtual paper funds. No real money is at risk."
   }
 }
 ```
@@ -158,7 +147,144 @@ Requires authentication. Resets sandbox funds back to user-chosen capital (₹5L
 
 ---
 
-## 4. Portfolio & Orders (`/api/v1/portfolio`)
+## 4. Virtual Trading Engine (`/api/v1/orders`)
+
+Server-authoritative simulated order execution with Zerodha-style fee and tax structures, realistic slippage, leverage, and margin reservation.
+
+### `POST /api/v1/orders`
+Places a paper-trading order.
+- **Request Body**:
+```json
+{
+  "symbol": "RELIANCE",
+  "exchange": "NSE",
+  "side": "BUY",
+  "orderType": "MARKET",
+  "product": "CNC",
+  "quantity": 10,
+  "limitPrice": 2945.50,
+  "triggerPrice": null,
+  "idempotencyKey": "req_1730123456_RELIANCE"
+}
+```
+- **Order Types**: `MARKET`, `LIMIT`, `SL`, `SL_M`
+- **Products**:
+  - `CNC` (Delivery): 1x margin required, added to delivery holdings.
+  - `MIS` (Intraday): 5x leverage ($20\%$ initial margin requirement), tracked as intraday position.
+- **Response `201 Created`**:
+```json
+{
+  "success": true,
+  "message": "Order executed and filled successfully.",
+  "order": {
+    "id": "671fb34098...",
+    "symbol": "RELIANCE",
+    "exchange": "NSE",
+    "side": "BUY",
+    "orderType": "MARKET",
+    "product": "CNC",
+    "quantity": 10,
+    "status": "FILLED",
+    "filledQuantity": 10,
+    "averagePrice": 2946.97,
+    "isSimulated": true
+  },
+  "execution": {
+    "executionPrice": 2946.97,
+    "slippage": 1.47,
+    "fees": 49.47,
+    "feeBreakdown": {
+      "brokerage": 20.00,
+      "stt": 29.47,
+      "exchangeFee": 0.96,
+      "gst": 3.77
+    },
+    "isSimulated": true
+  }
+}
+```
+
+### `GET /api/v1/orders`
+Retrieves user's order history with optional `?status=` and `?symbol=` filtering.
+
+### `GET /api/v1/orders/:id`
+Retrieves a single order by ID with its execution history.
+
+### `POST /api/v1/orders/:id/cancel`
+Cancels an open order if status is `PENDING` or `PARTIALLY_FILLED`. Releases reserved margin back to available cash.
+
+### `GET /api/v1/orders/executions/history`
+Returns detailed trade execution records with fill prices, slippage, and fee breakdowns.
+
+### `GET /api/v1/orders/account/ledger`
+Returns complete double-entry auditable ledger entries for balance tracking, deposits, order executions, cancellations, and fees.
+
+---
+
+## 5. Multi-Asset Market Data Bus (`/api/v1/market-data`)
+
+Provider-independent market data architecture covering Indian equities, MCX commodities, US stocks, and 24/7 crypto. All prices carry explicit simulation flags.
+
+### `GET /api/v1/market-data/instruments`
+Returns the master list of all supported tradeable instruments.
+
+### `GET /api/v1/market-data/quotes`
+Returns latest real-time simulated quotes, percentage changes, day high/low, and volume across all instruments.
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "count": 10,
+  "quotes": [
+    {
+      "symbol": "RELIANCE",
+      "name": "Reliance Industries Ltd.",
+      "exchange": "NSE",
+      "category": "EQUITY",
+      "price": 2945.50,
+      "change": 18.40,
+      "changePercent": 0.63,
+      "high": 2962.00,
+      "low": 2928.00,
+      "volume": 3450200,
+      "status": "SIMULATED",
+      "timestamp": "2026-10-28T14:00:00.000Z"
+    }
+  ]
+}
+```
+
+### `GET /api/v1/market-data/quote/:symbol`
+Returns quote for a specific ticker symbol (e.g. `RELIANCE`, `BTC/USDT`, `NVDA`).
+
+### `GET /api/v1/market-data/candles/:symbol?interval=15m&limit=45`
+Generates deterministic OHLCV candlestick series for charting.
+- **Supported intervals**: `1m`, `5m`, `15m`, `1h`, `1d`, `1w`
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "symbol": "RELIANCE",
+  "interval": "15m",
+  "candles": [
+    {
+      "timestamp": 1730121600,
+      "open": 2938.00,
+      "high": 2949.50,
+      "low": 2935.20,
+      "close": 2945.50,
+      "volume": 24500
+    }
+  ]
+}
+```
+
+### `GET /api/v1/market-data/status`
+Returns market session statuses for NSE, BSE, MCX, US markets, and 24/7 Crypto.
+
+---
+
+## 6. Portfolio & Holdings (`/api/v1/portfolio`)
 
 ### `GET /api/v1/portfolio`
 Requires authentication. Computes live valuation of virtual holdings, unrealized P&L, and returns overall account status.
@@ -192,12 +318,9 @@ Requires authentication. Computes live valuation of virtual holdings, unrealized
 }
 ```
 
-### `GET /api/v1/portfolio/orders`
-Retrieves user's simulated orders with optional `?status=PENDING|FILLED|CANCELLED|REJECTED` filter.
-
 ---
 
-## 5. Watchlists (`/api/v1/watchlists`)
+## 7. Watchlists (`/api/v1/watchlists`)
 
 ### `GET /api/v1/watchlists`
 Retrieves user's watchlists and custom lists.
@@ -214,6 +337,3 @@ Creates a new custom watchlist.
 
 ### `DELETE /api/v1/watchlists/:id`
 Deletes a custom watchlist (enforces ownership; default watchlist cannot be deleted).
-
-### `POST /api/v1/watchlists/:id/symbols`
-Adds a ticker symbol to a watchlist.

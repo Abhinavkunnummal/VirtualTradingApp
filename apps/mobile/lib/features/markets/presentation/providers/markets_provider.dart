@@ -4,6 +4,23 @@ import '../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/market_models.dart';
 
 final marketOverviewProvider = FutureProvider<List<InstrumentModel>>((ref) async {
+  final authState = ref.watch(authProvider);
+
+  if (!authState.isDemoMode) {
+    final apiClient = ref.watch(apiClientProvider);
+    try {
+      final response = await apiClient.get('/market-data/quotes');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final list = response.data['quotes'] as List<dynamic>? ?? [];
+        if (list.isNotEmpty) {
+          return list.map((q) => InstrumentModel.fromJson(q as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (_) {
+      // Fallback to baseline demo instruments if backend unreachable
+    }
+  }
+
   // Demo baseline instruments (explicitly labelled)
   return const [
     InstrumentModel(

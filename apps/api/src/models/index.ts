@@ -6,3 +6,4 @@ export * from './Instrument';
 export * from './Order';
 export * from './Execution';
 export * from './Holding';
+export * from './LedgerEntry';

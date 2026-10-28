@@ -10,6 +10,14 @@ export type OrderType = 'MARKET' | 'LIMIT' | 'SL' | 'SL_M';
 export type ProductType = 'CNC' | 'MIS'; // CNC = Delivery, MIS = Intraday (5x leverage)
 export type OrderStatus = 'PENDING' | 'FILLED' | 'REJECTED' | 'CANCELLED';
 export type DataFreshness = 'LIVE' | 'DELAYED' | 'SIMULATED';
+export type CandleInterval = '1m' | '5m' | '15m' | '1h' | '1d' | '1w';
+export type LedgerEntryType =
+  | 'CAPITAL_INIT'
+  | 'CAPITAL_RESET'
+  | 'MARGIN_RESERVE'
+  | 'MARGIN_RELEASE'
+  | 'TRADE_FILL'
+  | 'FEE_DEDUCTION';
 
 // ==========================================
 // Instrument & Market Data Models
@@ -25,7 +33,7 @@ export interface Instrument {
   description?: string;
 }
 
-export interface TickerSnapshot {
+export interface Quote {
   symbol: string;
   name: string;
   exchange: ExchangeType;
@@ -37,9 +45,28 @@ export interface TickerSnapshot {
   low: number;
   close: number;
   volume: number;
+  bid: number;
+  ask: number;
   currency: string;
   status: DataFreshness;
   timestamp: string;
+}
+
+export interface Candle {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface MarketStatus {
+  exchange: ExchangeType;
+  isOpen: boolean;
+  session: 'REGULAR' | 'PRE_MARKET' | 'POST_MARKET' | 'CLOSED' | '24_7';
+  timezone: string;
+  serverTime: string;
 }
 
 // ==========================================
@@ -52,12 +79,10 @@ export interface VirtualAccount {
   currency: string;
   startingCapital: number;
   cashBalance: number;
-  investedExposure: number;
+  reservedMargin: number;
   totalPortfolioValue: number;
   totalPnl: number;
   totalPnlPercent: number;
-  todaysPnl: number;
-  todaysPnlPercent: number;
   isSimulated: true;
   updatedAt: string;
 }
@@ -97,7 +122,7 @@ export interface Position {
 export interface PaperOrder {
   id: string;
   userId: string;
-  virtualAccountId: string;
+  paperAccountId: string;
   symbol: string;
   exchange: ExchangeType;
   side: OrderSide;
@@ -105,7 +130,7 @@ export interface PaperOrder {
   product: ProductType;
   quantity: number;
   filledQuantity: number;
-  price?: number;
+  limitPrice?: number;
   triggerPrice?: number;
   averagePrice?: number;
   status: OrderStatus;
@@ -119,14 +144,43 @@ export interface PaperOrder {
   updatedAt: string;
 }
 
+export interface ExecutionRecord {
+  id: string;
+  orderId: string;
+  userId: string;
+  paperAccountId: string;
+  symbol: string;
+  exchange: ExchangeType;
+  side: OrderSide;
+  executionPrice: number;
+  executedQuantity: number;
+  fees: number;
+  slippage: number;
+  isSimulated: boolean;
+  priceSource: string;
+  timestamp: string;
+}
+
+export interface LedgerEntry {
+  id: string;
+  userId: string;
+  paperAccountId: string;
+  orderId?: string;
+  type: LedgerEntryType;
+  amount: number;
+  balanceAfter: number;
+  description: string;
+  timestamp: string;
+}
+
 // ==========================================
 // Zod Validation Schemas
 // ==========================================
 export const RegisterSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  name: z.string().min(2),
-  initialVirtualCapital: z.number().min(10000).max(100000000).default(1000000),
+  displayName: z.string().min(2),
+  startingCapital: z.number().min(10000).max(100000000).default(1000000),
 });
 
 export const LoginSchema = z.object({
@@ -135,15 +189,24 @@ export const LoginSchema = z.object({
 });
 
 export const SubmitOrderSchema = z.object({
-  symbol: z.string().min(1),
+  symbol: z.string().min(1).trim().toUpperCase(),
   exchange: z.enum(['NSE', 'BSE', 'MCX', 'US', 'CRYPTO']).default('NSE'),
   side: z.enum(['BUY', 'SELL']),
   orderType: z.enum(['MARKET', 'LIMIT', 'SL', 'SL_M']),
   product: z.enum(['CNC', 'MIS']).default('CNC'),
-  quantity: z.number().int().positive(),
-  price: z.number().positive().optional(),
+  quantity: z.number().int().positive('Quantity must be at least 1'),
+  limitPrice: z.number().positive().optional(),
   triggerPrice: z.number().positive().optional(),
   idempotencyKey: z.string().optional(),
+});
+
+export const CancelOrderSchema = z.object({
+  reason: z.string().optional(),
+});
+
+export const CandlesQuerySchema = z.object({
+  interval: z.enum(['1m', '5m', '15m', '1h', '1d', '1w']).default('15m'),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
 export const AiAnalysisRequestSchema = z.object({

@@ -8,6 +8,8 @@ import { authRouter } from './modules/auth/auth.routes';
 import { paperAccountRouter } from './modules/paper-accounts/paperAccount.routes';
 import { portfolioRouter } from './modules/portfolio/portfolio.routes';
 import { watchlistRouter } from './modules/watchlists/watchlist.routes';
+import { ordersRouter } from './modules/orders/orders.routes';
+import { marketDataRouter } from './modules/market-data/marketData.routes';
 
 export function createApp(): express.Application {
   const app = express();
@@ -57,6 +59,8 @@ export function createApp(): express.Application {
   apiV1Router.use('/paper-account', paperAccountRouter);
   apiV1Router.use('/portfolio', portfolioRouter);
   apiV1Router.use('/watchlists', watchlistRouter);
+  apiV1Router.use('/orders', ordersRouter);
+  apiV1Router.use('/market-data', marketDataRouter);
 
   app.use('/api/v1', apiV1Router);
 

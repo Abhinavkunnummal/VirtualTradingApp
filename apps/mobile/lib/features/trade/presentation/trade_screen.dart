@@ -1,112 +1,327 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../markets/presentation/providers/markets_provider.dart';
+import 'widgets/candlestick_chart_view.dart';
+import 'providers/order_provider.dart';
+import '../../portfolio/presentation/providers/portfolio_provider.dart';
 
-class TradeScreen extends StatefulWidget {
+class TradeScreen extends ConsumerStatefulWidget {
   const TradeScreen({super.key});
 
   @override
-  State<TradeScreen> createState() => _TradeScreenState();
+  ConsumerState<TradeScreen> createState() => _TradeScreenState();
 }
 
-class _TradeScreenState extends State<TradeScreen> {
+class _TradeScreenState extends ConsumerState<TradeScreen> {
   bool _isBuy = true;
   String _product = 'CNC'; // CNC (Delivery) or MIS (Intraday)
   String _orderType = 'MARKET'; // MARKET, LIMIT, SL, SL_M
   int _quantity = 10;
-  double _price = 2945.50;
-  final double _ltp = 2945.50;
-  final double _availableMargin = 425000.00;
+  double? _customPrice;
+  bool _isSubmitting = false;
 
-  double get _requiredMargin {
-    final raw = _quantity * (_orderType == 'MARKET' ? _ltp : _price);
+  double _getRequiredMargin(double currentLtp) {
+    final effectivePrice = _orderType == 'MARKET' ? currentLtp : (_customPrice ?? currentLtp);
+    final raw = _quantity * effectivePrice;
     return _product == 'MIS' ? raw / 5 : raw; // 5x leverage for MIS
   }
 
   double get _brokerage => 20.00;
-  double get _taxes => _requiredMargin * 0.001; // ~0.1% simulated taxes
+  double _getTaxes(double currentLtp) => _getRequiredMargin(currentLtp) * 0.001;
 
-  void _executeOrder() {
-    final total = _requiredMargin + _brokerage + _taxes;
-    if (total > _availableMargin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppColors.errorContainer,
-          content: Text('Order rejected: Insufficient virtual margin in Sandbox account.'),
+  Future<void> _executeOrder(String symbol, String exchange, double currentLtp) async {
+    setState(() => _isSubmitting = true);
+
+    try {
+      final effectivePrice = _orderType == 'MARKET' ? null : (_customPrice ?? currentLtp);
+
+      final result = await ref.read(submitOrderProvider).submitOrder(
+            symbol: symbol,
+            exchange: exchange,
+            side: _isBuy ? 'BUY' : 'SELL',
+            orderType: _orderType,
+            product: _product,
+            quantity: _quantity,
+            limitPrice: effectivePrice,
+          );
+
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+
+      final isSuccess = result['success'] == true;
+      final message = result['message'] as String? ?? 'Execution status';
+      final execution = result['execution'] as Map<String, dynamic>?;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surfaceContainer,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppColors.borderSubtle),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                isSuccess ? Icons.check_circle : Icons.error,
+                color: isSuccess ? (_isBuy ? AppColors.secondary : AppColors.tertiary) : AppColors.error,
+              ),
+              const SizedBox(width: 8),
+              Text(isSuccess ? 'Simulated Order Filled' : 'Order Rejected', style: AppTypography.headlineSm),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${_isBuy ? 'BUY' : 'SELL'} $_quantity Shares of $symbol ($_product)',
+                style: AppTypography.bodyLg.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              if (execution != null) ...[
+                Text('Fill Price: ₹${execution['executionPrice']}', style: AppTypography.numericTable),
+                Text('Slippage: ₹${execution['slippage']}', style: AppTypography.bodyMd),
+                Text('Brokerage & Fees: ₹${execution['fees']}', style: AppTypography.bodyMd),
+              ],
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceLowest,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  message,
+                  style: AppTypography.labelSm.copyWith(
+                    color: isSuccess ? AppColors.onSurface : AppColors.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Done', style: AppTypography.labelMd.copyWith(color: AppColors.primary)),
+            ),
+          ],
         ),
       );
-      return;
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(backgroundColor: AppColors.errorContainer, content: Text(e.toString())),
+        );
+      }
     }
+  }
 
-    showDialog(
+  void _showOrderHistorySheet() {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.borderSubtle),
-        ),
-        title: Row(
-          children: [
-            Icon(
-              _isBuy ? Icons.check_circle : Icons.remove_circle,
-              color: _isBuy ? AppColors.secondary : AppColors.tertiary,
+      backgroundColor: AppColors.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final historyAsync = ref.watch(orderHistoryProvider);
+
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Simulated Order Book', style: AppTypography.headlineSm),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: historyAsync.when(
+                    data: (orders) {
+                      if (orders.isEmpty) {
+                        return Center(
+                          child: Text('No orders placed yet.', style: AppTypography.bodyMd),
+                        );
+                      }
+                      return ListView.separated(
+                        itemCount: orders.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final o = orders[index];
+                          final isBuy = o['side'] == 'BUY';
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceLowest,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.borderSubtle),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '${o['side']} ${o['quantity']} ${o['symbol']}',
+                                          style: AppTypography.bodyLg.copyWith(
+                                            color: isBuy ? AppColors.secondary : AppColors.tertiary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.surfaceContainer,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(o['orderType'] as String? ?? 'MARKET', style: AppTypography.labelSm.copyWith(fontSize: 9)),
+                                        ),
+                                      ],
+                                    ),
+                                    Text('Status: ${o['status']}', style: AppTypography.labelSm),
+                                  ],
+                                ),
+                                Text(
+                                  o['averagePrice'] != null ? '₹${o['averagePrice']}' : 'Market',
+                                  style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Center(child: Text(err.toString(), style: AppTypography.bodyMd)),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text('Order Executed', style: AppTypography.headlineSm),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${_isBuy ? 'BUY' : 'SELL'} $_quantity Shares of RELIANCE ($_product)',
-              style: AppTypography.bodyLg.copyWith(fontWeight: FontWeight.w600),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showInstrumentPickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final marketsAsync = ref.watch(marketOverviewProvider);
+
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Select Instrument', style: AppTypography.headlineSm),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: marketsAsync.when(
+                    data: (instruments) => ListView.separated(
+                      itemCount: instruments.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 6),
+                      itemBuilder: (context, index) {
+                        final inst = instruments[index];
+                        final currency = inst.category == 'US' || inst.category == 'CRYPTO' ? '\$' : '₹';
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                          tileColor: AppColors.surfaceLowest,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: const BorderSide(color: AppColors.borderSubtle),
+                          ),
+                          onTap: () {
+                            ref.read(selectedTradeInstrumentProvider.notifier).state = inst;
+                            setState(() => _customPrice = null);
+                            Navigator.of(ctx).pop();
+                          },
+                          title: Row(
+                            children: [
+                              Text(inst.symbol, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
+                              const SizedBox(width: 6),
+                              Text(inst.exchange, style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                            ],
+                          ),
+                          subtitle: Text(inst.name, style: AppTypography.bodyMd.copyWith(fontSize: 11)),
+                          trailing: Text(
+                            '$currency${inst.price.toStringAsFixed(2)}',
+                            style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      },
+                    ),
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Center(child: Text(err.toString(), style: AppTypography.bodyMd)),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text('Execution Price: ₹$_ltp', style: AppTypography.numericTable),
-            Text('Order Type: $_orderType', style: AppTypography.bodyMd),
-            Text('Brokerage: ₹${_brokerage.toStringAsFixed(2)} (Simulated)', style: AppTypography.bodyMd),
-            Text('Estimated Net Cost: ₹${total.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceLowest,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                'Simulated order settled in virtual portfolio. Fictional balance updated.',
-                style: AppTypography.labelSm.copyWith(color: AppColors.outline),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Done', style: AppTypography.labelMd.copyWith(color: AppColors.primary)),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final instrument = ref.watch(selectedTradeInstrumentProvider);
+    final candlesAsync = ref.watch(candlesProvider(instrument.symbol));
+    final interval = ref.watch(selectedCandleIntervalProvider);
+    final portfolioAsync = ref.watch(portfolioProvider);
+
+    final availableCash = portfolioAsync.valueOrNull?.availableCash ?? 1000000.0;
+    final ltp = instrument.price;
+    final currency = instrument.category == 'US' || instrument.category == 'CRYPTO' ? '\$' : '₹';
+    final priceToUse = _customPrice ?? ltp;
+    final requiredMargin = _getRequiredMargin(ltp);
+    final taxes = _getTaxes(ltp);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('Order Ticket & Execution', style: AppTypography.headlineSm),
         actions: [
           IconButton(
-            icon: const Icon(Icons.show_chart),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Interactive Candlestick Chart Drawer')),
-              );
-            },
+            icon: const Icon(Icons.swap_horiz),
+            tooltip: 'Change Instrument',
+            onPressed: _showInstrumentPickerSheet,
+          ),
+          IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: 'Order History',
+            onPressed: _showOrderHistorySheet,
           ),
         ],
       ),
@@ -127,42 +342,68 @@ class _TradeScreenState extends State<TradeScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text('RELIANCE', style: AppTypography.headlineSm),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceHighest,
-                              borderRadius: BorderRadius.circular(4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(instrument.symbol, style: AppTypography.headlineSm),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceHighest,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text('${instrument.category} ${instrument.exchange}', style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
                             ),
-                            child: Text('EQ NSE', style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text('Reliance Industries Ltd.', style: AppTypography.bodyMd),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(instrument.name, style: AppTypography.bodyMd, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('₹2,945.50', style: AppTypography.numericTicker),
+                      Text('$currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTicker),
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          const Icon(Icons.arrow_drop_up, size: 16, color: AppColors.secondary),
-                          Text('+18.40 (+0.63%)', style: AppTypography.numericTable.copyWith(color: AppColors.secondary, fontSize: 11)),
+                          Icon(
+                            instrument.isPositive ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                            size: 16,
+                            color: instrument.isPositive ? AppColors.secondary : AppColors.tertiary,
+                          ),
+                          Text(
+                            '${instrument.isPositive ? '+' : ''}${instrument.change.toStringAsFixed(2)} (${instrument.changePercent.toStringAsFixed(2)}%)',
+                            style: AppTypography.numericTable.copyWith(
+                              color: instrument.isPositive ? AppColors.secondary : AppColors.tertiary,
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 12),
+
+            // Candlestick Chart View
+            CandlestickChartView(
+              symbol: instrument.symbol,
+              candles: candlesAsync.valueOrNull ?? [],
+              isLoading: candlesAsync.isLoading,
+              errorMessage: candlesAsync.hasError ? candlesAsync.error.toString() : null,
+              selectedInterval: interval,
+              onIntervalChanged: (newInterval) {
+                ref.read(selectedCandleIntervalProvider.notifier).state = newInterval;
+              },
+              onRetry: () => ref.refresh(candlesProvider(instrument.symbol)),
             ),
             const SizedBox(height: 16),
 
@@ -252,7 +493,7 @@ class _TradeScreenState extends State<TradeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Order Type (Market, Limit, SL, SL-M)
+            // Execution Mode (Market, Limit, SL, SL-M)
             Text('Execution Mode', style: AppTypography.labelSm),
             const SizedBox(height: 6),
             Row(
@@ -335,7 +576,7 @@ class _TradeScreenState extends State<TradeScreen> {
 
             // Limit Price (if not market)
             if (_orderType != 'MARKET') ...[
-              Text('Limit Price (₹)', style: AppTypography.labelSm),
+              Text('Limit Price ($currency)', style: AppTypography.labelSm),
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -349,12 +590,12 @@ class _TradeScreenState extends State<TradeScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.remove, color: AppColors.onSurface),
-                      onPressed: () => setState(() => _price -= 0.50),
+                      onPressed: () => setState(() => _customPrice = priceToUse - 0.50),
                     ),
-                    Text('₹${_price.toStringAsFixed(2)}', style: AppTypography.numericTicker),
+                    Text('$currency${priceToUse.toStringAsFixed(2)}', style: AppTypography.numericTicker),
                     IconButton(
                       icon: const Icon(Icons.add, color: AppColors.onSurface),
-                      onPressed: () => setState(() => _price += 0.50),
+                      onPressed: () => setState(() => _customPrice = priceToUse + 0.50),
                     ),
                   ],
                 ),
@@ -372,17 +613,17 @@ class _TradeScreenState extends State<TradeScreen> {
               ),
               child: Column(
                 children: [
-                  _buildAuditRow('Required Margin', '₹${_requiredMargin.toStringAsFixed(2)}', isBold: true),
+                  _buildAuditRow('Required Margin', '$currency${requiredMargin.toStringAsFixed(2)}', isBold: true),
                   const SizedBox(height: 6),
-                  _buildAuditRow('Available Virtual Margin', '₹${_availableMargin.toStringAsFixed(2)}'),
+                  _buildAuditRow('Available Virtual Margin', '$currency${availableCash.toStringAsFixed(2)}'),
                   const SizedBox(height: 6),
-                  _buildAuditRow('Simulated Brokerage', '₹${_brokerage.toStringAsFixed(2)}'),
+                  _buildAuditRow('Simulated Brokerage', '$currency${_brokerage.toStringAsFixed(2)}'),
                   const SizedBox(height: 6),
-                  _buildAuditRow('Simulated STT & Charges', '₹${_taxes.toStringAsFixed(2)}'),
+                  _buildAuditRow('Simulated STT & Charges', '$currency${taxes.toStringAsFixed(2)}'),
                   const Divider(color: AppColors.borderSubtle, height: 16),
                   _buildAuditRow(
                     'Total Simulated Outlay',
-                    '₹${(_requiredMargin + _brokerage + _taxes).toStringAsFixed(2)}',
+                    '$currency${(requiredMargin + _brokerage + taxes).toStringAsFixed(2)}',
                     isPrimary: true,
                   ),
                 ],
@@ -401,15 +642,17 @@ class _TradeScreenState extends State<TradeScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 4,
                 ),
-                onPressed: _executeOrder,
-                child: Text(
-                  _isBuy ? 'Simulate BUY Order' : 'Simulate SELL Order',
-                  style: AppTypography.headlineSm.copyWith(
-                    fontSize: 16,
-                    color: _isBuy ? AppColors.surfaceLowest : Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                onPressed: _isSubmitting ? null : () => _executeOrder(instrument.symbol, instrument.exchange, ltp),
+                child: _isSubmitting
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text(
+                        _isBuy ? 'Place Simulated BUY Order' : 'Place Simulated SELL Order',
+                        style: AppTypography.headlineSm.copyWith(
+                          fontSize: 16,
+                          color: _isBuy ? AppColors.surfaceLowest : Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
             const SizedBox(height: 32),
