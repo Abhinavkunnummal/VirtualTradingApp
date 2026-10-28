@@ -9,67 +9,64 @@
 | **Phase 3** | Node.js Backend, TypeScript Config, MongoDB Models & JWT Authentication | **Completed** | Validated config, 8 Mongoose models, Argon2id/Bcrypt + JWT refresh rotation, Paper Account, Portfolio & Watchlist endpoints, 16/16 backend tests passed (`d10d86b`) |
 | **Phase 4** | Virtual Trading Engine, Margin/Leverage Simulation, Holdings & P&L | **Completed** | Server-authoritative engine (Market, Limit, SL, SL-M), CNC delivery vs MIS intraday (5x leverage), slippage & Zerodha fee engine, idempotency, auditable ledger, 29/29 tests passed (`9eb0bee`) |
 | **Phase 5** | Multi-Asset Market Data Bus, Watchlists & Interactive Candlestick Charts | **Completed** | Multi-asset quote/candle service (NSE, BSE, MCX, US, Crypto), custom CandlestickChartView with crosshairs & timeframes, dynamic instrument switcher, SIMULATED badge (`9eb0bee`) |
-| **Phase 6** | AI Trading Assistant (Educational Scenarios, Risk Evaluator) & News Feed | **Completed** | AI concept explainer, pre-trade risk evaluation, portfolio concentration review, prompt injection defenses, curated news pulse, 48/48 backend tests passed |
-| **Phase 7** | Real-Time Chat Rooms, Socket.IO WebSockets & Community Floor | **Completed** | Socket.IO server, JWT handshake authentication, private room isolation (`user:<userId>`), public channels (`room:general`, `room:nifty`), message CRUD & ownership enforcement, 2-tab Flutter Community screen |
-| **Phase 8** | End-to-End Verification, Security Audits, Deployment & APK Cloud Build Verification | In Progress | Cloud CI verification & APK generation |
+| **Phase 6** | AI Trading Assistant (Educational Scenarios, Risk Evaluator) & News Feed | **Completed** | AI concept explainer, pre-trade risk evaluation, portfolio concentration review, prompt injection defenses, curated news pulse, 48/48 backend tests passed (`665670e`) |
+| **Phase 7** | Real-Time Chat Rooms, Socket.IO WebSockets & Community Floor | **Completed** | Socket.IO server, JWT handshake authentication, private room isolation (`user:<userId>`), public channels (`room:general`, `room:nifty`), message CRUD & ownership enforcement, 2-tab Flutter Community screen (`665670e`) |
+| **Phase 8** | Release Readiness, Security Audit, Trading Correctness & Cloud CI/CD Artifact Verification | **Completed** | All 3 cloud workflows passed: Backend CI (57/57 tests), Flutter CI (strict analysis & widget tests), Flutter Android Build (`app-debug.apk` 85.9 MB artifact verified) (`029df7b`) |
 
 ---
 
-## Phase 6 & 7 Completed Features
+## Phase 8 — Cloud CI/CD & Build Verification Matrix
 
-### Phase 6 — AI Trading Assistant
-1. **Educational Concept Explainer**:
-   - Covers technical indicators (RSI, MACD, Bollinger Bands, Moving Averages), candlestick patterns (Bullish/Bearish Engulfing, Doji, Hammer), order types (Market, Limit, SL, SL-M), and margin leverage (MIS 5x leverage).
-   - Generates simple explanations, key takeaways, bullish/bearish scenario modeling, and risk factors.
-   - Enforces strict educational disclaimers: *"Educational use only. Not financial advice. TradeVerse AI never executes real-money trades or autonomous orders."*
-2. **Pre-Trade Risk Review**:
-   - Takes proposed trade params and calculates turnover, margin requirement (5x leverage for MIS), Zerodha-style fee breakdown (brokerage, STT, exchange charges, GST), slippage assumptions (0.05%), and downside stress tests (2% and 5% adverse moves).
-   - Assigns dynamic risk rating (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
-3. **Portfolio Concentration & Volatility Review**:
-   - Analyzes authenticated user's portfolio and holdings in MongoDB.
-   - Computes single-asset concentration, cash buffer adequacy, and asset class allocation.
-   - Strict user privacy isolation: Users cannot access or review another user's portfolio.
-4. **Safety & Injection Defenses**:
-   - Validates all requests with Zod schemas.
-   - Blocks prompt injection attempts (e.g. `ignore all previous instructions`, `execute trade`, `system override`) with explicit 400 security errors.
-   - Never calls order placement endpoints from AI-generated actions.
-5. **Curated Market News Pulse**:
-   - Summarizes verified market news with sentiment analysis (`BULLISH`, `BEARISH`, `NEUTRAL`) and source citations (RBI, NSE Sector Pulse, MCX Wire).
+All continuous integration workflows run on GitHub Actions cloud runners without requiring any local Flutter SDK or Android Studio installation on the host machine:
 
-### Phase 7 — Real-Time Events & Community
-1. **Socket.IO Integration & Architecture**:
-   - Authenticated WebSocket handshake via JWT token in `socket.handshake.auth.token` or `Authorization` header.
-   - User private room isolation: Authenticated connections join `user:<userId>`. Private order status updates (`order_update`) and trade executions (`execution_notice`) are emitted strictly to this room.
-   - Public discussion room subscriptions (`room:general`, `room:nifty`, `room:crypto`, `room:commodities`, `room:ai_insights`).
-   - Ticker price subscriptions (`ticker:<symbol>`).
-2. **Community Discussion Floor**:
-   - `CommunityRoom` and `CommunityMessage` Mongoose models with indexes.
-   - Message creation with HTML/script tag sanitization and 1000-character limits.
-   - Sentiment badges (`BULLISH`, `BEARISH`, `NEUTRAL`), trade tags (e.g. `PAPER BUY • RELIANCE`), and like counters.
-   - Paginated message retrieval in chronological order.
-   - Ownership-based deletion enforcement (403 if attempting to delete another user's message).
-3. **Flutter UI Implementation**:
-   - 2-Tab `CommunityScreen` using Stitch design system tokens:
-     - **Tab 1: Trading Floor Rooms** — Room filter chips, live message stream, floating compose action, sentiment chips, and like counters.
-     - **Tab 2: AI Assistant & News** — Suggested prompt chips, interactive concept explanation cards, portfolio risk & concentration assessment, and curated news pulse.
-   - Dedicated widget test suite: `apps/mobile/test/community_and_ai_test.dart`.
+| Workflow | Run ID | Commit SHA | Status | Conclusion | Output & Verification Artifact |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Backend CI** | `40721253093` | `681742a` | `completed` | **`success`** | **57/57 Jest tests passed** across 8 test suites, TypeScript clean compilation |
+| **Flutter CI** | `40727860224` | `029df7b` | `completed` | **`success`** | Dependency resolution, code formatting, static analysis (`strict-casts`, `strict-inference`), **all 5 widget test suites passed** |
+| **Flutter Android Build** | `40727860502` | `029df7b` | `completed` | **`success`** | **`tradeverse-mobile-debug-apk`** (Artifact ID: `12834427134`, Size: **85.9 MB**) ready for smartphone installation |
+
+Direct workflow run URLs:
+- [Flutter Android Build Run #11](https://github.com/Abhinavkunnummal/VirtualTradingApp/actions/runs/40727860502)
+- [Flutter CI Run #11](https://github.com/Abhinavkunnummal/VirtualTradingApp/actions/runs/40727860224)
+- [Backend CI Run #4](https://github.com/Abhinavkunnummal/VirtualTradingApp/actions/runs/40721253093)
 
 ---
 
-## Test Verification Summary
+## Phase 8 — Security Audit & Hardening Report
 
-- **Backend Integration Tests**: **48/48 PASSED** across all 7 test suites:
-  - `tests/aiAssistant.test.ts` (Phase 6 AI tests)
-  - `tests/community.test.ts` (Phase 7 Community tests)
-  - `tests/tradingEngine.test.ts` (Phase 4 Order engine tests)
-  - `tests/marketData.test.ts` (Phase 5 Market data tests)
-  - `tests/paperAccount.test.ts` (Phase 3 Paper account tests)
-  - `tests/auth.test.ts` (Phase 3 Auth tests)
-  - `tests/health.test.ts` (Phase 1 Health tests)
-- **TypeScript Compilation**: Both `apps/api` and `packages/shared/api-contracts` compile with exit code 0.
-- **Flutter Widget Tests**:
-  - `apps/mobile/test/community_and_ai_test.dart`
-  - `apps/mobile/test/trade_flow_test.dart`
-  - `apps/mobile/test/widget_test.dart`
-  - `apps/mobile/test/auth_flow_test.dart`
-  - `apps/mobile/test/api_error_handling_test.dart`
+| Category | Severity | Finding & Threat Vector | Remediation & Defensive Implementation | Verified Status |
+| :--- | :---: | :--- | :--- | :---: |
+| **Session Security** | **CRITICAL** | Refresh Token Replay: Revoked or stolen refresh tokens could potentially be reused if not monitored. | Implemented automated family revocation compromise detection (`AuthService.rotateRefreshToken`). If a revoked token is replayed, ALL active sessions for that user family are revoked immediately. | **VERIFIED** (Regression test in `securityAndCorrectness.test.ts`) |
+| **Real-time Auth** | **HIGH** | WebSocket Channel Traversal: Malicious clients could subscribe to arbitrary rooms or attempt to listen to other users' private channels. | Implemented room boundary validation in `SocketService`. Only allowed room prefixes (`room:*`, `ticker:*`) are permitted. Subscriptions to `user:*` are blocked with authorization errors. | **VERIFIED** (Handshake & boundary validation active) |
+| **AI Safety** | **HIGH** | Prompt Injection & System Jailbreaks: Direct user input in the AI assistant could attempt to bypass constraints or request real order execution. | Implemented a multi-layered Prompt Guard (`AiService.guardPrompt`): strict 200-character limits, delimiter stripping (`[INST]`, `<|im_start|>`, `system:`), and rejection of command overrides. | **VERIFIED** (Regression test in `securityAndCorrectness.test.ts`) |
+| **Information Leak** | **MEDIUM** | Production Error Disclosure: Unhandled exceptions or database errors could leak internal table names or stack traces to clients. | Implemented production error redaction in `errorHandler.ts`. Database internals are sanitized; external clients receive generic messages while server logs retain details without credentials. | **VERIFIED** (Environment-aware error handling active) |
+| **Authorization** | **HIGH** | Insecure Direct Object References (IDOR): Users attempting to view or cancel orders or access portfolios belonging to other accounts. | Enforced strict `userId` binding from verified JWT claims on every query across orders, positions, watchlists, and community messages. | **VERIFIED** (Covered in `orders.routes.ts` & `tradingEngine.test.ts`) |
+| **Data Integrity** | **MEDIUM** | Ledger Auditability: Virtual capital resets without auditable ledger records could obscure simulated balance tracking. | Added automatic `CAPITAL_RESET` `LedgerEntry` creation during reset endpoints, recording previous balance, new balance, and reference timestamp. | **VERIFIED** (Regression test in `securityAndCorrectness.test.ts`) |
+
+---
+
+## Phase 8 — Trading Engine Correctness Verification
+
+1. **Idempotency & Duplicate Request Protection**:
+   - Every order submission accepts a unique `idempotencyKey`.
+   - Re-submitting an order with the same key returns the existing order record without creating duplicate fills or double-deducting virtual capital.
+2. **Atomic Virtual Cash Reservation**:
+   - Order placement checks available cash and reserves margin within the paper account model atomically.
+   - Buy orders lock required funds immediately; cancellations release reserved margin back to available cash.
+3. **Execution Semantics**:
+   - **Market Orders**: Executed immediately against simulated bid/ask quotes with realistic slippage (0.05%) and Zerodha-style transaction costs (brokerage, STT, exchange turnover fees, GST).
+   - **Limit Orders**: Queued with status `OPEN`; filled only when simulated price conditions meet the specified limit price.
+   - **Stop-Loss (SL & SL-M)**: Strictly validated trigger semantics (BUY trigger $\ge$ market, SELL trigger $\le$ market).
+4. **Position Aggregation & P&L**:
+   - Realized P&L calculated on partial or full closures using weighted average cost accounting.
+   - Unrealized P&L dynamically calculated based on current mark-to-market simulated quotes.
+
+---
+
+## Release Documentation & Deliverables
+
+- [Production Deployment Guide](file:///docs/DEPLOYMENT.md) — MongoDB Atlas indexing, backup strategy, environment variables, health check probes (`/health/liveness`, `/health/readiness`), and graceful shutdown.
+- [Mobile QA Smoke-Test Checklist](file:///docs/MOBILE_QA_CHECKLIST.md) — Step-by-step verification checklist for Android physical devices and emulators across all 7 operational flows.
+- [System Architecture](file:///docs/ARCHITECTURE.md) — Monorepo design, zero-local-Flutter cloud CI/CD, and data flow.
+- [API Specifications](file:///docs/API.md) — Complete REST and WebSocket API contracts.
+- [Stitch Design Integration](file:///docs/STITCH_INTEGRATION.md) — Catalog of 49 Stitch screens and design token mappings.
