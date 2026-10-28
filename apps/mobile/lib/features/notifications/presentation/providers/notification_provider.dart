@@ -15,8 +15,9 @@ class NotificationNotifier extends StateNotifier<AsyncValue<List<AppNotification
       final apiClient = _ref.read(apiClientProvider);
       final response = await apiClient.dio.get<Map<String, dynamic>>(ApiConstants.notifications);
 
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        final List<dynamic> notifsJson = response.data['notifications'] as List<dynamic>;
+      final data = response.data;
+      if (response.statusCode == 200 && data != null && data['success'] == true) {
+        final List<dynamic> notifsJson = data['notifications'] as List<dynamic>;
         final list = notifsJson
             .map((item) => AppNotification.fromJson(item as Map<String, dynamic>))
             .toList();

@@ -20,8 +20,9 @@ final newsProvider = FutureProvider<List<NewsArticle>>((ref) async {
       queryParameters: queryParams,
     );
 
-    if (response.statusCode == 200 && response.data['success'] == true) {
-      final List<dynamic> articlesJson = response.data['articles'] as List<dynamic>;
+    final data = response.data;
+    if (response.statusCode == 200 && data != null && data['success'] == true) {
+      final List<dynamic> articlesJson = data['articles'] as List<dynamic>;
       return articlesJson
           .map((item) => NewsArticle.fromJson(item as Map<String, dynamic>))
           .toList();
