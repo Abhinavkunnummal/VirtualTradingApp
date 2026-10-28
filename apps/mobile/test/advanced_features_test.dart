@@ -13,6 +13,8 @@ import 'package:tradeverse_mobile/features/portfolio/presentation/providers/port
 import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/trade_screen.dart';
 import 'package:tradeverse_mobile/features/home/presentation/home_dashboard_screen.dart';
+import 'package:tradeverse_mobile/features/notifications/domain/notification_models.dart';
+import 'package:tradeverse_mobile/features/notifications/presentation/providers/notification_provider.dart';
 
 class _MockAuthNotifier extends StateNotifier<AuthState> implements AuthNotifier {
   _MockAuthNotifier(super.state);
@@ -23,6 +25,14 @@ class _MockAuthNotifier extends StateNotifier<AuthState> implements AuthNotifier
 
 class _MockPortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> implements PortfolioNotifier {
   _MockPortfolioNotifier(PortfolioModel model) : super(AsyncValue.data(model));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockNotificationNotifier extends StateNotifier<AsyncValue<List<AppNotification>>>
+    implements NotificationNotifier {
+  _MockNotificationNotifier(List<AppNotification> items) : super(AsyncValue.data(items));
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -146,11 +156,23 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 
+    final testNotifs = [
+      AppNotification(
+        id: 'notif-test-1',
+        title: 'Order Filled: BUY 10 RELIANCE',
+        message: 'Executed @ ₹2,580.45. Paper order filled successfully.',
+        type: 'ORDER_FILL',
+        read: false,
+        createdAt: DateTime.now(),
+      ),
+    ];
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           authProvider.overrideWith((ref) => _MockAuthNotifier(AuthState.demoMode())),
           portfolioProvider.overrideWith((ref) => _MockPortfolioNotifier(PortfolioModel.demo())),
+          notificationsProvider.overrideWith((ref) => _MockNotificationNotifier(testNotifs)),
         ],
         child: const MaterialApp(
           home: HomeDashboardScreen(),
