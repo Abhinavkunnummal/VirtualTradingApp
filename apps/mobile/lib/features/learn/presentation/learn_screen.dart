@@ -37,18 +37,23 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryBrand.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'MODULE ${module.order} • ${module.category}',
-                      style: AppTypography.labelSm.copyWith(
-                        color: AppColors.primary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryBrand.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'MODULE ${module.order} • ${module.category}',
+                          style: AppTypography.labelSm.copyWith(
+                            color: AppColors.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -171,7 +176,13 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Quiz: ${module.title}', style: AppTypography.headlineSm.copyWith(fontSize: 16)),
+                    Expanded(
+                      child: Text(
+                        'Quiz: ${module.title}',
+                        style: AppTypography.headlineSm.copyWith(fontSize: 15),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.close, size: 20),
                       onPressed: () => Navigator.of(ctx).pop(),
@@ -328,12 +339,14 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
-                          const SizedBox(width: 8),
-                          Text('AI Trading Tutor', style: AppTypography.headlineSm),
-                        ],
+                      const Expanded(
+                        child: Row(
+                          children: [
+                            Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
+                            SizedBox(width: 8),
+                            Text('AI Trading Tutor', style: AppTypography.headlineSm),
+                          ],
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close, size: 20),
