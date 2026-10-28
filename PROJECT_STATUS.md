@@ -11,24 +11,25 @@
 | **Phase 5** | Multi-Asset Market Data Bus, Watchlists & Interactive Candlestick Charts | **Completed** | Multi-asset quote/candle service (NSE, BSE, MCX, US, Crypto), custom CandlestickChartView with crosshairs & timeframes, dynamic instrument switcher, SIMULATED badge (`9eb0bee`) |
 | **Phase 6** | AI Trading Assistant (Educational Scenarios, Risk Evaluator) & News Feed | **Completed** | AI concept explainer, pre-trade risk evaluation, portfolio concentration review, prompt injection defenses, curated news pulse, 48/48 backend tests passed (`665670e`) |
 | **Phase 7** | Real-Time Chat Rooms, Socket.IO WebSockets & Community Floor | **Completed** | Socket.IO server, JWT handshake authentication, private room isolation (`user:<userId>`), public channels (`room:general`, `room:nifty`), message CRUD & ownership enforcement, 2-tab Flutter Community screen (`665670e`) |
-| **Phase 8** | Release Readiness, Security Audit, Trading Correctness & Cloud CI/CD Artifact Verification | **Completed** | All 3 cloud workflows passed: Backend CI (57/57 tests), Flutter CI (strict analysis & widget tests), Flutter Android Build (`app-debug.apk` 85.9 MB artifact verified) (`029df7b`) |
+| **Phase 8** | Release Readiness, Security Audit, Trading Correctness & Cloud CI/CD Artifact Verification | **Completed** | All 3 cloud workflows passed: Backend CI (82/82 tests), Flutter CI (strict analysis & 7 widget tests), Flutter Android Build (`app-debug.apk` 86.0 MB artifact verified) (`2c3723a`) |
+| **Phase 9** | Railway Cloud Hosting, Advanced Orders (BO/CO/TSL), Real-time News & Notifications | **Completed** | Railway Dockerization & JSON, Bracket/Cover/Trailing SL engine, OCO logic, Live News Feed, In-app Notifications (`2c3723a`) |
 
 ---
 
-## Phase 8 — Cloud CI/CD & Build Verification Matrix
+## Phase 8 & 9 — Cloud CI/CD & Build Verification Matrix
 
 All continuous integration workflows run on GitHub Actions cloud runners without requiring any local Flutter SDK or Android Studio installation on the host machine:
 
 | Workflow | Run ID | Commit SHA | Status | Conclusion | Output & Verification Artifact |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Backend CI** | `40721253093` | `681742a` | `completed` | **`success`** | **57/57 Jest tests passed** across 8 test suites, TypeScript clean compilation |
-| **Flutter CI** | `40727860224` | `029df7b` | `completed` | **`success`** | Dependency resolution, code formatting, static analysis (`strict-casts`, `strict-inference`), **all 5 widget test suites passed** |
-| **Flutter Android Build** | `40727860502` | `029df7b` | `completed` | **`success`** | **`tradeverse-mobile-debug-apk`** (Artifact ID: `12834427134`, Size: **85.9 MB**) ready for smartphone installation |
+| **Backend CI** | `40750931557` | `a011d47` | `completed` | **`success`** | **82/82 Jest tests passed** across 11 test suites (including concurrency & OHLC benchmarks), TypeScript clean compilation |
+| **Flutter CI** | `40752721225` | `2c3723a` | `completed` | **`success`** | Dependency resolution, code formatting, static analysis (`strict-casts`, `strict-inference`), **all 7 widget test suites passed** |
+| **Flutter Android Build** | `40752721417` | `2c3723a` | `completed` | **`success`** | **`tradeverse-mobile-debug-apk`** (Artifact ID: `12845066047`, Size: **86.0 MB**) ready for smartphone installation |
 
 Direct workflow run URLs:
-- [Flutter Android Build Run #11](https://github.com/Abhinavkunnummal/VirtualTradingApp/actions/runs/40727860502)
-- [Flutter CI Run #11](https://github.com/Abhinavkunnummal/VirtualTradingApp/actions/runs/40727860224)
-- [Backend CI Run #4](https://github.com/Abhinavkunnummal/VirtualTradingApp/actions/runs/40721253093)
+- [Flutter Android Build Run #16](https://github.com/Abhinavkunnummal/VirtualTradingApp/actions/runs/40752721417)
+- [Flutter CI Run #16](https://github.com/Abhinavkunnummal/VirtualTradingApp/actions/runs/40752721225)
+- [Backend CI Run #6](https://github.com/Abhinavkunnummal/VirtualTradingApp/actions/runs/40750931557)
 
 ---
 
