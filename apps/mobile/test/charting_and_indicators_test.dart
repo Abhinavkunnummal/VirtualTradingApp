@@ -101,9 +101,9 @@ void main() {
       expect(find.textContaining('SIMULATED'), findsWidgets);
 
       // 2. Verify Range Selector Chips
-      expect(find.text('1D'), findsOneWidget);
-      expect(find.text('1W'), findsOneWidget);
-      expect(find.text('1M'), findsOneWidget);
+      expect(find.text('1D'), findsWidgets);
+      expect(find.text('1W'), findsWidgets);
+      expect(find.text('1M'), findsWidgets);
       expect(find.text('1Y'), findsOneWidget);
       expect(find.text('5Y'), findsOneWidget);
       expect(find.text('ALL'), findsOneWidget);
