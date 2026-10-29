@@ -67,6 +67,13 @@ class CandlestickChartView extends StatefulWidget {
     this.onRetry,
   });
 
+  static double calculateCandleWidth(double chartWidth, int candleCount, double zoom) {
+    if (candleCount <= 0 || chartWidth <= 0) return 8.0;
+    final visibleCount = candleCount > 32 ? 32.0 : math.max(candleCount.toDouble(), 12.0);
+    final baseWidth = (chartWidth / visibleCount).clamp(6.5, 20.0);
+    return baseWidth * zoom;
+  }
+
   @override
   State<CandlestickChartView> createState() => _CandlestickChartViewState();
 }
@@ -92,13 +99,6 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
   List<double?> _rsi14 = [];
   Map<String, List<double?>> _macd = {};
 
-  static double calculateCandleWidth(double chartWidth, int candleCount, double zoom) {
-    if (candleCount <= 0 || chartWidth <= 0) return 8.0;
-    final visibleCount = candleCount > 32 ? 32.0 : math.max(candleCount.toDouble(), 12.0);
-    final baseWidth = (chartWidth / visibleCount).clamp(6.5, 20.0);
-    return baseWidth * zoom;
-  }
-
   void _resetPan(double maxWidth) {
     if (widget.candles.isEmpty || maxWidth <= 0) {
       _panOffset = 0.0;
@@ -106,7 +106,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
     }
     const axisWidth = 54.0;
     final chartWidth = math.max(maxWidth - axisWidth, 50.0);
-    final candleWidth = calculateCandleWidth(chartWidth, widget.candles.length, _zoomScale);
+    final candleWidth = CandlestickChartView.calculateCandleWidth(chartWidth, widget.candles.length, _zoomScale);
     final totalWidth = widget.candles.length * candleWidth;
     if (totalWidth > chartWidth) {
       _panOffset = chartWidth - totalWidth - 10.0;
@@ -297,7 +297,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                               }
                               const axisWidth = 54.0;
                               final chartWidth = math.max(constraints.maxWidth - axisWidth, 50.0);
-                              final candleWidth = calculateCandleWidth(chartWidth, widget.candles.length, _zoomScale);
+                              final candleWidth = CandlestickChartView.calculateCandleWidth(chartWidth, widget.candles.length, _zoomScale);
 
                               return GestureDetector(
                                 onScaleStart: (details) {
@@ -487,7 +487,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
     if (widget.candles.isEmpty || width <= 0) return;
     const axisWidth = 54.0;
     final chartWidth = math.max(width - axisWidth, 50.0);
-    final candleWidth = calculateCandleWidth(chartWidth, widget.candles.length, _zoomScale);
+    final candleWidth = CandlestickChartView.calculateCandleWidth(chartWidth, widget.candles.length, _zoomScale);
     if (candleWidth <= 0) return;
 
     final adjustedX = touchX - _panOffset;
