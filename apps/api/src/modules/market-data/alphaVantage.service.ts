@@ -27,8 +27,14 @@ export class AlphaVantageService {
   private static readonly TTL_CANDLES = 15 * 60 * 1000; // 15 minutes
   private static readonly TTL_SEARCH = 60 * 60 * 1000; // 1 hour
 
+  private static overrideApiKey: string | null = null;
+
+  public static setApiKeyForTesting(key: string | null): void {
+    this.overrideApiKey = key;
+  }
+
   private static get apiKey(): string {
-    return config.alphaVantageApiKey || '';
+    return this.overrideApiKey ?? (config.alphaVantageApiKey || (config.isTest ? 'TEST_ALPHA_VANTAGE_KEY' : ''));
   }
 
   public static isConfigured(): boolean {
@@ -235,5 +241,6 @@ export class AlphaVantageService {
    */
   public static clearCache(): void {
     this.cache.clear();
+    this.overrideApiKey = null;
   }
 }
