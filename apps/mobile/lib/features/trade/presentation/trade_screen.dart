@@ -443,7 +443,8 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   Widget build(BuildContext context) {
     final instrument = ref.watch(selectedTradeInstrumentProvider);
     final interval = ref.watch(selectedCandleIntervalProvider);
-    final candlesAsync = ref.watch(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval)));
+    final range = ref.watch(selectedHistoryRangeProvider);
+    final candlesAsync = ref.watch(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval, range: range)));
     final portfolioAsync = ref.watch(portfolioProvider);
 
     final availableCash = portfolioAsync.valueOrNull?.availableCash ?? 1000000.0;
@@ -552,7 +553,12 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               onIntervalChanged: (newInterval) {
                 ref.read(selectedCandleIntervalProvider.notifier).state = newInterval;
               },
-              onRetry: () => ref.refresh(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval))),
+              selectedRange: range,
+              onRangeChanged: (newRange) {
+                ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
+              },
+              status: instrument.isSimulated ? 'SIMULATED' : 'LIVE',
+              onRetry: () => ref.refresh(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval, range: range))),
             ),
             const SizedBox(height: 16),
 

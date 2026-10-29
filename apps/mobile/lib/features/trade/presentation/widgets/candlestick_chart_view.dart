@@ -1,8 +1,10 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/loading_state_widget.dart';
 import '../../../../shared/widgets/error_state_widget.dart';
+import 'chart_indicators.dart';
 
 class CandleData {
   final int timestamp;
@@ -44,6 +46,9 @@ class CandlestickChartView extends StatefulWidget {
   final String? errorMessage;
   final String selectedInterval;
   final ValueChanged<String> onIntervalChanged;
+  final String selectedRange;
+  final ValueChanged<String>? onRangeChanged;
+  final String status;
   final VoidCallback? onRetry;
 
   const CandlestickChartView({
@@ -56,6 +61,9 @@ class CandlestickChartView extends StatefulWidget {
     this.errorMessage,
     required this.selectedInterval,
     required this.onIntervalChanged,
+    this.selectedRange = '1D',
+    this.onRangeChanged,
+    this.status = 'SIMULATED',
     this.onRetry,
   });
 
@@ -66,14 +74,54 @@ class CandlestickChartView extends StatefulWidget {
 class _CandlestickChartViewState extends State<CandlestickChartView> {
   CandleData? _inspectedCandle;
 
+  // Technical indicator visibility toggles
+  bool _showSma20 = false;
+  bool _showEma20 = false;
+  bool _showRsi = false;
+  bool _showMacd = false;
+
+  // Pan and Zoom
+  double _panOffset = 0.0;
+  double _zoomScale = 1.0;
+  double _baseZoomScale = 1.0;
+
+  // Cached indicator data
+  List<double?> _sma20 = [];
+  List<double?> _ema20 = [];
+  List<double?> _rsi14 = [];
+  Map<String, List<double?>> _macd = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _recalculateIndicators();
+  }
+
   @override
   void didUpdateWidget(covariant CandlestickChartView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.symbol != widget.symbol ||
         oldWidget.selectedInterval != widget.selectedInterval ||
-        oldWidget.candles != widget.candles) {
+        oldWidget.selectedRange != widget.selectedRange ||
+        oldWidget.candles.length != widget.candles.length) {
       _inspectedCandle = null;
+      _panOffset = 0.0;
+      _recalculateIndicators();
     }
+  }
+
+  void _recalculateIndicators() {
+    if (widget.candles.isEmpty) {
+      _sma20 = [];
+      _ema20 = [];
+      _rsi14 = [];
+      _macd = {};
+      return;
+    }
+    _sma20 = ChartIndicatorCalculator.calculateSMA(widget.candles, 20);
+    _ema20 = ChartIndicatorCalculator.calculateEMA(widget.candles, 20);
+    _rsi14 = ChartIndicatorCalculator.calculateRSI(widget.candles, 14);
+    _macd = ChartIndicatorCalculator.calculateMACD(widget.candles, 12, 26, 9);
   }
 
   @override
@@ -89,6 +137,11 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
             ? '\$'
             : '₹');
 
+    // Dynamic height based on active indicator oscillator sub-panels
+    double chartHeight = 210.0;
+    if (_showRsi) chartHeight += 55.0;
+    if (_showMacd) chartHeight += 55.0;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainer,
@@ -99,7 +152,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with Stock Name, Live Status, and Real-Time Amount
+          // 1. Header with Stock Symbol, Status Pill, Range & Interval Readout, and LTP
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -110,15 +163,21 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.warning.withOpacity(0.15),
+                      color: widget.status == 'LIVE'
+                          ? AppColors.secondary.withOpacity(0.15)
+                          : AppColors.warning.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                      border: Border.all(
+                        color: widget.status == 'LIVE'
+                            ? AppColors.secondary.withOpacity(0.3)
+                            : AppColors.warning.withOpacity(0.3),
+                      ),
                     ),
                     child: Text(
-                      'SIMULATED • ${widget.selectedInterval.toUpperCase()}',
+                      '${widget.status} • ${widget.selectedInterval.toUpperCase()}',
                       style: AppTypography.labelSm.copyWith(
                         fontSize: 9,
-                        color: AppColors.warning,
+                        color: widget.status == 'LIVE' ? AppColors.secondary : AppColors.warning,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -138,7 +197,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
           ),
           const SizedBox(height: 6),
 
-          // Active Crosshair OHLC readout and Volume
+          // 2. Crosshair Inspection / Active Candle OHLCV Readout
           if (activeCandle != null)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -160,11 +219,36 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                 ),
               ],
             ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
 
-          // Interactive Chart Body with Price Axis
+          // 3. Technical Indicator Toggles Bar
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildIndicatorChip('SMA(20)', _showSma20, const Color(0xFFFFB300), () {
+                  setState(() => _showSma20 = !_showSma20);
+                }),
+                const SizedBox(width: 6),
+                _buildIndicatorChip('EMA(20)', _showEma20, const Color(0xFF00E5FF), () {
+                  setState(() => _showEma20 = !_showEma20);
+                }),
+                const SizedBox(width: 6),
+                _buildIndicatorChip('RSI(14)', _showRsi, const Color(0xFFAB47BC), () {
+                  setState(() => _showRsi = !_showRsi);
+                }),
+                const SizedBox(width: 6),
+                _buildIndicatorChip('MACD', _showMacd, const Color(0xFF29B6F6), () {
+                  setState(() => _showMacd = !_showMacd);
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // 4. Interactive Chart Canvas with Pan, Zoom, and Touch Inspection
           SizedBox(
-            height: 190,
+            height: chartHeight,
             child: widget.isLoading
                 ? LoadingStateWidget(message: 'Loading ${widget.symbol} (${widget.selectedInterval}) candles...')
                 : widget.errorMessage != null
@@ -183,8 +267,25 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                         : LayoutBuilder(
                             builder: (context, constraints) {
                               return GestureDetector(
+                                onScaleStart: (details) {
+                                  _baseZoomScale = _zoomScale;
+                                },
+                                onScaleUpdate: (details) {
+                                  setState(() {
+                                    if (details.scale != 1.0) {
+                                      _zoomScale = (_baseZoomScale * details.scale).clamp(0.5, 3.5);
+                                    }
+                                    if (details.horizontalScale == 1.0) {
+                                      _panOffset += details.focalPointDelta.dx;
+                                    }
+                                    _handleInspect(details.localFocalPoint.dx, constraints.maxWidth);
+                                  });
+                                },
                                 onHorizontalDragUpdate: (details) {
-                                  _handleInspect(details.localPosition.dx, constraints.maxWidth);
+                                  setState(() {
+                                    _panOffset += details.primaryDelta ?? 0;
+                                    _handleInspect(details.localPosition.dx, constraints.maxWidth);
+                                  });
                                 },
                                 onTapDown: (details) {
                                   _handleInspect(details.localPosition.dx, constraints.maxWidth);
@@ -193,12 +294,23 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                                   setState(() => _inspectedCandle = null);
                                 },
                                 child: CustomPaint(
-                                  size: Size(constraints.maxWidth, 190),
+                                  size: Size(constraints.maxWidth, chartHeight),
                                   painter: _CandlestickPainter(
                                     candles: widget.candles,
                                     inspectedCandle: _inspectedCandle,
                                     currentPrice: widget.currentPrice,
                                     currencySymbol: currency,
+                                    selectedInterval: widget.selectedInterval,
+                                    showSma20: _showSma20,
+                                    showEma20: _showEma20,
+                                    showRsi: _showRsi,
+                                    showMacd: _showMacd,
+                                    sma20: _sma20,
+                                    ema20: _ema20,
+                                    rsi14: _rsi14,
+                                    macd: _macd,
+                                    panOffset: _panOffset,
+                                    zoomScale: _zoomScale,
                                   ),
                                 ),
                               );
@@ -207,39 +319,123 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
           ),
           const SizedBox(height: 8),
 
-          // Timeframe Selector Chips
+          // 5. Timeframe / Interval Selector Chips (1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M)
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: ['1m', '5m', '15m', '1h', '1d', '1w'].map((interval) {
-              final isSelected = widget.selectedInterval == interval;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: InkWell(
-                  onTap: () => widget.onIntervalChanged(interval),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primaryBrand.withOpacity(0.2) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: isSelected ? AppColors.primaryBrand : AppColors.borderSubtle,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('INTERVAL', style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'].map((interval) {
+                    final isSelected = widget.selectedInterval.toLowerCase() == interval.toLowerCase();
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: InkWell(
+                        onTap: () => widget.onIntervalChanged(interval),
+                        borderRadius: BorderRadius.circular(5),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppColors.primaryBrand.withOpacity(0.2) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(
+                              color: isSelected ? AppColors.primaryBrand : AppColors.borderSubtle,
+                            ),
+                          ),
+                          child: Text(
+                            interval.toUpperCase(),
+                            style: AppTypography.labelSm.copyWith(
+                              fontSize: 9,
+                              color: isSelected ? AppColors.primary : AppColors.outline,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      interval.toUpperCase(),
-                      style: AppTypography.labelSm.copyWith(
-                        fontSize: 10,
-                        color: isSelected ? AppColors.primary : AppColors.outline,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      ),
-                    ),
-                  ),
+                    );
+                  }).toList(),
                 ),
-              );
-            }).toList(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // 6. 5-Year History Range Selector Chips (1D, 1W, 1M, 3M, 6M, 1Y, 3Y, 5Y, ALL)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('RANGE', style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: ['1D', '1W', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'ALL'].map((range) {
+                    final isSelected = widget.selectedRange.toUpperCase() == range.toUpperCase();
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: InkWell(
+                        onTap: widget.onRangeChanged != null ? () => widget.onRangeChanged!(range) : null,
+                        borderRadius: BorderRadius.circular(5),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppColors.secondary.withOpacity(0.2) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(
+                              color: isSelected ? AppColors.secondary : AppColors.borderSubtle,
+                            ),
+                          ),
+                          child: Text(
+                            range,
+                            style: AppTypography.labelSm.copyWith(
+                              fontSize: 9,
+                              color: isSelected ? AppColors.secondary : AppColors.outline,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildIndicatorChip(String label, bool active, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(5),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: active ? color.withOpacity(0.18) : AppColors.surfaceLowest,
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: active ? color : AppColors.borderSubtle),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: active ? color : AppColors.outline),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: AppTypography.labelSm.copyWith(
+                fontSize: 9,
+                fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                color: active ? color : AppColors.outline,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -247,9 +443,12 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
   void _handleInspect(double touchX, double width) {
     if (widget.candles.isEmpty || width <= 0) return;
     const axisWidth = 54.0;
-    final chartWidth = Math.max(width - axisWidth, 50.0);
-    final candleWidth = chartWidth / widget.candles.length;
-    final index = (touchX / candleWidth).clamp(0, widget.candles.length - 1).toInt();
+    final chartWidth = math.max(width - axisWidth, 50.0);
+    final candleWidth = (chartWidth / widget.candles.length) * _zoomScale;
+    if (candleWidth <= 0) return;
+
+    final adjustedX = touchX - _panOffset;
+    final index = (adjustedX / candleWidth).clamp(0, widget.candles.length - 1).toInt();
     setState(() {
       _inspectedCandle = widget.candles[index];
     });
@@ -284,18 +483,54 @@ class _CandlestickPainter extends CustomPainter {
   final CandleData? inspectedCandle;
   final double? currentPrice;
   final String currencySymbol;
+  final String selectedInterval;
+  final bool showSma20;
+  final bool showEma20;
+  final bool showRsi;
+  final bool showMacd;
+  final List<double?> sma20;
+  final List<double?> ema20;
+  final List<double?> rsi14;
+  final Map<String, List<double?>> macd;
+  final double panOffset;
+  final double zoomScale;
 
   _CandlestickPainter({
     required this.candles,
     this.inspectedCandle,
     this.currentPrice,
     required this.currencySymbol,
+    required this.selectedInterval,
+    required this.showSma20,
+    required this.showEma20,
+    required this.showRsi,
+    required this.showMacd,
+    required this.sma20,
+    required this.ema20,
+    required this.rsi14,
+    required this.macd,
+    required this.panOffset,
+    required this.zoomScale,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (candles.isEmpty) return;
 
+    // Allocate right axis (54px)
+    const axisWidth = 54.0;
+    final chartWidth = math.max(size.width - axisWidth, 50.0);
+
+    // Dynamic panel heights
+    double rsiHeight = showRsi ? 48.0 : 0.0;
+    double macdHeight = showMacd ? 48.0 : 0.0;
+    double timeAxisHeight = 16.0;
+
+    double availableMain = size.height - rsiHeight - macdHeight - timeAxisHeight;
+    double mainChartHeight = availableMain * 0.78;
+    double volumeHeight = availableMain * 0.20;
+
+    // Price range bounds
     double minPrice = double.infinity;
     double maxPrice = double.negativeInfinity;
     double maxVol = 0;
@@ -311,35 +546,31 @@ class _CandlestickPainter extends CustomPainter {
       maxPrice *= 1.01;
     }
 
-    // Allocate 54px on the right for price axis labels
-    const axisWidth = 54.0;
-    final chartWidth = Math.max(size.width - axisWidth, 50.0);
-    final chartHeight = size.height * 0.76;
-    final volumeHeight = size.height * 0.20;
-
     final priceRange = (maxPrice - minPrice).clamp(0.01, double.infinity);
-    final candleWidth = chartWidth / candles.length;
-    final bodyWidth = (candleWidth * 0.65).clamp(2.0, 10.0);
+    final baseCandleWidth = chartWidth / candles.length;
+    final candleWidth = baseCandleWidth * zoomScale;
+    final bodyWidth = (candleWidth * 0.65).clamp(1.5, 12.0);
 
     final bullPaint = Paint()..color = AppColors.secondary;
     final bearPaint = Paint()..color = AppColors.tertiary;
     final gridPaint = Paint()
-      ..color = AppColors.borderSubtle.withOpacity(0.5)
+      ..color = AppColors.borderSubtle.withOpacity(0.4)
       ..strokeWidth = 0.8;
 
-    // Draw horizontal grid lines and axis price labels
-    final gridLevels = [0.15, 0.45, 0.75];
+    // Draw horizontal grid lines and right Y-axis price labels
+    final gridLevels = [0.15, 0.50, 0.85];
     for (final level in gridLevels) {
-      final y = chartHeight * level;
+      final y = mainChartHeight * level;
       final priceAtLevel = maxPrice - (level * priceRange);
       canvas.drawLine(Offset(0, y), Offset(chartWidth, y), gridPaint);
       _drawAxisText(canvas, priceAtLevel.toStringAsFixed(1), chartWidth + 4, y);
     }
 
     // Volume baseline
-    canvas.drawLine(Offset(0, size.height - volumeHeight), Offset(chartWidth, size.height - volumeHeight), gridPaint);
+    final volBaseY = mainChartHeight + volumeHeight;
+    canvas.drawLine(Offset(0, volBaseY), Offset(chartWidth, volBaseY), gridPaint);
 
-    // Axis separator vertical line
+    // Axis separator line
     canvas.drawLine(
       Offset(chartWidth, 0),
       Offset(chartWidth, size.height),
@@ -348,7 +579,7 @@ class _CandlestickPainter extends CustomPainter {
 
     int? inspectedIndex;
 
-    // Draw candles and volume bars
+    // Draw Candlesticks & Volume Bars
     for (int i = 0; i < candles.length; i++) {
       final c = candles[i];
       if (c == inspectedCandle) {
@@ -356,25 +587,26 @@ class _CandlestickPainter extends CustomPainter {
       }
       final isBull = c.isBullish;
       final paint = isBull ? bullPaint : bearPaint;
-      final x = i * candleWidth + candleWidth / 2;
+      final x = panOffset + (i * candleWidth + candleWidth / 2);
 
-      final highY = chartHeight - ((c.high - minPrice) / priceRange) * chartHeight;
-      final lowY = chartHeight - ((c.low - minPrice) / priceRange) * chartHeight;
-      final openY = chartHeight - ((c.open - minPrice) / priceRange) * chartHeight;
-      final closeY = chartHeight - ((c.close - minPrice) / priceRange) * chartHeight;
+      // Skip off-screen candles for high performance
+      if (x < -20 || x > chartWidth + 20) continue;
+
+      final highY = mainChartHeight - ((c.high - minPrice) / priceRange) * mainChartHeight;
+      final lowY = mainChartHeight - ((c.low - minPrice) / priceRange) * mainChartHeight;
+      final openY = mainChartHeight - ((c.open - minPrice) / priceRange) * mainChartHeight;
+      final closeY = mainChartHeight - ((c.close - minPrice) / priceRange) * mainChartHeight;
 
       // Wick
       canvas.drawLine(
         Offset(x, highY),
         Offset(x, lowY),
-        Paint()
-          ..color = paint.color
-          ..strokeWidth = 1.2,
+        paint..strokeWidth = 1.2,
       );
 
-      // Candle body
-      final topY = Math.min(openY, closeY);
-      final bodyH = (openY - closeY).abs().clamp(1.5, chartHeight);
+      // Body
+      final topY = math.min(openY, closeY);
+      final bodyH = (openY - closeY).abs().clamp(1.5, mainChartHeight);
       final bodyRect = Rect.fromLTWH(x - bodyWidth / 2, topY, bodyWidth, bodyH);
       canvas.drawRect(bodyRect, paint);
 
@@ -383,29 +615,35 @@ class _CandlestickPainter extends CustomPainter {
         final volBarH = (c.volume / maxVol) * volumeHeight;
         final volRect = Rect.fromLTWH(
           x - bodyWidth / 2,
-          size.height - volBarH,
+          volBaseY - volBarH,
           bodyWidth,
           volBarH,
         );
         canvas.drawRect(
           volRect,
-          Paint()..color = paint.color.withOpacity(0.35),
+          Paint()..color = (isBull ? AppColors.secondary : AppColors.tertiary).withOpacity(0.35),
         );
       }
     }
 
-    // Draw Real-Time LTP badge & dashed line for latest candle
+    // 5. Draw Overlaid Technical Indicators (SMA 20, EMA 20)
+    if (showSma20 && sma20.isNotEmpty) {
+      _drawIndicatorLine(canvas, sma20, minPrice, priceRange, mainChartHeight, candleWidth, const Color(0xFFFFB300));
+    }
+    if (showEma20 && ema20.isNotEmpty) {
+      _drawIndicatorLine(canvas, ema20, minPrice, priceRange, mainChartHeight, candleWidth, const Color(0xFF00E5FF));
+    }
+
+    // 6. Draw Real-Time LTP guideline and badge for the latest candle
     final latestCandle = candles.last;
-    final latestY = chartHeight - ((latestCandle.close - minPrice) / priceRange) * chartHeight;
+    final latestY = mainChartHeight - ((latestCandle.close - minPrice) / priceRange) * mainChartHeight;
     final latestColor = latestCandle.isBullish ? AppColors.secondary : AppColors.tertiary;
 
     _drawDashedLine(
       canvas,
       Offset(0, latestY),
       Offset(chartWidth, latestY),
-      Paint()
-        ..color = latestColor.withOpacity(0.7)
-        ..strokeWidth = 1.0,
+      Paint()..color = latestColor.withOpacity(0.7)..strokeWidth = 1.0,
     );
 
     _drawBadge(
@@ -417,38 +655,193 @@ class _CandlestickPainter extends CustomPainter {
       Colors.white,
     );
 
-    // If candle is inspected, draw crosshair lines and badge
+    // 7. Touch crosshair & inspect badge
     if (inspectedIndex != null && inspectedCandle != null) {
-      final inspectX = inspectedIndex * candleWidth + candleWidth / 2;
-      final inspectY = chartHeight - ((inspectedCandle!.close - minPrice) / priceRange) * chartHeight;
+      final inspectX = panOffset + (inspectedIndex * candleWidth + candleWidth / 2);
+      final inspectY = mainChartHeight - ((inspectedCandle!.close - minPrice) / priceRange) * mainChartHeight;
 
-      // Vertical crosshair
-      canvas.drawLine(
-        Offset(inspectX, 0),
-        Offset(inspectX, size.height),
-        Paint()
-          ..color = AppColors.primaryBrand.withOpacity(0.7)
-          ..strokeWidth = 1.0,
-      );
+      if (inspectX >= 0 && inspectX <= chartWidth) {
+        canvas.drawLine(
+          Offset(inspectX, 0),
+          Offset(inspectX, size.height),
+          Paint()..color = AppColors.primaryBrand.withOpacity(0.7)..strokeWidth = 1.0,
+        );
 
-      // Horizontal crosshair
-      _drawDashedLine(
-        canvas,
-        Offset(0, inspectY),
-        Offset(chartWidth, inspectY),
-        Paint()
-          ..color = AppColors.primaryBrand.withOpacity(0.7)
-          ..strokeWidth = 1.0,
-      );
+        _drawDashedLine(
+          canvas,
+          Offset(0, inspectY),
+          Offset(chartWidth, inspectY),
+          Paint()..color = AppColors.primaryBrand.withOpacity(0.7)..strokeWidth = 1.0,
+        );
 
-      _drawBadge(
-        canvas,
-        inspectedCandle!.close.toStringAsFixed(1),
-        chartWidth + 3,
-        inspectY,
-        AppColors.primaryBrand,
-        Colors.white,
+        _drawBadge(
+          canvas,
+          inspectedCandle!.close.toStringAsFixed(1),
+          chartWidth + 3,
+          inspectY,
+          AppColors.primaryBrand,
+          Colors.white,
+        );
+      }
+    }
+
+    // 8. Bottom X-Axis Time / Date Labels
+    final xTimeY = volBaseY + 3;
+    final timeStep = math.max(candles.length ~/ 4, 1);
+    for (int i = 0; i < candles.length; i += timeStep) {
+      final x = panOffset + (i * candleWidth + candleWidth / 2);
+      if (x > 10 && x < chartWidth - 30) {
+        final date = DateTime.fromMillisecondsSinceEpoch(candles[i].timestamp * 1000);
+        final label = selectedInterval.contains('d') || selectedInterval.contains('w') || selectedInterval.contains('mo')
+            ? '${date.day}/${date.month}'
+            : '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+        _drawAxisText(canvas, label, x - 12, xTimeY);
+      }
+    }
+
+    // 9. RSI Oscillator Sub-Panel
+    double currentSubPanelTop = volBaseY + timeAxisHeight;
+    if (showRsi && rsi14.isNotEmpty) {
+      _drawRsiPanel(canvas, currentSubPanelTop, rsiHeight, chartWidth, candleWidth);
+      currentSubPanelTop += rsiHeight;
+    }
+
+    // 10. MACD Oscillator Sub-Panel
+    if (showMacd && macd.isNotEmpty) {
+      _drawMacdPanel(canvas, currentSubPanelTop, macdHeight, chartWidth, candleWidth);
+    }
+  }
+
+  void _drawIndicatorLine(
+    Canvas canvas,
+    List<double?> values,
+    double minPrice,
+    double priceRange,
+    double chartHeight,
+    double candleWidth,
+    Color color,
+  ) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.4
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    bool hasStarted = false;
+
+    for (int i = 0; i < values.length; i++) {
+      final val = values[i];
+      if (val == null) continue;
+
+      final x = panOffset + (i * candleWidth + candleWidth / 2);
+      final y = chartHeight - ((val - minPrice) / priceRange) * chartHeight;
+
+      if (!hasStarted) {
+        path.moveTo(x, y);
+        hasStarted = true;
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    if (hasStarted) {
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  void _drawRsiPanel(Canvas canvas, double topY, double panelHeight, double chartWidth, double candleWidth) {
+    // Background and boundary
+    canvas.drawLine(Offset(0, topY), Offset(chartWidth, topY), Paint()..color = AppColors.borderSubtle..strokeWidth = 0.8);
+    _drawAxisText(canvas, 'RSI(14)', chartWidth + 4, topY + 4);
+
+    // 70 and 30 reference lines
+    final y70 = topY + panelHeight * 0.3;
+    final y30 = topY + panelHeight * 0.7;
+    final refPaint = Paint()..color = const Color(0xFFAB47BC).withOpacity(0.35)..strokeWidth = 0.8;
+    _drawDashedLine(canvas, Offset(0, y70), Offset(chartWidth, y70), refPaint);
+    _drawDashedLine(canvas, Offset(0, y30), Offset(chartWidth, y30), refPaint);
+    _drawAxisText(canvas, '70', chartWidth + 4, y70);
+    _drawAxisText(canvas, '30', chartWidth + 4, y30);
+
+    // RSI Path
+    final rsiPath = Path();
+    bool started = false;
+
+    for (int i = 0; i < rsi14.length; i++) {
+      final val = rsi14[i];
+      if (val == null) continue;
+
+      final x = panOffset + (i * candleWidth + candleWidth / 2);
+      final y = topY + panelHeight - (val / 100.0) * panelHeight;
+
+      if (!started) {
+        rsiPath.moveTo(x, y);
+        started = true;
+      } else {
+        rsiPath.lineTo(x, y);
+      }
+    }
+
+    if (started) {
+      canvas.drawPath(rsiPath, Paint()..color = const Color(0xFFAB47BC)..strokeWidth = 1.4..style = PaintingStyle.stroke);
+    }
+  }
+
+  void _drawMacdPanel(Canvas canvas, double topY, double panelHeight, double chartWidth, double candleWidth) {
+    canvas.drawLine(Offset(0, topY), Offset(chartWidth, topY), Paint()..color = AppColors.borderSubtle..strokeWidth = 0.8);
+    _drawAxisText(canvas, 'MACD', chartWidth + 4, topY + 4);
+
+    final zeroY = topY + panelHeight * 0.5;
+    canvas.drawLine(Offset(0, zeroY), Offset(chartWidth, zeroY), Paint()..color = AppColors.borderSubtle.withOpacity(0.4)..strokeWidth = 0.8);
+
+    final macdLine = macd['macd'] ?? [];
+    final signalLine = macd['signal'] ?? [];
+    final histogram = macd['histogram'] ?? [];
+
+    // Histogram bars
+    final barWidth = (candleWidth * 0.5).clamp(1.0, 6.0);
+    for (int i = 0; i < histogram.length; i++) {
+      final h = histogram[i];
+      if (h == null) continue;
+
+      final x = panOffset + (i * candleWidth + candleWidth / 2);
+      final barH = (h * 4.0).clamp(-panelHeight * 0.45, panelHeight * 0.45);
+      final isBull = h >= 0;
+      final paint = Paint()..color = (isBull ? AppColors.secondary : AppColors.tertiary).withOpacity(0.6);
+
+      canvas.drawRect(
+        Rect.fromLTWH(x - barWidth / 2, isBull ? zeroY - barH : zeroY, barWidth, barH.abs()),
+        paint,
       );
+    }
+
+    // MACD Line
+    _drawSubLine(canvas, macdLine, zeroY, panelHeight, candleWidth, const Color(0xFF29B6F6));
+    // Signal Line
+    _drawSubLine(canvas, signalLine, zeroY, panelHeight, candleWidth, const Color(0xFFFF7043));
+  }
+
+  void _drawSubLine(Canvas canvas, List<double?> series, double zeroY, double panelHeight, double candleWidth, Color color) {
+    final path = Path();
+    bool started = false;
+
+    for (int i = 0; i < series.length; i++) {
+      final v = series[i];
+      if (v == null) continue;
+
+      final x = panOffset + (i * candleWidth + candleWidth / 2);
+      final y = zeroY - (v * 4.0).clamp(-panelHeight * 0.45, panelHeight * 0.45);
+
+      if (!started) {
+        path.moveTo(x, y);
+        started = true;
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    if (started) {
+      canvas.drawPath(path, Paint()..color = color..strokeWidth = 1.2..style = PaintingStyle.stroke);
     }
   }
 
@@ -457,7 +850,7 @@ class _CandlestickPainter extends CustomPainter {
     while (currentX < end.dx) {
       canvas.drawLine(
         Offset(currentX, start.dy),
-        Offset(Math.min(currentX + dashWidth, end.dx), start.dy),
+        Offset(math.min(currentX + dashWidth, end.dx), start.dy),
         paint,
       );
       currentX += dashWidth + dashSpace;
@@ -512,11 +905,12 @@ class _CandlestickPainter extends CustomPainter {
   bool shouldRepaint(covariant _CandlestickPainter oldDelegate) {
     return oldDelegate.candles != candles ||
         oldDelegate.inspectedCandle != inspectedCandle ||
-        oldDelegate.currentPrice != currentPrice;
+        oldDelegate.currentPrice != currentPrice ||
+        oldDelegate.showSma20 != showSma20 ||
+        oldDelegate.showEma20 != showEma20 ||
+        oldDelegate.showRsi != showRsi ||
+        oldDelegate.showMacd != showMacd ||
+        oldDelegate.panOffset != panOffset ||
+        oldDelegate.zoomScale != zoomScale;
   }
-}
-
-class Math {
-  static double min(double a, double b) => a < b ? a : b;
-  static double max(double a, double b) => a > b ? a : b;
 }

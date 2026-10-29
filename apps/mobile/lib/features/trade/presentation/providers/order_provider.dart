@@ -9,16 +9,24 @@ import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestic
 class CandleQuery {
   final String symbol;
   final String interval;
+  final String range;
 
-  const CandleQuery({required this.symbol, required this.interval});
+  const CandleQuery({
+    required this.symbol,
+    required this.interval,
+    this.range = '1D',
+  });
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is CandleQuery && other.symbol == symbol && other.interval == interval);
+      (other is CandleQuery &&
+          other.symbol == symbol &&
+          other.interval == interval &&
+          other.range == range);
 
   @override
-  int get hashCode => Object.hash(symbol, interval);
+  int get hashCode => Object.hash(symbol, interval, range);
 }
 
 final selectedTradeInstrumentProvider = StateProvider<InstrumentModel>((ref) {
@@ -36,15 +44,44 @@ final selectedTradeInstrumentProvider = StateProvider<InstrumentModel>((ref) {
 });
 
 final selectedCandleIntervalProvider = StateProvider<String>((ref) => '15m');
+final selectedHistoryRangeProvider = StateProvider<String>((ref) => '1D');
 
 List<CandleData> _generateRealisticCandles({
   required String symbol,
   required String interval,
+  String range = '1D',
   required double currentLtp,
 }) {
   final intervalSeconds = _intervalToSeconds(interval);
   final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-  const count = 36;
+
+  // Determine realistic candle count based on range and interval
+  int count = 45;
+  if (range == '5Y' || range == 'ALL') {
+    if (interval == '1d') {
+      count = 250;
+    } else if (interval == '1w') {
+      count = 260;
+    } else if (interval == '1mo') {
+      count = 60;
+    } else {
+      count = 80;
+    }
+  } else if (range == '3Y') {
+    count = interval == '1mo' ? 36 : (interval == '1w' ? 156 : 180);
+  } else if (range == '1Y') {
+    count = interval == '1mo' ? 12 : (interval == '1w' ? 52 : 120);
+  } else if (range == '6M') {
+    count = 80;
+  } else if (range == '3M') {
+    count = 65;
+  } else if (range == '1M') {
+    count = 45;
+  } else if (range == '1W') {
+    count = 40;
+  } else {
+    count = 36;
+  }
 
   // Unique polynomial hash for the symbol
   int hash = 0;
@@ -120,15 +157,22 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
     return _generateRealisticCandles(
       symbol: query.symbol,
       interval: query.interval,
+      range: query.range,
       currentLtp: currentLtp,
     );
   }
 
   final apiClient = ref.watch(apiClientProvider);
+
+  // 1. Primary endpoint: /market/candles or /market-data/candles with interval & range
   try {
     final response = await apiClient.get<Map<String, dynamic>>(
-      '/market-data/candles/${query.symbol}',
-      queryParameters: {'interval': query.interval, 'limit': 45},
+      '/market/candles/${query.symbol}',
+      queryParameters: {
+        'interval': query.interval,
+        'range': query.range,
+        'limit': 250,
+      },
     );
 
     if (response.statusCode == 200 && response.data?['success'] == true) {
@@ -139,11 +183,30 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
     }
   } catch (_) {}
 
-  // Fallback: try dedicated live Alpha Vantage candles endpoint
+  // 2. Legacy fallback endpoint
+  try {
+    final response = await apiClient.get<Map<String, dynamic>>(
+      '/market-data/candles/${query.symbol}',
+      queryParameters: {
+        'interval': query.interval,
+        'range': query.range,
+        'limit': 250,
+      },
+    );
+
+    if (response.statusCode == 200 && response.data?['success'] == true) {
+      final list = response.data!['candles'] as List<dynamic>? ?? [];
+      if (list.isNotEmpty) {
+        return list.map((c) => CandleData.fromJson(c as Map<String, dynamic>)).toList();
+      }
+    }
+  } catch (_) {}
+
+  // 3. Fallback: Alpha Vantage daily candles
   try {
     final alphaResponse = await apiClient.get<Map<String, dynamic>>(
       '/market-data/alpha/candles/${query.symbol}',
-      queryParameters: {'limit': 45},
+      queryParameters: {'limit': 100},
     );
 
     if (alphaResponse.statusCode == 200 && alphaResponse.data?['success'] == true) {
@@ -154,10 +217,11 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
     }
   } catch (_) {}
 
-  // Resilient fallback: Generate realistic candles matching instrument price so chart is never blank
+  // 4. Resilient fallback: Generate realistic candles matching instrument price so chart is never blank
   return _generateRealisticCandles(
     symbol: query.symbol,
     interval: query.interval,
+    range: query.range,
     currentLtp: currentLtp,
   );
 });

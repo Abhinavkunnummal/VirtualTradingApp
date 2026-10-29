@@ -153,16 +153,20 @@ export class AlphaVantageService {
   /**
    * Fetch Daily Historical Candles (TIME_SERIES_DAILY)
    */
-  public static async fetchDailyCandles(symbol: string, limit = 60): Promise<Candle[] | null> {
+  public static async fetchDailyCandles(
+    symbol: string,
+    limit = 60,
+    outputsize: 'compact' | 'full' = 'compact'
+  ): Promise<Candle[] | null> {
     if (!this.isConfigured()) return null;
 
-    const cacheKey = `candles:daily:${symbol.toUpperCase()}:${limit}`;
+    const cacheKey = `candles:daily:${symbol.toUpperCase()}:${outputsize}:${limit}`;
     const cached = this.getFromCache<Candle[]>(cacheKey);
     if (cached) return cached;
 
     try {
-      const url = `${this.BASE_URL}?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(symbol)}&apikey=${this.apiKey}`;
-      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      const url = `${this.BASE_URL}?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(symbol)}&outputsize=${outputsize}&apikey=${this.apiKey}`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(9000) });
       if (!response.ok) return null;
 
       const data = (await response.json()) as Record<string, any>;
@@ -189,6 +193,147 @@ export class AlphaVantageService {
 
       candles.sort((a, b) => a.timestamp - b.timestamp);
 
+      this.setInCache(cacheKey, candles, this.TTL_CANDLES);
+      return candles;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch Weekly Historical Candles (TIME_SERIES_WEEKLY)
+   */
+  public static async fetchWeeklyCandles(symbol: string, limit = 260): Promise<Candle[] | null> {
+    if (!this.isConfigured()) return null;
+
+    const cacheKey = `candles:weekly:${symbol.toUpperCase()}:${limit}`;
+    const cached = this.getFromCache<Candle[]>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const url = `${this.BASE_URL}?function=TIME_SERIES_WEEKLY&symbol=${encodeURIComponent(symbol)}&apikey=${this.apiKey}`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(9000) });
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as Record<string, any>;
+      if (data?.Note || data?.Information) return null;
+
+      const timeSeries = data['Weekly Time Series'];
+      if (!timeSeries || typeof timeSeries !== 'object') return null;
+
+      const entries = Object.entries(timeSeries);
+      const candles: Candle[] = [];
+
+      for (const [dateStr, values] of entries.slice(0, limit)) {
+        const v = values as Record<string, string>;
+        const timestamp = Math.floor(new Date(dateStr).getTime() / 1000);
+        candles.push({
+          timestamp,
+          open: parseFloat(v['1. open']),
+          high: parseFloat(v['2. high']),
+          low: parseFloat(v['3. low']),
+          close: parseFloat(v['4. close']),
+          volume: parseInt(v['5. volume'] || '0', 10),
+        });
+      }
+
+      candles.sort((a, b) => a.timestamp - b.timestamp);
+      this.setInCache(cacheKey, candles, this.TTL_CANDLES);
+      return candles;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch Monthly Historical Candles (TIME_SERIES_MONTHLY)
+   */
+  public static async fetchMonthlyCandles(symbol: string, limit = 60): Promise<Candle[] | null> {
+    if (!this.isConfigured()) return null;
+
+    const cacheKey = `candles:monthly:${symbol.toUpperCase()}:${limit}`;
+    const cached = this.getFromCache<Candle[]>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const url = `${this.BASE_URL}?function=TIME_SERIES_MONTHLY&symbol=${encodeURIComponent(symbol)}&apikey=${this.apiKey}`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(9000) });
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as Record<string, any>;
+      if (data?.Note || data?.Information) return null;
+
+      const timeSeries = data['Monthly Time Series'];
+      if (!timeSeries || typeof timeSeries !== 'object') return null;
+
+      const entries = Object.entries(timeSeries);
+      const candles: Candle[] = [];
+
+      for (const [dateStr, values] of entries.slice(0, limit)) {
+        const v = values as Record<string, string>;
+        const timestamp = Math.floor(new Date(dateStr).getTime() / 1000);
+        candles.push({
+          timestamp,
+          open: parseFloat(v['1. open']),
+          high: parseFloat(v['2. high']),
+          low: parseFloat(v['3. low']),
+          close: parseFloat(v['4. close']),
+          volume: parseInt(v['5. volume'] || '0', 10),
+        });
+      }
+
+      candles.sort((a, b) => a.timestamp - b.timestamp);
+      this.setInCache(cacheKey, candles, this.TTL_CANDLES);
+      return candles;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch Intraday Historical Candles (TIME_SERIES_INTRADAY)
+   */
+  public static async fetchIntradayCandles(
+    symbol: string,
+    interval = '15min',
+    limit = 100
+  ): Promise<Candle[] | null> {
+    if (!this.isConfigured()) return null;
+
+    const cacheKey = `candles:intraday:${symbol.toUpperCase()}:${interval}:${limit}`;
+    const cached = this.getFromCache<Candle[]>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const avInterval = interval.endsWith('m') ? `${interval}in` : interval; // e.g. 15m -> 15min
+      const url = `${this.BASE_URL}?function=TIME_SERIES_INTRADAY&symbol=${encodeURIComponent(symbol)}&interval=${avInterval}&apikey=${this.apiKey}`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(9000) });
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as Record<string, any>;
+      if (data?.Note || data?.Information) return null;
+
+      const key = `Time Series (${avInterval})`;
+      const timeSeries = data[key];
+      if (!timeSeries || typeof timeSeries !== 'object') return null;
+
+      const entries = Object.entries(timeSeries);
+      const candles: Candle[] = [];
+
+      for (const [dateStr, values] of entries.slice(0, limit)) {
+        const v = values as Record<string, string>;
+        const timestamp = Math.floor(new Date(dateStr).getTime() / 1000);
+        candles.push({
+          timestamp,
+          open: parseFloat(v['1. open']),
+          high: parseFloat(v['2. high']),
+          low: parseFloat(v['3. low']),
+          close: parseFloat(v['4. close']),
+          volume: parseInt(v['5. volume'] || '0', 10),
+        });
+      }
+
+      candles.sort((a, b) => a.timestamp - b.timestamp);
       this.setInCache(cacheKey, candles, this.TTL_CANDLES);
       return candles;
     } catch {

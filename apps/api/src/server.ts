@@ -37,6 +37,16 @@ async function bootstrap() {
       const quote = MarketDataService.getQuote(sym);
       if (quote) {
         SocketService.emitTickerUpdate(sym, quote);
+        const candleTick = {
+          symbol: sym,
+          timestamp: Math.floor(Date.now() / 1000),
+          price: quote.price,
+          volume: quote.volume,
+          status: quote.status,
+        };
+        for (const interval of ['1m', '5m', '15m', '1h', '1d']) {
+          SocketService.emitCandleUpdate(sym, interval, candleTick);
+        }
         try {
           await PaperTradingEngine.evaluateOpenOrders(sym, quote);
         } catch {

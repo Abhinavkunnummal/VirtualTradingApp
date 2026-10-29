@@ -75,6 +75,29 @@ export class SocketService {
         }
       });
 
+      // Handle unsubscribing from ticker price stream
+      socket.on('leave_ticker', (data: { symbols: string[] }) => {
+        if (Array.isArray(data?.symbols)) {
+          for (const sym of data.symbols) {
+            socket.leave(`ticker:${sym.toUpperCase()}`);
+          }
+        }
+      });
+
+      // Handle subscribing to candle bar stream
+      socket.on('join_candles', (data: { symbol: string; interval: string }) => {
+        if (data?.symbol && data?.interval) {
+          socket.join(`candles:${data.symbol.toUpperCase()}:${data.interval.toLowerCase()}`);
+        }
+      });
+
+      // Handle unsubscribing from candle bar stream
+      socket.on('leave_candles', (data: { symbol: string; interval: string }) => {
+        if (data?.symbol && data?.interval) {
+          socket.leave(`candles:${data.symbol.toUpperCase()}:${data.interval.toLowerCase()}`);
+        }
+      });
+
       // Handle real-time chat messages
       socket.on(
         'send_message',
@@ -159,6 +182,14 @@ export class SocketService {
   static emitTickerUpdate(symbol: string, data: unknown): void {
     if (!this.io) return;
     this.io.to(`ticker:${symbol.toUpperCase()}`).emit('ticker_tick', data);
+  }
+
+  /**
+   * Emits real-time candle bar update to subscribers.
+   */
+  static emitCandleUpdate(symbol: string, interval: string, data: unknown): void {
+    if (!this.io) return;
+    this.io.to(`candles:${symbol.toUpperCase()}:${interval.toLowerCase()}`).emit('candle_update', data);
   }
 
   /**

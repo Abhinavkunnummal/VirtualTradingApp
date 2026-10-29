@@ -1,6 +1,9 @@
+import { TechnicalIndicatorService, TechnicalIndicators } from './indicators';
+
 export type ExchangeType = 'NSE' | 'BSE' | 'MCX' | 'US' | 'CRYPTO';
 export type AssetCategory = 'EQUITY' | 'INDEX' | 'COMMODITY' | 'CRYPTO' | 'DERIVATIVE';
-export type CandleInterval = '1m' | '5m' | '15m' | '1h' | '1d' | '1w';
+export type CandleInterval = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w' | '1mo';
+export type HistoryRange = '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | 'ALL';
 
 export interface MarketQuote {
   symbol: string;
@@ -18,7 +21,7 @@ export interface MarketQuote {
   bid: number;
   ask: number;
   currency: string;
-  status: 'SIMULATED' | 'DELAYED' | 'LIVE';
+  status: 'SIMULATED' | 'DELAYED' | 'LIVE' | 'HISTORICAL' | 'HYBRID';
   timestamp: string;
 }
 
@@ -29,6 +32,26 @@ export interface Candle {
   low: number;
   close: number;
   volume: number;
+}
+
+export interface HistoricalDataResult {
+  symbol: string;
+  name: string;
+  exchange: ExchangeType;
+  category: AssetCategory;
+  currency: string;
+  interval: CandleInterval;
+  requestedRange?: HistoryRange;
+  actualRange: string;
+  from: number;
+  to: number;
+  count: number;
+  status: 'SIMULATED' | 'LIVE' | 'HISTORICAL' | 'HYBRID' | 'DELAYED';
+  provider: string;
+  retentionNotice?: string;
+  candles: Candle[];
+  indicators?: TechnicalIndicators;
+  latestQuote?: MarketQuote;
 }
 
 export interface InstrumentMeta {
@@ -49,7 +72,19 @@ export interface IMarketDataProvider {
   getQuote(symbol: string): MarketQuote | null;
   getQuotes(symbols: string[]): MarketQuote[];
   getCandles(symbol: string, interval?: CandleInterval, limit?: number): Candle[];
+  getHistoricalData(
+    symbol: string,
+    interval?: CandleInterval,
+    options?: {
+      limit?: number;
+      range?: HistoryRange;
+      from?: number;
+      to?: number;
+      includeIndicators?: boolean;
+    }
+  ): HistoricalDataResult | null;
 }
+
 
 export class MarketDataService {
   private static instruments: InstrumentMeta[] = [
@@ -217,11 +252,12 @@ export class MarketDataService {
     meta: InstrumentMeta,
     stepSeconds: number,
     count: number,
-    endSeconds: number
+    endSeconds: number,
+    anchorQuote?: MarketQuote | null
   ): Candle[] {
     const candles: Candle[] = [];
     const hash = this.getSymbolHash(meta.symbol);
-    const quote = this.getQuote(meta.symbol);
+    const quote = anchorQuote !== undefined ? anchorQuote : this.getQuote(meta.symbol);
     const targetClose = quote ? quote.price : meta.basePrice;
 
     // Determine category characteristics for realistic asset movements
@@ -279,7 +315,74 @@ export class MarketDataService {
     return candles;
   }
 
-  static getCandles(symbol: string, interval: CandleInterval = '15m', limit: number = 60): Candle[] {
+  static getRangeBounds(range: HistoryRange, nowSeconds: number): { from: number; to: number } {
+    let seconds = 86400;
+    switch (range) {
+      case '1D':
+        seconds = 86400;
+        break;
+      case '1W':
+        seconds = 7 * 86400;
+        break;
+      case '1M':
+        seconds = 30 * 86400;
+        break;
+      case '3M':
+        seconds = 90 * 86400;
+        break;
+      case '6M':
+        seconds = 180 * 86400;
+        break;
+      case '1Y':
+        seconds = 365 * 86400;
+        break;
+      case '3Y':
+        seconds = 3 * 365 * 86400;
+        break;
+      case '5Y':
+        seconds = 5 * 365 * 86400;
+        break;
+      case 'ALL':
+        seconds = 5 * 365 * 86400;
+        break;
+      default:
+        seconds = 30 * 86400;
+    }
+    return {
+      from: nowSeconds - seconds,
+      to: nowSeconds,
+    };
+  }
+
+  static getMaxRetentionSeconds(interval: CandleInterval): number {
+    switch (interval) {
+      case '1m':
+        return 7 * 86400; // 7 days max for 1m
+      case '5m':
+        return 30 * 86400; // 30 days max for 5m
+      case '15m':
+      case '30m':
+        return 90 * 86400; // 90 days max for 15m/30m
+      case '1h':
+      case '4h':
+        return 365 * 86400; // 1 year max for 1h/4h
+      case '1d':
+      case '1w':
+      case '1mo':
+      default:
+        return 5 * 365 * 86400; // 5 full years for daily, weekly, monthly
+    }
+  }
+
+  static getCandles(
+    symbol: string,
+    interval: CandleInterval = '15m',
+    limit: number = 60,
+    range?: HistoryRange,
+    from?: number,
+    to?: number,
+    anchorQuote?: MarketQuote | null
+  ): Candle[] {
     const meta = this.getInstrument(symbol);
     if (!meta) return [];
 
@@ -287,20 +390,34 @@ export class MarketDataService {
       '1m': 60,
       '5m': 300,
       '15m': 900,
+      '30m': 1800,
       '1h': 3600,
+      '4h': 14400,
       '1d': 86400,
       '1w': 604800,
+      '1mo': 2592000,
     };
 
     const targetSeconds = intervalSecondsMap[interval] || 900;
     const nowSeconds = Math.floor(Date.now() / 1000);
-    const endSeconds = nowSeconds - (nowSeconds % targetSeconds);
+    const endSeconds = to ? to - (to % targetSeconds) : nowSeconds - (nowSeconds % targetSeconds);
 
-    if (interval === '1m') {
-      return this.generateRawCandles(meta, 60, limit, endSeconds);
+    let candleCount = limit;
+    if (range) {
+      const bounds = this.getRangeBounds(range, endSeconds);
+      const span = bounds.to - bounds.from;
+      candleCount = Math.min(Math.max(Math.ceil(span / targetSeconds), 10), 1300);
+    } else if (from) {
+      const span = Math.max(endSeconds - from, targetSeconds);
+      candleCount = Math.min(Math.max(Math.ceil(span / targetSeconds), 5), 1300);
     }
 
-    // Determine sub-period interval and factor for genuine OHLC aggregation
+    // Direct generation for 1m, 1mo, or long histories
+    if (interval === '1m' || interval === '1mo' || candleCount > 120 || interval === '1d' || interval === '1w') {
+      return this.generateRawCandles(meta, targetSeconds, candleCount, endSeconds, anchorQuote);
+    }
+
+    // Sub-period aggregation for refined intraday bars
     let subIntervalSeconds = 60;
     let factor = 5;
 
@@ -310,20 +427,111 @@ export class MarketDataService {
     } else if (interval === '15m') {
       subIntervalSeconds = 300;
       factor = 3;
+    } else if (interval === '30m') {
+      subIntervalSeconds = 900;
+      factor = 2;
     } else if (interval === '1h') {
       subIntervalSeconds = 900;
       factor = 4;
-    } else if (interval === '1d') {
+    } else if (interval === '4h') {
       subIntervalSeconds = 3600;
-      factor = 24;
-    } else if (interval === '1w') {
-      subIntervalSeconds = 86400;
-      factor = 7;
+      factor = 4;
     }
 
-    const rawCandles = this.generateRawCandles(meta, subIntervalSeconds, limit * factor, endSeconds + targetSeconds - subIntervalSeconds);
+    const rawCandles = this.generateRawCandles(
+      meta,
+      subIntervalSeconds,
+      candleCount * factor,
+      endSeconds + targetSeconds - subIntervalSeconds,
+      anchorQuote
+    );
     const aggregated = this.aggregateCandles(rawCandles, targetSeconds);
-    return aggregated.slice(-limit);
+    return aggregated.slice(-candleCount);
+  }
+
+  static getHistoricalData(
+    symbol: string,
+    interval: CandleInterval = '15m',
+    options?: {
+      limit?: number;
+      range?: HistoryRange;
+      from?: number;
+      to?: number;
+      includeIndicators?: boolean;
+    }
+  ): HistoricalDataResult | null {
+    const meta = this.getInstrument(symbol);
+    if (!meta) return null;
+
+    const intervalSecondsMap: Record<CandleInterval, number> = {
+      '1m': 60,
+      '5m': 300,
+      '15m': 900,
+      '30m': 1800,
+      '1h': 3600,
+      '4h': 14400,
+      '1d': 86400,
+      '1w': 604800,
+      '1mo': 2592000,
+    };
+    const targetSeconds = intervalSecondsMap[interval] || 900;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    let to = options?.to || nowSeconds;
+    let from = options?.from;
+    let retentionNotice: string | undefined;
+
+    if (options?.range) {
+      const bounds = this.getRangeBounds(options.range, to);
+      from = bounds.from;
+      to = bounds.to;
+    } else if (!from) {
+      const defaultCount = options?.limit || 60;
+      from = to - defaultCount * targetSeconds;
+    }
+
+    // Apply retention window constraint for intraday intervals
+    const maxRetention = this.getMaxRetentionSeconds(interval);
+    if (to - from > maxRetention) {
+      retentionNotice = `${interval} candles have an intraday retention limit of ${Math.round(maxRetention / 86400)} days. Displaying longest available intraday window. Switch to 1D/1W/1M or a daily/weekly interval for 5-year views.`;
+      from = Math.max(from, to - maxRetention);
+    }
+
+    const calculatedLimit = Math.min(Math.max(Math.ceil((to - from) / targetSeconds), 10), 1300);
+    const finalLimit = options?.limit ? Math.min(options.limit, calculatedLimit) : calculatedLimit;
+
+    const quote = this.getQuote(symbol);
+    const candles = this.getCandles(symbol, interval, finalLimit, options?.range, from, to, quote);
+
+    let indicators: TechnicalIndicators | undefined;
+    if (options?.includeIndicators) {
+      indicators = TechnicalIndicatorService.calculateAll(candles);
+    }
+
+    const actualRange =
+      candles.length > 0
+        ? `${new Date(candles[0].timestamp * 1000).toISOString().split('T')[0]} to ${new Date(candles[candles.length - 1].timestamp * 1000).toISOString().split('T')[0]}`
+        : 'No data';
+
+    return {
+      symbol: meta.symbol,
+      name: meta.name,
+      exchange: meta.exchange,
+      category: meta.category,
+      currency: meta.currency,
+      interval,
+      requestedRange: options?.range,
+      actualRange,
+      from: candles.length > 0 ? candles[0].timestamp : from,
+      to: candles.length > 0 ? candles[candles.length - 1].timestamp : to,
+      count: candles.length,
+      status: 'SIMULATED',
+      provider: 'TradeVerse Synthetic Market Engine (Deterministic)',
+      retentionNotice,
+      candles,
+      indicators,
+      latestQuote: quote || undefined,
+    };
   }
 
   static getMarketStatus() {
