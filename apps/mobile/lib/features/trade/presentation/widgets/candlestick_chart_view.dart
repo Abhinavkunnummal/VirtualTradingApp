@@ -115,7 +115,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                       border: Border.all(color: AppColors.warning.withOpacity(0.3)),
                     ),
                     child: Text(
-                      'LIVE • ${widget.selectedInterval.toUpperCase()}',
+                      'SIMULATED • ${widget.selectedInterval.toUpperCase()}',
                       style: AppTypography.labelSm.copyWith(
                         fontSize: 9,
                         color: AppColors.warning,
