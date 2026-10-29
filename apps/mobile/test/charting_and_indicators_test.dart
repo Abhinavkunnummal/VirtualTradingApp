@@ -139,6 +139,20 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('interval_1d')));
       await tester.pumpAndSettle();
       expect(currentInterval, equals('1d'));
+
+      // 9. Test panning and double-tap reset gesture on chart
+      final chartFinder = find.byType(CustomPaint).first;
+      await tester.drag(chartFinder, const Offset(-50, 0));
+      await tester.pumpAndSettle();
+
+      await tester.tap(chartFinder);
+      await tester.pumpAndSettle();
+
+      // Double-tap to reset
+      await tester.tap(chartFinder);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(chartFinder);
+      await tester.pumpAndSettle();
     });
   });
 }

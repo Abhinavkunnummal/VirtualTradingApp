@@ -84,6 +84,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
   double _panOffset = 0.0;
   double _zoomScale = 1.0;
   double _baseZoomScale = 1.0;
+  bool _needsPanReset = true;
 
   // Cached indicator data
   List<double?> _sma20 = [];
@@ -91,10 +92,34 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
   List<double?> _rsi14 = [];
   Map<String, List<double?>> _macd = {};
 
+  static double calculateCandleWidth(double chartWidth, int candleCount, double zoom) {
+    if (candleCount <= 0 || chartWidth <= 0) return 8.0;
+    final visibleCount = candleCount > 32 ? 32.0 : math.max(candleCount.toDouble(), 12.0);
+    final baseWidth = (chartWidth / visibleCount).clamp(6.5, 20.0);
+    return baseWidth * zoom;
+  }
+
+  void _resetPan(double maxWidth) {
+    if (widget.candles.isEmpty || maxWidth <= 0) {
+      _panOffset = 0.0;
+      return;
+    }
+    const axisWidth = 54.0;
+    final chartWidth = math.max(maxWidth - axisWidth, 50.0);
+    final candleWidth = calculateCandleWidth(chartWidth, widget.candles.length, _zoomScale);
+    final totalWidth = widget.candles.length * candleWidth;
+    if (totalWidth > chartWidth) {
+      _panOffset = chartWidth - totalWidth - 10.0;
+    } else {
+      _panOffset = 0.0;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _recalculateIndicators();
+    _needsPanReset = true;
   }
 
   @override
@@ -105,7 +130,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
         oldWidget.selectedRange != widget.selectedRange ||
         oldWidget.candles.length != widget.candles.length) {
       _inspectedCandle = null;
-      _panOffset = 0.0;
+      _needsPanReset = true;
       _recalculateIndicators();
     }
   }
@@ -266,6 +291,14 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                           )
                         : LayoutBuilder(
                             builder: (context, constraints) {
+                              if (_needsPanReset && widget.candles.isNotEmpty) {
+                                _resetPan(constraints.maxWidth);
+                                _needsPanReset = false;
+                              }
+                              const axisWidth = 54.0;
+                              final chartWidth = math.max(constraints.maxWidth - axisWidth, 50.0);
+                              final candleWidth = calculateCandleWidth(chartWidth, widget.candles.length, _zoomScale);
+
                               return GestureDetector(
                                 onScaleStart: (details) {
                                   _baseZoomScale = _zoomScale;
@@ -275,20 +308,27 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                                     if (details.scale != 1.0) {
                                       _zoomScale = (_baseZoomScale * details.scale).clamp(0.5, 3.5);
                                     }
-                                    if (details.horizontalScale == 1.0) {
-                                      _panOffset += details.focalPointDelta.dx;
+                                    _panOffset += details.focalPointDelta.dx;
+                                    final totalWidth = widget.candles.length * candleWidth;
+                                    if (totalWidth > chartWidth) {
+                                      final minPan = chartWidth - totalWidth - 30.0;
+                                      const maxPan = 30.0;
+                                      _panOffset = _panOffset.clamp(minPan, maxPan);
+                                    } else {
+                                      _panOffset = 0.0;
                                     }
                                     _handleInspect(details.localFocalPoint.dx, constraints.maxWidth);
                                   });
                                 },
-                                onHorizontalDragUpdate: (details) {
-                                  setState(() {
-                                    _panOffset += details.primaryDelta ?? 0;
-                                    _handleInspect(details.localPosition.dx, constraints.maxWidth);
-                                  });
-                                },
                                 onTapDown: (details) {
                                   _handleInspect(details.localPosition.dx, constraints.maxWidth);
+                                },
+                                onDoubleTap: () {
+                                  setState(() {
+                                    _inspectedCandle = null;
+                                    _zoomScale = 1.0;
+                                    _resetPan(constraints.maxWidth);
+                                  });
                                 },
                                 onLongPressEnd: (_) {
                                   setState(() => _inspectedCandle = null);
@@ -447,7 +487,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
     if (widget.candles.isEmpty || width <= 0) return;
     const axisWidth = 54.0;
     final chartWidth = math.max(width - axisWidth, 50.0);
-    final candleWidth = (chartWidth / widget.candles.length) * _zoomScale;
+    final candleWidth = calculateCandleWidth(chartWidth, widget.candles.length, _zoomScale);
     if (candleWidth <= 0) return;
 
     final adjustedX = touchX - _panOffset;
@@ -533,26 +573,45 @@ class _CandlestickPainter extends CustomPainter {
     double mainChartHeight = availableMain * 0.78;
     double volumeHeight = availableMain * 0.20;
 
-    // Price range bounds
+    final candleWidth = CandlestickChartView.calculateCandleWidth(chartWidth, candles.length, zoomScale);
+    final bodyWidth = (candleWidth * 0.72).clamp(2.5, 14.0);
+
+    // 1. Calculate price range bounds from VISIBLE candles in current viewport
     double minPrice = double.infinity;
     double maxPrice = double.negativeInfinity;
     double maxVol = 0;
 
-    for (final c in candles) {
-      if (c.low < minPrice) minPrice = c.low;
-      if (c.high > maxPrice) maxPrice = c.high;
-      if (c.volume > maxVol) maxVol = c.volume;
+    int visibleCandlesCount = 0;
+    for (int i = 0; i < candles.length; i++) {
+      final x = panOffset + (i * candleWidth + candleWidth / 2);
+      if (x >= -candleWidth && x <= chartWidth + candleWidth) {
+        final c = candles[i];
+        if (c.low < minPrice) minPrice = c.low;
+        if (c.high > maxPrice) maxPrice = c.high;
+        if (c.volume > maxVol) maxVol = c.volume;
+        visibleCandlesCount++;
+      }
     }
 
-    if (minPrice == maxPrice) {
+    if (visibleCandlesCount == 0 || minPrice == double.infinity) {
+      for (final c in candles) {
+        if (c.low < minPrice) minPrice = c.low;
+        if (c.high > maxPrice) maxPrice = c.high;
+        if (c.volume > maxVol) maxVol = c.volume;
+      }
+    }
+
+    if (minPrice >= maxPrice) {
       minPrice *= 0.99;
       maxPrice *= 1.01;
     }
 
-    final priceRange = (maxPrice - minPrice).clamp(0.01, double.infinity);
-    final baseCandleWidth = chartWidth / candles.length;
-    final candleWidth = baseCandleWidth * zoomScale;
-    final bodyWidth = (candleWidth * 0.65).clamp(1.5, 12.0);
+    // 10% vertical padding buffer for professional headroom and footroom
+    final rawRange = (maxPrice - minPrice).clamp(0.01, double.infinity);
+    final vPadding = rawRange * 0.10;
+    final paddedMin = minPrice - vPadding;
+    final paddedMax = maxPrice + vPadding;
+    final priceRange = paddedMax - paddedMin;
 
     final bullPaint = Paint()..color = AppColors.secondary;
     final bearPaint = Paint()..color = AppColors.tertiary;
@@ -560,11 +619,11 @@ class _CandlestickPainter extends CustomPainter {
       ..color = AppColors.borderSubtle.withOpacity(0.4)
       ..strokeWidth = 0.8;
 
-    // Draw horizontal grid lines and right Y-axis price labels
-    final gridLevels = [0.15, 0.50, 0.85];
+    // Draw horizontal grid lines across chartWidth
+    final gridLevels = [0.12, 0.38, 0.64, 0.88];
     for (final level in gridLevels) {
       final y = mainChartHeight * level;
-      final priceAtLevel = maxPrice - (level * priceRange);
+      final priceAtLevel = paddedMax - (level * priceRange);
       canvas.drawLine(Offset(0, y), Offset(chartWidth, y), gridPaint);
       _drawAxisText(canvas, priceAtLevel.toStringAsFixed(1), chartWidth + 4, y);
     }
@@ -573,16 +632,25 @@ class _CandlestickPainter extends CustomPainter {
     final volBaseY = mainChartHeight + volumeHeight;
     canvas.drawLine(Offset(0, volBaseY), Offset(chartWidth, volBaseY), gridPaint);
 
-    // Axis separator line
+    // Right Y-axis background & divider
+    canvas.drawRect(
+      Rect.fromLTWH(chartWidth, 0, axisWidth, size.height),
+      Paint()..color = AppColors.surfaceContainer,
+    );
     canvas.drawLine(
       Offset(chartWidth, 0),
       Offset(chartWidth, size.height),
       Paint()..color = AppColors.borderSubtle..strokeWidth = 1.0,
     );
 
+    // ============================================
+    // CLIP CANVAS FOR CANDLE & INDICATOR DRAWING
+    // ============================================
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, chartWidth, volBaseY));
+
     int? inspectedIndex;
 
-    // Draw Candlesticks & Volume Bars
     for (int i = 0; i < candles.length; i++) {
       final c = candles[i];
       if (c == inspectedCandle) {
@@ -593,12 +661,12 @@ class _CandlestickPainter extends CustomPainter {
       final x = panOffset + (i * candleWidth + candleWidth / 2);
 
       // Skip off-screen candles for high performance
-      if (x < -20 || x > chartWidth + 20) continue;
+      if (x < -candleWidth || x > chartWidth + candleWidth) continue;
 
-      final highY = mainChartHeight - ((c.high - minPrice) / priceRange) * mainChartHeight;
-      final lowY = mainChartHeight - ((c.low - minPrice) / priceRange) * mainChartHeight;
-      final openY = mainChartHeight - ((c.open - minPrice) / priceRange) * mainChartHeight;
-      final closeY = mainChartHeight - ((c.close - minPrice) / priceRange) * mainChartHeight;
+      final highY = mainChartHeight - ((c.high - paddedMin) / priceRange) * mainChartHeight;
+      final lowY = mainChartHeight - ((c.low - paddedMin) / priceRange) * mainChartHeight;
+      final openY = mainChartHeight - ((c.open - paddedMin) / priceRange) * mainChartHeight;
+      final closeY = mainChartHeight - ((c.close - paddedMin) / priceRange) * mainChartHeight;
 
       // Wick
       canvas.drawLine(
@@ -615,7 +683,7 @@ class _CandlestickPainter extends CustomPainter {
 
       // Volume bar
       if (maxVol > 0) {
-        final volBarH = (c.volume / maxVol) * volumeHeight;
+        final volBarH = (c.volume / maxVol) * (volumeHeight - 2);
         final volRect = Rect.fromLTWH(
           x - bodyWidth / 2,
           volBaseY - volBarH,
@@ -631,15 +699,17 @@ class _CandlestickPainter extends CustomPainter {
 
     // 5. Draw Overlaid Technical Indicators (SMA 20, EMA 20)
     if (showSma20 && sma20.isNotEmpty) {
-      _drawIndicatorLine(canvas, sma20, minPrice, priceRange, mainChartHeight, candleWidth, const Color(0xFFFFB300));
+      _drawIndicatorLine(canvas, sma20, paddedMin, priceRange, mainChartHeight, candleWidth, const Color(0xFFFFB300));
     }
     if (showEma20 && ema20.isNotEmpty) {
-      _drawIndicatorLine(canvas, ema20, minPrice, priceRange, mainChartHeight, candleWidth, const Color(0xFF00E5FF));
+      _drawIndicatorLine(canvas, ema20, paddedMin, priceRange, mainChartHeight, candleWidth, const Color(0xFF00E5FF));
     }
+
+    canvas.restore(); // END CLIPPING
 
     // 6. Draw Real-Time LTP guideline and badge for the latest candle
     final latestCandle = candles.last;
-    final latestY = mainChartHeight - ((latestCandle.close - minPrice) / priceRange) * mainChartHeight;
+    final latestY = mainChartHeight - ((latestCandle.close - paddedMin) / priceRange) * mainChartHeight;
     final latestColor = latestCandle.isBullish ? AppColors.secondary : AppColors.tertiary;
 
     _drawDashedLine(
@@ -661,12 +731,12 @@ class _CandlestickPainter extends CustomPainter {
     // 7. Touch crosshair & inspect badge
     if (inspectedIndex != null && inspectedCandle != null) {
       final inspectX = panOffset + (inspectedIndex * candleWidth + candleWidth / 2);
-      final inspectY = mainChartHeight - ((inspectedCandle!.close - minPrice) / priceRange) * mainChartHeight;
+      final inspectY = mainChartHeight - ((inspectedCandle!.close - paddedMin) / priceRange) * mainChartHeight;
 
       if (inspectX >= 0 && inspectX <= chartWidth) {
         canvas.drawLine(
           Offset(inspectX, 0),
-          Offset(inspectX, size.height),
+          Offset(inspectX, volBaseY),
           Paint()..color = AppColors.primaryBrand.withOpacity(0.7)..strokeWidth = 1.0,
         );
 
@@ -767,6 +837,9 @@ class _CandlestickPainter extends CustomPainter {
     _drawAxisText(canvas, '30', chartWidth + 4, y30);
 
     // RSI Path
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, topY, chartWidth, panelHeight));
+
     final rsiPath = Path();
     bool started = false;
 
@@ -788,6 +861,7 @@ class _CandlestickPainter extends CustomPainter {
     if (started) {
       canvas.drawPath(rsiPath, Paint()..color = const Color(0xFFAB47BC)..strokeWidth = 1.4..style = PaintingStyle.stroke);
     }
+    canvas.restore();
   }
 
   void _drawMacdPanel(Canvas canvas, double topY, double panelHeight, double chartWidth, double candleWidth) {
@@ -796,6 +870,9 @@ class _CandlestickPainter extends CustomPainter {
 
     final zeroY = topY + panelHeight * 0.5;
     canvas.drawLine(Offset(0, zeroY), Offset(chartWidth, zeroY), Paint()..color = AppColors.borderSubtle.withOpacity(0.4)..strokeWidth = 0.8);
+
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, topY, chartWidth, panelHeight));
 
     final macdLine = macd['macd'] ?? [];
     final signalLine = macd['signal'] ?? [];
@@ -822,6 +899,8 @@ class _CandlestickPainter extends CustomPainter {
     _drawSubLine(canvas, macdLine, zeroY, panelHeight, candleWidth, const Color(0xFF29B6F6));
     // Signal Line
     _drawSubLine(canvas, signalLine, zeroY, panelHeight, candleWidth, const Color(0xFFFF7043));
+
+    canvas.restore();
   }
 
   void _drawSubLine(Canvas canvas, List<double?> series, double zeroY, double panelHeight, double candleWidth, Color color) {
