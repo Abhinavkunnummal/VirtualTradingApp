@@ -30,18 +30,32 @@ marketDataRouter.get('/instruments', (req: Request, res: Response) => {
 });
 
 // GET /api/v1/market-data/quote/:symbol
-marketDataRouter.get('/quote/:symbol', (req: Request, res: Response) => {
+marketDataRouter.get('/quote/:symbol', async (req: Request, res: Response) => {
   const symbol = req.params.symbol as string;
   const quote = MarketDataService.getQuote(symbol);
-  if (!quote) {
-    return res.status(404).json({
-      success: false,
-      message: `Instrument "${symbol}" not found in supported market master.`,
+  if (quote) {
+    return res.status(200).json({
+      success: true,
+      quote,
     });
   }
-  return res.status(200).json({
-    success: true,
-    quote,
+
+  // If not in local instrument master, check Alpha Vantage
+  const isCrypto = symbol.includes('/') || ['BTC', 'ETH', 'SOL', 'USDT'].includes(symbol.toUpperCase());
+  const liveQuote = isCrypto
+    ? await AlphaVantageService.fetchCryptoRate(symbol.split('/')[0], symbol.split('/')[1] || 'USD')
+    : await AlphaVantageService.fetchGlobalQuote(symbol);
+
+  if (liveQuote) {
+    return res.status(200).json({
+      success: true,
+      quote: liveQuote,
+    });
+  }
+
+  return res.status(404).json({
+    success: false,
+    message: `Instrument "${symbol}" not found in supported market master or live feed.`,
   });
 });
 
@@ -66,31 +80,45 @@ marketDataRouter.get('/quotes', (req: Request, res: Response) => {
 });
 
 // GET /api/v1/market-data/candles/:symbol
-marketDataRouter.get('/candles/:symbol', (req: Request, res: Response) => {
+marketDataRouter.get('/candles/:symbol', async (req: Request, res: Response) => {
   const symbol = req.params.symbol as string;
   const interval = (req.query.interval as CandleInterval) || '15m';
   const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '60', 10), 5), 300);
 
   const meta = MarketDataService.getInstrument(symbol);
-  if (!meta) {
-    return res.status(404).json({
-      success: false,
-      message: `Instrument "${symbol}" not found.`,
+  if (meta) {
+    const candles = MarketDataService.getCandles(symbol, interval, limit);
+    const quote = MarketDataService.getQuote(symbol);
+
+    return res.status(200).json({
+      success: true,
+      symbol: meta.symbol,
+      exchange: meta.exchange,
+      interval,
+      currency: meta.currency,
+      status: 'SIMULATED',
+      latestQuote: quote,
+      candles,
     });
   }
 
-  const candles = MarketDataService.getCandles(symbol, interval, limit);
-  const quote = MarketDataService.getQuote(symbol);
+  // If not in local instrument master, check Alpha Vantage for live daily candles
+  const liveCandles = await AlphaVantageService.fetchDailyCandles(symbol, limit);
+  if (liveCandles && liveCandles.length > 0) {
+    return res.status(200).json({
+      success: true,
+      symbol: symbol.toUpperCase(),
+      exchange: 'GLOBAL',
+      interval: '1d',
+      currency: 'USD',
+      status: 'LIVE',
+      candles: liveCandles,
+    });
+  }
 
-  return res.status(200).json({
-    success: true,
-    symbol: meta.symbol,
-    exchange: meta.exchange,
-    interval,
-    currency: meta.currency,
-    status: 'SIMULATED',
-    latestQuote: quote,
-    candles,
+  return res.status(404).json({
+    success: false,
+    message: `Instrument "${symbol}" not found in market master or Alpha Vantage.`,
   });
 });
 
