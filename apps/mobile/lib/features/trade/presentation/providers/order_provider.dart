@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradeverse_mobile/core/network/api_client.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
@@ -36,41 +37,91 @@ final selectedTradeInstrumentProvider = StateProvider<InstrumentModel>((ref) {
 
 final selectedCandleIntervalProvider = StateProvider<String>((ref) => '15m');
 
+List<CandleData> _generateRealisticCandles({
+  required String symbol,
+  required String interval,
+  required double currentLtp,
+}) {
+  final intervalSeconds = _intervalToSeconds(interval);
+  final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  const count = 36;
+
+  // Unique polynomial hash for the symbol
+  int hash = 0;
+  for (int j = 0; j < symbol.length; j++) {
+    hash = (hash * 31 + symbol.codeUnitAt(j)) & 0x7FFFFFFF;
+  }
+
+  // Volatility scale based on asset class
+  double volMultiplier = 0.003;
+  if (symbol.contains('/') || symbol.contains('BTC') || symbol.contains('ETH')) {
+    volMultiplier = 0.009; // Crypto swings wide
+  } else if (symbol.contains('GOLD') || symbol.contains('CRUDE') || symbol.contains('SILVER')) {
+    volMultiplier = 0.004; // Commodity micro-trends
+  } else if (symbol.contains('NIFTY') || symbol.contains('SENSEX')) {
+    volMultiplier = 0.0018; // Index steady macro
+  }
+
+  // Anchor latest candle (count - 1) EXACTLY at currentLtp
+  final closePrices = List<double>.filled(count, currentLtp);
+  closePrices[count - 1] = currentLtp;
+
+  for (int i = count - 2; i >= 0; i--) {
+    final t = now - ((count - 1 - i) * intervalSeconds);
+    final w1 = math.sin((t / (intervalSeconds * 3)) + (hash % 100));
+    final w2 = math.cos((t / (intervalSeconds * 7)) + (hash % 50));
+    final w3 = math.sin((t / (intervalSeconds * 13)) * 1.5 + (hash % 23));
+    final wave = (w1 * 0.5 + w2 * 0.3 + w3 * 0.2);
+
+    final move = wave * volMultiplier;
+    final prev = closePrices[i + 1] / (1 + move);
+    closePrices[i] = double.parse(prev.toStringAsFixed(2));
+  }
+
+  final List<CandleData> result = [];
+  for (int i = 0; i < count; i++) {
+    final t = now - ((count - 1 - i) * intervalSeconds);
+    final c = closePrices[i];
+    final o = i == 0 ? closePrices[0] : closePrices[i - 1];
+
+    final wick1 = (math.sin(t * 17 + hash).abs()) * (currentLtp * 0.002);
+    final wick2 = (math.cos(t * 29 + hash).abs()) * (currentLtp * 0.002);
+
+    final bodyMax = math.max(o, c);
+    final bodyMin = math.min(o, c);
+
+    final h = double.parse((bodyMax + wick1).toStringAsFixed(2));
+    final l = double.parse((math.max(bodyMin - wick2, 0.01)).toStringAsFixed(2));
+
+    final volSeed = (math.sin(t + (hash % 1000))).abs();
+    final volume = 12000.0 + volSeed * 65000.0;
+
+    result.add(CandleData(
+      timestamp: t,
+      open: o,
+      high: math.max(h, bodyMax),
+      low: math.min(l, bodyMin),
+      close: c,
+      volume: volume,
+    ));
+  }
+
+  return result;
+}
+
 final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((ref, query) async {
   final authState = ref.watch(authProvider);
+  final selectedInst = ref.watch(selectedTradeInstrumentProvider);
+  final double currentLtp = (selectedInst.symbol == query.symbol)
+      ? selectedInst.price
+      : _getDefaultPrice(query.symbol);
 
   if (authState.isDemoMode) {
-    // Generate deterministic demo candles scaled to the instrument's price and interval
-    final selectedInst = ref.watch(selectedTradeInstrumentProvider);
-    final double basePrice = (selectedInst.symbol == query.symbol)
-        ? selectedInst.price
-        : _getDefaultPrice(query.symbol);
-
-    final intervalSeconds = _intervalToSeconds(query.interval);
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final List<CandleData> demoCandles = [];
-    double current = basePrice;
-
-    for (int i = 35; i >= 0; i--) {
-      final t = now - (i * intervalSeconds);
-      final seed = ((query.symbol.codeUnitAt(0) + i) % 7) - 3;
-      final change = (basePrice * 0.003 * seed);
-      final o = current;
-      final c = (current + change) > 0 ? (current + change) : current;
-      final h = (o > c ? o : c) + (basePrice * 0.002);
-      final l = (o < c ? o : c) - (basePrice * 0.002);
-
-      demoCandles.add(CandleData(
-        timestamp: t,
-        open: double.parse(o.toStringAsFixed(2)),
-        high: double.parse(h.toStringAsFixed(2)),
-        low: double.parse((l > 0 ? l : 0.01).toStringAsFixed(2)),
-        close: double.parse(c.toStringAsFixed(2)),
-        volume: 15000 + (i * 1100).toDouble(),
-      ));
-      current = c;
-    }
-    return demoCandles;
+    return _generateRealisticCandles(
+      symbol: query.symbol,
+      interval: query.interval,
+      currentLtp: currentLtp,
+    );
   }
 
   final apiClient = ref.watch(apiClientProvider);
@@ -104,36 +155,11 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
   } catch (_) {}
 
   // Resilient fallback: Generate realistic candles matching instrument price so chart is never blank
-  final selectedInst = ref.watch(selectedTradeInstrumentProvider);
-  final double basePrice = (selectedInst.symbol == query.symbol)
-      ? selectedInst.price
-      : _getDefaultPrice(query.symbol);
-
-  final intervalSeconds = _intervalToSeconds(query.interval);
-  final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-  final List<CandleData> fallbackCandles = [];
-  double current = basePrice;
-
-  for (int i = 35; i >= 0; i--) {
-    final t = now - (i * intervalSeconds);
-    final seed = ((query.symbol.codeUnitAt(0) + i) % 7) - 3;
-    final change = (basePrice * 0.003 * seed);
-    final o = current;
-    final c = (current + change) > 0 ? (current + change) : current;
-    final h = (o > c ? o : c) + (basePrice * 0.002);
-    final l = (o < c ? o : c) - (basePrice * 0.002);
-
-    fallbackCandles.add(CandleData(
-      timestamp: t,
-      open: double.parse(o.toStringAsFixed(2)),
-      high: double.parse(h.toStringAsFixed(2)),
-      low: double.parse((l > 0 ? l : 0.01).toStringAsFixed(2)),
-      close: double.parse(c.toStringAsFixed(2)),
-      volume: 15000 + (i * 1100).toDouble(),
-    ));
-    current = c;
-  }
-  return fallbackCandles;
+  return _generateRealisticCandles(
+    symbol: query.symbol,
+    interval: query.interval,
+    currentLtp: currentLtp,
+  );
 });
 
 int _intervalToSeconds(String interval) {

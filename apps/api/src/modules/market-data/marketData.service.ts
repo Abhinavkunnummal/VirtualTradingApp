@@ -205,6 +205,14 @@ export class MarketDataService {
     return aggregated;
   }
 
+  private static getSymbolHash(symbol: string): number {
+    let hash = 0;
+    for (let i = 0; i < symbol.length; i++) {
+      hash = (hash * 31 + symbol.charCodeAt(i)) >>> 0;
+    }
+    return hash;
+  }
+
   private static generateRawCandles(
     meta: InstrumentMeta,
     stepSeconds: number,
@@ -212,34 +220,60 @@ export class MarketDataService {
     endSeconds: number
   ): Candle[] {
     const candles: Candle[] = [];
-    let prevClose = meta.basePrice;
+    const hash = this.getSymbolHash(meta.symbol);
+    const quote = this.getQuote(meta.symbol);
+    const targetClose = quote ? quote.price : meta.basePrice;
 
-    for (let i = count - 1; i >= 0; i--) {
-      const candleTime = endSeconds - i * stepSeconds;
+    // Determine category characteristics for realistic asset movements
+    let categoryMultiplier = 1.0;
+    if (meta.category === 'CRYPTO') categoryMultiplier = 2.2;
+    else if (meta.category === 'COMMODITY') categoryMultiplier = 1.3;
+    else if (meta.category === 'INDEX') categoryMultiplier = 0.55;
 
-      // Seed pseudo-random movement using candleTime
-      const seed = Math.sin(candleTime + meta.symbol.length);
-      const movePercent = seed * meta.volatility * (stepSeconds / 60 >= 1 ? Math.sqrt(stepSeconds / 60) * 0.3 : 1);
+    const baseVolatility = meta.volatility * categoryMultiplier;
 
-      const open = prevClose;
-      const close = parseFloat((open * (1 + movePercent)).toFixed(2));
-      const wick1 = Math.abs(seed * 0.005);
-      const wick2 = Math.abs(Math.cos(candleTime) * 0.005);
+    // Anchor latest candle close to targetClose, then calculate historical ticks backwards
+    const closePrices: number[] = new Array(count);
+    closePrices[count - 1] = targetClose;
 
-      const high = parseFloat((Math.max(open, close) * (1 + wick1)).toFixed(2));
-      const low = parseFloat((Math.min(open, close) * (1 - wick2)).toFixed(2));
-      const volume = Math.floor(10000 + Math.abs(seed) * 50000);
+    for (let i = count - 2; i >= 0; i--) {
+      const candleTime = endSeconds - (count - 1 - i) * stepSeconds;
+      const w1 = Math.sin((candleTime / (stepSeconds * 3)) + (hash % 100));
+      const w2 = Math.cos((candleTime / (stepSeconds * 7)) + (hash % 50));
+      const w3 = Math.sin((candleTime / (stepSeconds * 13)) * 1.5 + (hash % 23));
+      const wave = (w1 * 0.5 + w2 * 0.3 + w3 * 0.2);
+
+      const changePct = wave * baseVolatility * (stepSeconds >= 3600 ? 1.4 : 0.8);
+      const prev = closePrices[i + 1] / (1 + changePct);
+      closePrices[i] = parseFloat(prev.toFixed(meta.tickSize < 0.1 ? 2 : 1));
+    }
+
+    for (let i = 0; i < count; i++) {
+      const candleTime = endSeconds - (count - 1 - i) * stepSeconds;
+      const c = closePrices[i];
+      const prevC = i === 0 ? closePrices[0] : closePrices[i - 1];
+      const o = prevC;
+
+      const wickSeed1 = Math.abs(Math.sin(candleTime * 17 + hash)) * 0.003 * categoryMultiplier;
+      const wickSeed2 = Math.abs(Math.cos(candleTime * 29 + hash)) * 0.003 * categoryMultiplier;
+
+      const bodyMax = Math.max(o, c);
+      const bodyMin = Math.min(o, c);
+
+      const h = parseFloat((bodyMax * (1 + wickSeed1)).toFixed(meta.tickSize < 0.1 ? 2 : 1));
+      const l = parseFloat((Math.max(bodyMin * (1 - wickSeed2), meta.tickSize)).toFixed(meta.tickSize < 0.1 ? 2 : 1));
+
+      const volSeed = Math.abs(Math.sin(candleTime + (hash % 1000)));
+      const vol = Math.floor(10000 + volSeed * 80000 * (meta.category === 'INDEX' ? 8 : 1));
 
       candles.push({
         timestamp: candleTime,
-        open,
-        high,
-        low,
-        close,
-        volume,
+        open: o,
+        high: Math.max(h, bodyMax),
+        low: Math.min(l, bodyMin),
+        close: c,
+        volume: vol,
       });
-
-      prevClose = close;
     }
 
     return candles;

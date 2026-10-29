@@ -447,7 +447,9 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     final portfolioAsync = ref.watch(portfolioProvider);
 
     final availableCash = portfolioAsync.valueOrNull?.availableCash ?? 1000000.0;
-    final ltp = instrument.price;
+    final ltp = (candlesAsync.valueOrNull?.isNotEmpty ?? false)
+        ? candlesAsync.valueOrNull!.last.close
+        : instrument.price;
     final currency = instrument.category == 'US' || instrument.category == 'CRYPTO' ? '\$' : '₹';
     final priceToUse = _customPrice ?? ltp;
     final requiredMargin = _getRequiredMargin(ltp);
@@ -542,6 +544,8 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             CandlestickChartView(
               symbol: instrument.symbol,
               candles: candlesAsync.valueOrNull ?? [],
+              currentPrice: ltp,
+              currencySymbol: currency,
               isLoading: candlesAsync.isLoading,
               errorMessage: candlesAsync.hasError ? candlesAsync.error.toString() : null,
               selectedInterval: interval,
