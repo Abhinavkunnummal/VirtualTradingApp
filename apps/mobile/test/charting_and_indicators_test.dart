@@ -100,39 +100,45 @@ void main() {
       expect(find.text('RELIANCE'), findsOneWidget);
       expect(find.textContaining('SIMULATED'), findsWidgets);
 
-      // 2. Verify Range Selector Chips
-      expect(find.text('1D'), findsWidgets);
-      expect(find.text('1W'), findsWidgets);
-      expect(find.text('1M'), findsWidgets);
-      expect(find.text('1Y'), findsOneWidget);
-      expect(find.text('5Y'), findsOneWidget);
-      expect(find.text('ALL'), findsOneWidget);
+      // 2. Verify Range Selector Chips by Key
+      expect(find.byKey(const ValueKey('range_1D')), findsOneWidget);
+      expect(find.byKey(const ValueKey('range_1W')), findsOneWidget);
+      expect(find.byKey(const ValueKey('range_1M')), findsOneWidget);
+      expect(find.byKey(const ValueKey('range_1Y')), findsOneWidget);
+      expect(find.byKey(const ValueKey('range_5Y')), findsOneWidget);
+      expect(find.byKey(const ValueKey('range_ALL')), findsOneWidget);
 
-      // 3. Verify Technical Indicator Chips
-      expect(find.text('SMA(20)'), findsOneWidget);
-      expect(find.text('EMA(20)'), findsOneWidget);
-      expect(find.text('RSI(14)'), findsOneWidget);
-      expect(find.text('MACD'), findsOneWidget);
+      // 3. Verify Interval Selector Chips by Key
+      expect(find.byKey(const ValueKey('interval_1m')), findsOneWidget);
+      expect(find.byKey(const ValueKey('interval_5m')), findsOneWidget);
+      expect(find.byKey(const ValueKey('interval_15m')), findsOneWidget);
+      expect(find.byKey(const ValueKey('interval_1d')), findsOneWidget);
+      expect(find.byKey(const ValueKey('interval_1w')), findsOneWidget);
+      expect(find.byKey(const ValueKey('interval_1M')), findsOneWidget);
 
-      // 4. Test toggling SMA(20) indicator
-      await tester.tap(find.text('SMA(20)'));
+      // 4. Verify Technical Indicator Chips by Key
+      expect(find.byKey(const ValueKey('indicator_SMA(20)')), findsOneWidget);
+      expect(find.byKey(const ValueKey('indicator_EMA(20)')), findsOneWidget);
+      expect(find.byKey(const ValueKey('indicator_RSI(14)')), findsOneWidget);
+      expect(find.byKey(const ValueKey('indicator_MACD')), findsOneWidget);
+
+      // 5. Test toggling SMA(20) indicator
+      await tester.tap(find.byKey(const ValueKey('indicator_SMA(20)')));
       await tester.pumpAndSettle();
 
-      // 5. Test toggling RSI(14) oscillator panel
-      await tester.tap(find.text('RSI(14)'));
+      // 6. Test toggling RSI(14) oscillator panel
+      await tester.tap(find.byKey(const ValueKey('indicator_RSI(14)')));
       await tester.pumpAndSettle();
 
-      // 6. Test tapping 5Y range chip
-      await tester.tap(find.text('5Y'));
+      // 7. Test tapping 5Y range chip
+      await tester.tap(find.byKey(const ValueKey('range_5Y')));
       await tester.pumpAndSettle();
       expect(currentRange, equals('5Y'));
 
-      // 7. Test tapping 1D interval chip
-      final interval1dFinder = find.widgetWithText(InkWell, '1D');
-      if (interval1dFinder.evaluate().isNotEmpty) {
-        await tester.tap(interval1dFinder.first);
-        await tester.pumpAndSettle();
-      }
+      // 8. Test tapping 1d interval chip
+      await tester.tap(find.byKey(const ValueKey('interval_1d')));
+      await tester.pumpAndSettle();
+      expect(currentInterval, equals('1d'));
     });
   });
 }

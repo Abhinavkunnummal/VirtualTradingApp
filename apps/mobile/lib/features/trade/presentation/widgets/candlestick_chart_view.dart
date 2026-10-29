@@ -332,6 +332,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: InkWell(
+                        key: ValueKey('interval_$interval'),
                         onTap: () => widget.onIntervalChanged(interval),
                         borderRadius: BorderRadius.circular(5),
                         child: Container(
@@ -374,6 +375,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: InkWell(
+                        key: ValueKey('range_$range'),
                         onTap: widget.onRangeChanged != null ? () => widget.onRangeChanged!(range) : null,
                         borderRadius: BorderRadius.circular(5),
                         child: Container(
@@ -408,6 +410,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
 
   Widget _buildIndicatorChip(String label, bool active, Color color, VoidCallback onTap) {
     return InkWell(
+      key: ValueKey('indicator_$label'),
       onTap: onTap,
       borderRadius: BorderRadius.circular(5),
       child: Container(
