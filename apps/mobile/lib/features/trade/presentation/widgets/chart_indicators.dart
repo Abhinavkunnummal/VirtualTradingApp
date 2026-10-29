@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'candlestick_chart_view.dart';
 
 class ChartIndicatorCalculator {

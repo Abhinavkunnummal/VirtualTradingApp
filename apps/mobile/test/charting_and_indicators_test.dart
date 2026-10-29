@@ -31,7 +31,7 @@ void main() {
       expect(ema.length, equals(35));
       expect(ema[0], isNull);
       expect(ema[4], isNotNull);
-      expect(ema[10]!, isGreaterThan(ema[5]!));
+      expect(ema[10]!, greaterThan(ema[5]!));
     });
 
     test('calculateRSI bounded between 0 and 100', () {
