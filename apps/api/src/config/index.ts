@@ -11,6 +11,7 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters long').default('tradeverse_dev_jwt_refresh_secret_key_32_chars_minimum!'),
   CORS_ORIGINS: z.string().default('*'),
   STARTING_CAPITAL: z.string().default('1000000').transform((v) => parseFloat(v)),
+  ALPHA_VANTAGE_API_KEY: z.string().optional().default(''),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -35,6 +36,7 @@ export const config = {
   jwtRefreshSecret: env.JWT_REFRESH_SECRET,
   corsOrigins: env.CORS_ORIGINS,
   startingCapital: env.STARTING_CAPITAL,
+  alphaVantageApiKey: env.ALPHA_VANTAGE_API_KEY,
   isProduction: env.NODE_ENV === 'production',
   isTest: env.NODE_ENV === 'test',
 };

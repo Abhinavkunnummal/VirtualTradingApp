@@ -74,6 +74,7 @@ If you prefer configuring the Web Service manually:
 | `JWT_REFRESH_SECRET`| Secret key for signing refresh tokens (min 32 chars) | `openssl rand -hex 32` |
 | `CORS_ORIGINS` | Permitted origins | `*` |
 | `STARTING_CAPITAL` | Fictional sandbox balance for new accounts | `1000000` (₹10 Lakhs) |
+| `ALPHA_VANTAGE_API_KEY` | Alpha Vantage access key for live quotes and search | Dedicated key (e.g. `QOQBUF2ZJIZX8EJ3`) |
 
 6. Click **Create Web Service**.
 
