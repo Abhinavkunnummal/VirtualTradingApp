@@ -12,6 +12,8 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().default('*'),
   STARTING_CAPITAL: z.string().default('1000000').transform((v) => parseFloat(v)),
   ALPHA_VANTAGE_API_KEY: z.string().optional().default(''),
+  FINNHUB_API_KEY: z.string().optional().default(''),
+  TWELVE_DATA_API_KEY: z.string().optional().default(''),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -37,6 +39,8 @@ export const config = {
   corsOrigins: env.CORS_ORIGINS,
   startingCapital: env.STARTING_CAPITAL,
   alphaVantageApiKey: env.ALPHA_VANTAGE_API_KEY,
+  finnhubApiKey: env.FINNHUB_API_KEY,
+  twelveDataApiKey: env.TWELVE_DATA_API_KEY,
   isProduction: env.NODE_ENV === 'production',
   isTest: env.NODE_ENV === 'test',
 };

@@ -501,7 +501,8 @@ export class MarketDataService {
     const finalLimit = options?.limit ? Math.min(options.limit, calculatedLimit) : calculatedLimit;
 
     const quote = this.getQuote(symbol);
-    const candles = this.getCandles(symbol, interval, finalLimit, options?.range, from, to, quote);
+    const rawCandles = this.getCandles(symbol, interval, finalLimit, options?.range, from, to, quote);
+    const candles = (options?.limit && !options?.range) ? rawCandles.slice(-options.limit) : rawCandles;
 
     let indicators: TechnicalIndicators | undefined;
     if (options?.includeIndicators) {

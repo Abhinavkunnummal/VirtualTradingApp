@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { MarketDataService, CandleInterval, HistoryRange, Candle } from './marketData.service';
 import { AlphaVantageService } from './alphaVantage.service';
 import { TechnicalIndicatorService, TechnicalIndicators } from './indicators';
+import { RealtimeMarketService } from './realtimeMarket.service';
 
 export const marketDataRouter = express.Router();
 
@@ -100,7 +101,26 @@ marketDataRouter.get('/instruments/:id', (req: Request, res: Response) => {
 });
 
 // Handler for single quote resolution
-const handleQuoteRequest = async (symbol: string, res: Response) => {
+const handleQuoteRequest = async (symbol: string, res: Response, sourceParam?: string) => {
+  const isTest = process.env.NODE_ENV === 'test';
+  const forceLive = sourceParam === 'live';
+  const forceSimulated = sourceParam === 'simulated';
+
+  // 1. Try real-time live market feed (Finnhub / Twelve Data / Yahoo Finance) when not running synthetic unit tests
+  if (!forceSimulated && (!isTest || forceLive)) {
+    try {
+      const liveQuote = await RealtimeMarketService.getLiveQuote(symbol);
+      if (liveQuote) {
+        return res.status(200).json({
+          success: true,
+          quote: liveQuote,
+        });
+      }
+    } catch {
+      // Non-fatal, fallback to local simulator
+    }
+  }
+
   const quote = MarketDataService.getQuote(symbol);
   if (quote) {
     return res.status(200).json({
@@ -111,14 +131,14 @@ const handleQuoteRequest = async (symbol: string, res: Response) => {
 
   // If not in local instrument master, check Alpha Vantage
   const isCrypto = symbol.includes('/') || ['BTC', 'ETH', 'SOL', 'USDT'].includes(symbol.toUpperCase());
-  const liveQuote = isCrypto
+  const avQuote = isCrypto
     ? await AlphaVantageService.fetchCryptoRate(symbol.split('/')[0], symbol.split('/')[1] || 'USD')
     : await AlphaVantageService.fetchGlobalQuote(symbol);
 
-  if (liveQuote) {
+  if (avQuote) {
     return res.status(200).json({
       success: true,
-      quote: liveQuote,
+      quote: avQuote,
     });
   }
 
@@ -130,16 +150,18 @@ const handleQuoteRequest = async (symbol: string, res: Response) => {
 
 // GET /api/v1/market-data/quote/:symbol
 marketDataRouter.get('/quote/:symbol', async (req: Request, res: Response) => {
-  return handleQuoteRequest(req.params.symbol as string, res);
+  const source = (req.query.source || req.query.live === 'true' ? 'live' : '') as string;
+  return handleQuoteRequest(req.params.symbol as string, res, source);
 });
 
 // GET /api/v1/market/quotes/:id
 marketDataRouter.get('/quotes/:id', async (req: Request, res: Response) => {
-  return handleQuoteRequest(req.params.id as string, res);
+  const source = (req.query.source || req.query.live === 'true' ? 'live' : '') as string;
+  return handleQuoteRequest(req.params.id as string, res, source);
 });
 
 // GET /api/v1/market-data/quotes
-marketDataRouter.get('/quotes', (req: Request, res: Response) => {
+marketDataRouter.get('/quotes', async (req: Request, res: Response) => {
   const rawSymbols = (req.query.symbols as string) || '';
   if (!rawSymbols) {
     return res.status(400).json({
@@ -148,13 +170,31 @@ marketDataRouter.get('/quotes', (req: Request, res: Response) => {
     });
   }
 
+  const isTest = process.env.NODE_ENV === 'test';
+  const forceLive = req.query.source === 'live' || req.query.live === 'true';
+  const forceSimulated = req.query.source === 'simulated';
+
   const symbols = rawSymbols.split(',').map((s) => s.trim());
-  const quotes = MarketDataService.getQuotes(symbols);
+  const quotes = await Promise.all(
+    symbols.map(async (sym) => {
+      if (!forceSimulated && (!isTest || forceLive)) {
+        try {
+          const live = await RealtimeMarketService.getLiveQuote(sym);
+          if (live) return live;
+        } catch {
+          // Fallback
+        }
+      }
+      return MarketDataService.getQuote(sym);
+    })
+  );
+
+  const validQuotes = quotes.filter(Boolean);
 
   return res.status(200).json({
     success: true,
-    count: quotes.length,
-    quotes,
+    count: validQuotes.length,
+    quotes: validQuotes,
   });
 });
 
@@ -162,13 +202,39 @@ marketDataRouter.get('/quotes', (req: Request, res: Response) => {
 const handleCandlesRequest = async (req: Request, res: Response) => {
   const symbol = (req.params.symbol || req.params.id) as string;
   const interval = (req.query.interval as CandleInterval) || '15m';
-  const range = req.query.range as HistoryRange | undefined;
+  const range = (req.query.range as HistoryRange) || (req.query.limit ? undefined : '1D');
   const from = req.query.from ? parseInt(req.query.from as string, 10) : undefined;
   const to = req.query.to ? parseInt(req.query.to as string, 10) : undefined;
   const limit = req.query.limit ? Math.min(Math.max(parseInt(req.query.limit as string, 10), 5), 1500) : undefined;
   const includeIndicators = req.query.indicators === 'true';
 
-  // 1. If in local instrument master, return comprehensive historical data
+  const isTest = process.env.NODE_ENV === 'test';
+  const forceLive = req.query.source === 'live' || req.query.live === 'true';
+  const forceSimulated = req.query.source === 'simulated';
+
+  // 1. Try real-time live candles (Finnhub / Twelve Data / Yahoo Finance) when not in synthetic unit tests
+  if (!forceSimulated && (!isTest || forceLive)) {
+    try {
+      const liveResult = await RealtimeMarketService.getLiveCandles(
+        symbol,
+        interval,
+        range,
+        limit || 60,
+        includeIndicators
+      );
+      if (liveResult && liveResult.candles && liveResult.candles.length > 0) {
+        return res.status(200).json({
+          success: true,
+          ...liveResult,
+          latestQuote: liveResult.latestQuote,
+        });
+      }
+    } catch {
+      // Non-fatal, fall through to local fallback
+    }
+  }
+
+  // 2. If in local instrument master, return comprehensive historical data
   const meta = MarketDataService.getInstrument(symbol);
   if (meta) {
     const result = MarketDataService.getHistoricalData(symbol, interval, {

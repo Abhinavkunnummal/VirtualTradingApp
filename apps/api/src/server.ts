@@ -5,6 +5,7 @@ import { createApp } from './app';
 import { config } from './config';
 import { SocketService } from './services/socket.service';
 import { MarketDataService } from './modules/market-data/marketData.service';
+import { RealtimeMarketService } from './modules/market-data/realtimeMarket.service';
 import { PaperTradingEngine } from './modules/orders/paperEngine.service';
 
 async function bootstrap() {
@@ -30,11 +31,14 @@ async function bootstrap() {
     }
   }
 
-  // Start background real-time simulated ticker broadcaster (2.5s cycle)
+  // Start background real-time ticker broadcaster (2.5s cycle)
   const activeSymbols = ['RELIANCE', 'TCS', 'HDFCBANK', 'NIFTY 50', 'SENSEX', 'BTC/USDT', 'ETH/USDT', 'GOLD 1KG', 'NVDA', 'AAPL'];
   const tickerInterval = setInterval(async () => {
     for (const sym of activeSymbols) {
-      const quote = MarketDataService.getQuote(sym);
+      let quote = await RealtimeMarketService.getLiveQuote(sym).catch(() => null);
+      if (!quote) {
+        quote = MarketDataService.getQuote(sym);
+      }
       if (quote) {
         SocketService.emitTickerUpdate(sym, quote);
         const candleTick = {

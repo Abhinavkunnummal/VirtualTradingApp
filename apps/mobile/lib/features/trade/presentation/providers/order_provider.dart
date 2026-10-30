@@ -153,15 +153,6 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
       ? selectedInst.price
       : _getDefaultPrice(query.symbol);
 
-  if (authState.isDemoMode) {
-    return _generateRealisticCandles(
-      symbol: query.symbol,
-      interval: query.interval,
-      range: query.range,
-      currentLtp: currentLtp,
-    );
-  }
-
   final apiClient = ref.watch(apiClientProvider);
 
   // 1. Primary endpoint: /market/candles or /market-data/candles with interval & range
