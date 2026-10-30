@@ -177,7 +177,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
           children: [
             const Icon(Icons.search_off, size: 48, color: AppColors.outline),
             const SizedBox(height: 12),
-            Text('No instruments found matching "$query"', style: AppTypography.bodyMd),
+            Text('No instruments found matching "$rawQ"', style: AppTypography.bodyMd),
           ],
         ),
       );
