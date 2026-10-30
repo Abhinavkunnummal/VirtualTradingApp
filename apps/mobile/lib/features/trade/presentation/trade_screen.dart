@@ -192,7 +192,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               if (isSuccess) ...[
                 Text(
                   'You booked successfully with the order!',
-                  style: AppTypography.labelLg.copyWith(
+                  style: AppTypography.bodyLg.copyWith(
                     color: AppColors.secondary,
                     fontWeight: FontWeight.bold,
                   ),
