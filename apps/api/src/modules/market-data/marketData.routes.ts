@@ -9,8 +9,24 @@ export const marketDataRouter = express.Router();
 // GET /api/v1/market/instruments/search or /api/v1/market-data/instruments/search
 marketDataRouter.get('/instruments/search', async (req: Request, res: Response) => {
   const query = (((req.query.q || req.query.query || req.query.keywords) as string) || '').trim();
+  const formatInst = (i: any) => ({
+    symbol: i.symbol,
+    name: i.name,
+    exchange: i.exchange || 'NSE',
+    category: i.category || 'EQUITY',
+    price: i.basePrice || i.price || 100.0,
+    basePrice: i.basePrice || i.price || 100.0,
+    change: i.change || 0.0,
+    changePercent: i.changePercent || 0.0,
+    isPositive: (i.change || 0) >= 0,
+    currency: i.currency || (i.category === 'US' || i.category === 'CRYPTO' ? 'USD' : 'INR'),
+    lotSize: i.lotSize || 1,
+    tickSize: i.tickSize || 0.05,
+    isSimulated: true,
+  });
+
   if (!query) {
-    const defaultList = MarketDataService.getAllInstruments().slice(0, 25);
+    const defaultList = MarketDataService.getAllInstruments().slice(0, 60).map(formatInst);
     return res.status(200).json({
       success: true,
       count: defaultList.length,
@@ -18,22 +34,21 @@ marketDataRouter.get('/instruments/search', async (req: Request, res: Response) 
     });
   }
 
-  // 1. Search local instrument master
-  const localMatches = MarketDataService.getAllInstruments({ query });
+  // 1. Search local instrument master (supports 'adhani' -> 'adani' normalization)
+  const localMatches = MarketDataService.getAllInstruments({ query }).map(formatInst);
 
   // 2. Search Alpha Vantage if configured
   let globalMatches: any[] = [];
   try {
     if (AlphaVantageService.isConfigured()) {
       const avResults = await AlphaVantageService.searchSymbols(query);
-      globalMatches = avResults.map((r) => ({
+      globalMatches = avResults.map((r) => formatInst({
         symbol: r.symbol,
         name: r.name,
         exchange: r.region || 'US',
         category: r.type === 'Crypto' ? 'CRYPTO' : 'EQUITY',
         currency: r.currency || 'USD',
-        isSimulated: false,
-        source: 'ALPHA_VANTAGE',
+        basePrice: 150.0,
       }));
     }
   } catch {
@@ -162,19 +177,17 @@ marketDataRouter.get('/quotes/:id', async (req: Request, res: Response) => {
 
 // GET /api/v1/market-data/quotes
 marketDataRouter.get('/quotes', async (req: Request, res: Response) => {
-  const rawSymbols = (req.query.symbols as string) || '';
+  let rawSymbols = (req.query.symbols as string) || '';
   if (!rawSymbols) {
-    return res.status(400).json({
-      success: false,
-      message: 'symbols query parameter required (e.g. ?symbols=RELIANCE,TCS,BTC/USDT)',
-    });
+    // Default to all known instruments when symbols param is omitted
+    rawSymbols = MarketDataService.getAllInstruments().map((i) => i.symbol).join(',');
   }
 
   const isTest = process.env.NODE_ENV === 'test';
   const forceLive = req.query.source === 'live' || req.query.live === 'true';
   const forceSimulated = req.query.source === 'simulated';
 
-  const symbols = rawSymbols.split(',').map((s) => s.trim());
+  const symbols = rawSymbols.split(',').map((s) => s.trim()).filter(Boolean);
   const quotes = await Promise.all(
     symbols.map(async (sym) => {
       if (!forceSimulated && (!isTest || forceLive)) {

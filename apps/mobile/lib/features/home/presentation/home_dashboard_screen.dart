@@ -12,6 +12,9 @@ import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_prov
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/domain/portfolio_models.dart';
 import 'package:tradeverse_mobile/features/notifications/presentation/providers/notification_provider.dart';
+import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
+import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
+import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
 
 class HomeDashboardScreen extends ConsumerWidget {
   const HomeDashboardScreen({super.key});
@@ -107,7 +110,7 @@ class HomeDashboardScreen extends ConsumerWidget {
               ),
             ),
             SliverToBoxAdapter(
-              child: _buildTickerStream(),
+              child: _buildTickerStream(context, ref),
             ),
             // Market Highlights / Movers
             SliverToBoxAdapter(
@@ -135,7 +138,15 @@ class HomeDashboardScreen extends ConsumerWidget {
                   price: '₹2,945.50',
                   change: '+₹18.40 (+0.63%)',
                   isPositive: true,
-                  onTap: () => context.go('/trade'),
+                  onTap: () => _navigateToTradeWithSymbol(
+                    context,
+                    ref,
+                    symbol: 'RELIANCE',
+                    name: 'Reliance Industries Ltd.',
+                    exchange: 'NSE',
+                    category: 'EQUITY',
+                    price: 2945.50,
+                  ),
                 ),
                 _buildInstrumentTile(
                   ref: ref,
@@ -145,7 +156,15 @@ class HomeDashboardScreen extends ConsumerWidget {
                   price: '₹1,720.80',
                   change: '+₹12.10 (+0.71%)',
                   isPositive: true,
-                  onTap: () => context.go('/trade'),
+                  onTap: () => _navigateToTradeWithSymbol(
+                    context,
+                    ref,
+                    symbol: 'HDFCBANK',
+                    name: 'HDFC Bank Limited',
+                    exchange: 'NSE',
+                    category: 'EQUITY',
+                    price: 1720.80,
+                  ),
                 ),
                 _buildInstrumentTile(
                   ref: ref,
@@ -155,17 +174,33 @@ class HomeDashboardScreen extends ConsumerWidget {
                   price: '₹4,120.00',
                   change: '-₹24.50 (-0.59%)',
                   isPositive: false,
-                  onTap: () => context.go('/trade'),
+                  onTap: () => _navigateToTradeWithSymbol(
+                    context,
+                    ref,
+                    symbol: 'TCS',
+                    name: 'Tata Consultancy Services',
+                    exchange: 'NSE',
+                    category: 'EQUITY',
+                    price: 4120.00,
+                  ),
                 ),
                 _buildInstrumentTile(
                   ref: ref,
                   symbol: 'BTC/USD',
                   name: 'Bitcoin (24/7 Sandbox)',
                   exchange: 'CRYPTO',
-                  price: '\$67,420.00',
+                  price: '\$77,568.00',
                   change: '+\$2,140.00 (+3.28%)',
                   isPositive: true,
-                  onTap: () => context.go('/trade'),
+                  onTap: () => _navigateToTradeWithSymbol(
+                    context,
+                    ref,
+                    symbol: 'BTC/USDT',
+                    name: 'Bitcoin (24/7 Sandbox)',
+                    exchange: 'CRYPTO',
+                    category: 'CRYPTO',
+                    price: 77568.00,
+                  ),
                 ),
                 const SizedBox(height: 32),
               ]),
@@ -456,13 +491,42 @@ class HomeDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTickerStream() {
+  void _navigateToTradeWithSymbol(
+    BuildContext context,
+    WidgetRef ref, {
+    required String symbol,
+    required String name,
+    required String exchange,
+    required String category,
+    required double price,
+  }) {
+    final instruments = ref.read(marketOverviewProvider).valueOrNull ?? [];
+    final cleanSymbol = symbol.trim().toUpperCase();
+    final matched = instruments.firstWhere(
+      (i) => i.symbol.toUpperCase() == cleanSymbol || i.symbol.toUpperCase() == cleanSymbol.replaceAll(' ', ''),
+      orElse: () => InstrumentModel(
+        symbol: symbol,
+        name: name,
+        exchange: exchange,
+        category: category,
+        price: price,
+        change: 0.0,
+        changePercent: 0.0,
+        isPositive: true,
+      ),
+    );
+    ref.read(selectedTradeInstrumentProvider.notifier).state = matched;
+    context.go('/trade');
+  }
+
+  Widget _buildTickerStream(BuildContext context, WidgetRef ref) {
     final tickers = [
-      {'symbol': 'NIFTY 50', 'price': '24,852.15', 'change': '+0.72%', 'isPos': true},
-      {'symbol': 'SENSEX', 'price': '81,420.30', 'change': '+0.65%', 'isPos': true},
-      {'symbol': 'S&P 500', 'price': '5,864.67', 'change': '+0.41%', 'isPos': true},
-      {'symbol': 'BTC/USD', 'price': '\$67,420.00', 'change': '+3.28%', 'isPos': true},
-      {'symbol': 'GOLD (MCX)', 'price': '₹78,450.00', 'change': '+0.55%', 'isPos': true},
+      {'symbol': 'NIFTY 50', 'name': 'Nifty 50 Index', 'exchange': 'NSE', 'category': 'INDEX', 'price': 24852.15, 'displayPrice': '₹24,852.15', 'change': '+0.72%', 'isPos': true},
+      {'symbol': 'BANKNIFTY', 'name': 'Nifty Bank Index', 'exchange': 'NSE', 'category': 'INDEX', 'price': 51820.00, 'displayPrice': '₹51,820.00', 'change': '+0.67%', 'isPos': true},
+      {'symbol': 'SENSEX', 'name': 'BSE Sensex Index', 'exchange': 'BSE', 'category': 'INDEX', 'price': 81420.30, 'displayPrice': '₹81,420.30', 'change': '+0.65%', 'isPos': true},
+      {'symbol': 'BTC/USDT', 'name': 'Bitcoin 24/7 Sandbox', 'exchange': 'CRYPTO', 'category': 'CRYPTO', 'price': 77568.00, 'displayPrice': '\$77,568.00', 'change': '+3.28%', 'isPos': true},
+      {'symbol': 'GOLD 1KG', 'name': 'MCX Gold Futures', 'exchange': 'MCX', 'category': 'COMMODITY', 'price': 78450.00, 'displayPrice': '₹78,450.00', 'change': '+0.55%', 'isPos': true},
+      {'symbol': 'TSLA', 'name': 'Tesla Inc.', 'exchange': 'US', 'category': 'US', 'price': 258.40, 'displayPrice': '\$258.40', 'change': '+3.40%', 'isPos': true},
     ];
 
     return SizedBox(
@@ -475,43 +539,68 @@ class HomeDashboardScreen extends ConsumerWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final t = tickers[index];
-          final isPos = t['isPos'] as bool;
-          return Container(
-            width: 155,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainer,
+          final sym = t['symbol'] as String;
+          final live = ref.watch(liveQuoteForSymbolProvider(sym));
+          final isPos = live != null ? (live.change >= 0) : (t['isPos'] as bool);
+          final currency = t['category'] == 'US' || t['category'] == 'CRYPTO' ? '\$' : '₹';
+          final displayPrice = (live != null && live.price > 0)
+              ? '$currency${live.price.toStringAsFixed(2)}'
+              : (t['displayPrice'] as String);
+          final displayChange = live != null
+              ? '${live.change >= 0 ? '+' : ''}${live.changePercent.toStringAsFixed(2)}%'
+              : (t['change'] as String);
+
+          return Material(
+            color: AppColors.surfaceContainer,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.borderSubtle),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(t['symbol'] as String, style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
-                const SizedBox(height: 2),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              onTap: () => _navigateToTradeWithSymbol(
+                context,
+                ref,
+                symbol: sym,
+                name: t['name'] as String,
+                exchange: t['exchange'] as String,
+                category: t['category'] as String,
+                price: (t['price'] as num).toDouble(),
+              ),
+              child: Container(
+                width: 155,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Flexible(
-                      child: Text(
-                        t['price'] as String,
-                        style: AppTypography.numericTable,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      t['change'] as String,
-                      style: AppTypography.numericTable.copyWith(
-                        color: isPos ? AppColors.secondary : AppColors.tertiary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Text(sym, style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            displayPrice,
+                            style: AppTypography.numericTable,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          displayChange,
+                          style: AppTypography.numericTable.copyWith(
+                            color: isPos ? AppColors.secondary : AppColors.tertiary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           );
         },

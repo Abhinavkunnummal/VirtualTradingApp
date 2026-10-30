@@ -35,22 +35,59 @@ export const SYMBOL_MAPPINGS: Record<string, SymbolMeta> = {
   'ICICIBANK': { yf: 'ICICIBANK.NS', category: 'EQUITY', exchange: 'NSE', name: 'ICICI Bank Ltd.' },
   'SBIN': { yf: 'SBIN.NS', category: 'EQUITY', exchange: 'NSE', name: 'State Bank of India' },
   'TATAMOTORS': { yf: 'TATAMOTORS.NS', category: 'EQUITY', exchange: 'NSE', name: 'Tata Motors Limited' },
+  'BAJFINANCE': { yf: 'BAJFINANCE.NS', category: 'EQUITY', exchange: 'NSE', name: 'Bajaj Finance Limited' },
+  'BHARTIARTL': { yf: 'BHARTIARTL.NS', category: 'EQUITY', exchange: 'NSE', name: 'Bharti Airtel Limited' },
+  'ITC': { yf: 'ITC.NS', category: 'EQUITY', exchange: 'NSE', name: 'ITC Limited' },
+  'LT': { yf: 'LT.NS', category: 'EQUITY', exchange: 'NSE', name: 'Larsen & Toubro Ltd.' },
+  'HINDUNILVR': { yf: 'HINDUNILVR.NS', category: 'EQUITY', exchange: 'NSE', name: 'Hindustan Unilever Ltd.' },
+  'KOTAKBANK': { yf: 'KOTAKBANK.NS', category: 'EQUITY', exchange: 'NSE', name: 'Kotak Mahindra Bank' },
+  'MARUTI': { yf: 'MARUTI.NS', category: 'EQUITY', exchange: 'NSE', name: 'Maruti Suzuki India Ltd.' },
+  'SUNPHARMA': { yf: 'SUNPHARMA.NS', category: 'EQUITY', exchange: 'NSE', name: 'Sun Pharmaceutical Industries' },
+  'WIPRO': { yf: 'WIPRO.NS', category: 'EQUITY', exchange: 'NSE', name: 'Wipro Limited' },
+  'TITAN': { yf: 'TITAN.NS', category: 'EQUITY', exchange: 'NSE', name: 'Titan Company Limited' },
+  'TATASTEEL': { yf: 'TATASTEEL.NS', category: 'EQUITY', exchange: 'NSE', name: 'Tata Steel Limited' },
+  'AXISBANK': { yf: 'AXISBANK.NS', category: 'EQUITY', exchange: 'NSE', name: 'Axis Bank Limited' },
+  'ZOMATO': { yf: 'ZOMATO.NS', category: 'EQUITY', exchange: 'NSE', name: 'Zomato Limited' },
+  'JIOFIN': { yf: 'JIOFIN.NS', category: 'EQUITY', exchange: 'NSE', name: 'Jio Financial Services' },
+
+  // Adani Group Equities
+  'ADANIENT': { yf: 'ADANIENT.NS', category: 'EQUITY', exchange: 'NSE', name: 'Adani Enterprises Ltd.' },
+  'ADANIPORTS': { yf: 'ADANIPORTS.NS', category: 'EQUITY', exchange: 'NSE', name: 'Adani Ports and SEZ Ltd.' },
+  'ADANIGREEN': { yf: 'ADANIGREEN.NS', category: 'EQUITY', exchange: 'NSE', name: 'Adani Green Energy Ltd.' },
+  'ATGL': { yf: 'ATGL.NS', category: 'EQUITY', exchange: 'NSE', name: 'Adani Total Gas Ltd.' },
+  'ADANIPOWER': { yf: 'ADANIPOWER.NS', category: 'EQUITY', exchange: 'NSE', name: 'Adani Power Ltd.' },
+  'AMBUJACEM': { yf: 'AMBUJACEM.NS', category: 'EQUITY', exchange: 'NSE', name: 'Ambuja Cements Ltd.' },
+
   // Indian Indices
   'NIFTY 50': { yf: '^NSEI', category: 'INDEX', exchange: 'NSE', name: 'Nifty 50 Index' },
+  'BANKNIFTY': { yf: '^NSEBANK', category: 'INDEX', exchange: 'NSE', name: 'Nifty Bank Index' },
+  'FINNIFTY': { yf: 'NIFTY_FIN_SERVICE.NS', category: 'INDEX', exchange: 'NSE', name: 'Nifty Financial Services' },
   'SENSEX': { yf: '^BSESN', category: 'INDEX', exchange: 'BSE', name: 'BSE Sensex Index' },
+
   // MCX Commodities
   'GOLD 1KG': { yf: 'GC=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Gold Futures' },
   'SILVER 30KG': { yf: 'SI=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Silver Futures' },
   'CRUDEOIL': { yf: 'CL=F', category: 'COMMODITY', exchange: 'MCX', name: 'Crude Oil Futures' },
   'NATURALGAS': { yf: 'NG=F', category: 'COMMODITY', exchange: 'MCX', name: 'Natural Gas Futures' },
+
   // Crypto 24/7
   'BTC/USDT': { yf: 'BTC-USD', twelve: 'BTC/USD', finnhub: 'BINANCE:BTCUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Bitcoin 24/7' },
   'ETH/USDT': { yf: 'ETH-USD', twelve: 'ETH/USD', finnhub: 'BINANCE:ETHUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Ethereum 24/7' },
   'SOL/USDT': { yf: 'SOL-USD', twelve: 'SOL/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Solana 24/7' },
+  'DOGE/USDT': { yf: 'DOGE-USD', twelve: 'DOGE/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Dogecoin 24/7' },
+  'BNB/USDT': { yf: 'BNB-USD', twelve: 'BNB/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Binance Coin 24/7' },
+
   // US Equities
   'AAPL': { yf: 'AAPL', twelve: 'AAPL', finnhub: 'AAPL', category: 'EQUITY', exchange: 'US', name: 'Apple Inc.' },
   'NVDA': { yf: 'NVDA', twelve: 'NVDA', finnhub: 'NVDA', category: 'EQUITY', exchange: 'US', name: 'NVIDIA Corporation' },
   'MSFT': { yf: 'MSFT', twelve: 'MSFT', finnhub: 'MSFT', category: 'EQUITY', exchange: 'US', name: 'Microsoft Corporation' },
+  'TSLA': { yf: 'TSLA', twelve: 'TSLA', finnhub: 'TSLA', category: 'EQUITY', exchange: 'US', name: 'Tesla Inc.' },
+  'GOOGL': { yf: 'GOOGL', twelve: 'GOOGL', finnhub: 'GOOGL', category: 'EQUITY', exchange: 'US', name: 'Alphabet Inc. Class A' },
+  'AMZN': { yf: 'AMZN', twelve: 'AMZN', finnhub: 'AMZN', category: 'EQUITY', exchange: 'US', name: 'Amazon.com Inc.' },
+  'META': { yf: 'META', twelve: 'META', finnhub: 'META', category: 'EQUITY', exchange: 'US', name: 'Meta Platforms Inc.' },
+  'NFLX': { yf: 'NFLX', twelve: 'NFLX', finnhub: 'NFLX', category: 'EQUITY', exchange: 'US', name: 'Netflix Inc.' },
+  'AMD': { yf: 'AMD', twelve: 'AMD', finnhub: 'AMD', category: 'EQUITY', exchange: 'US', name: 'Advanced Micro Devices' },
+  'COIN': { yf: 'COIN', twelve: 'COIN', finnhub: 'COIN', category: 'EQUITY', exchange: 'US', name: 'Coinbase Global Inc.' },
   'SPY': { yf: 'SPY', twelve: 'SPY', finnhub: 'SPY', category: 'INDEX', exchange: 'US', name: 'SPDR S&P 500 ETF' },
 };
 

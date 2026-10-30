@@ -152,12 +152,21 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
   }
 
   Widget _buildAssetList(List<InstrumentModel> allInstruments, String? categoryFilter) {
-    final query = _searchController.text.toLowerCase().trim();
+    final rawQ = _searchController.text.toLowerCase().trim();
+    final normQ = rawQ.replaceAll('adhani', 'adani');
     final filtered = allInstruments.where((item) {
-      final matchesCategory = categoryFilter == null || item.category == categoryFilter;
-      final matchesQuery = query.isEmpty ||
-          item.symbol.toLowerCase().contains(query) ||
-          item.name.toLowerCase().contains(query);
+      final matchesCategory = categoryFilter == null
+          ? true
+          : (categoryFilter == 'EQUITY'
+              ? (item.category == 'EQUITY' || item.category == 'INDEX')
+              : item.category == categoryFilter);
+      final sym = item.symbol.toLowerCase();
+      final nm = item.name.toLowerCase();
+      final matchesQuery = rawQ.isEmpty ||
+          sym.contains(rawQ) ||
+          nm.contains(rawQ) ||
+          sym.contains(normQ) ||
+          nm.contains(normQ);
       return matchesCategory && matchesQuery;
     }).toList();
 

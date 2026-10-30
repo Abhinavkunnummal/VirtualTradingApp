@@ -17,7 +17,9 @@ class TradeScreen extends ConsumerStatefulWidget {
 
 class _TradeScreenState extends ConsumerState<TradeScreen> {
   bool _isBuy = true;
-  String _product = 'CNC'; // CNC (Delivery) or MIS (Intraday)
+  String _product = 'CNC'; // CNC (Delivery), MIS (Intraday), NRML (Options)
+  String _optionType = 'CE'; // CE (Call) or PE (Put)
+  double? _selectedStrike;
   String _orderType = 'MARKET'; // MARKET, LIMIT, SL, SL_M
   String _orderVariety = 'REGULAR'; // REGULAR, COVER, BRACKET
   int _quantity = 10;
@@ -30,6 +32,10 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
 
   double _getRequiredMargin(double currentLtp) {
     final effectivePrice = _orderType == 'MARKET' ? currentLtp : (_customPrice ?? currentLtp);
+    if (_product == 'NRML') {
+      final premium = (currentLtp * 0.008); // Options premium ~0.8%
+      return _quantity * premium;
+    }
     final raw = _quantity * effectivePrice;
     return _product == 'MIS' ? raw / 5 : raw; // 5x leverage for MIS
   }
@@ -132,25 +138,60 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
           SnackBar(
             backgroundColor: AppColors.surfaceContainer,
             behavior: SnackBarBehavior.floating,
+            elevation: 8,
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: _isBuy ? AppColors.secondary : AppColors.tertiary),
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: _isBuy ? AppColors.secondary : AppColors.tertiary,
+                width: 1.5,
+              ),
             ),
+            duration: const Duration(seconds: 4),
             content: Row(
               children: [
-                Icon(
-                  Icons.check_circle,
-                  color: _isBuy ? AppColors.secondary : AppColors.tertiary,
-                  size: 18,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: (_isBuy ? AppColors.secondary : AppColors.tertiary).withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.check_circle,
+                    color: _isBuy ? AppColors.secondary : AppColors.tertiary,
+                    size: 22,
+                  ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    conciseNotification,
-                    style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Order Booked Successfully! 🎉',
+                        style: AppTypography.bodyLg.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: _isBuy ? AppColors.secondary : AppColors.tertiary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        conciseNotification,
+                        style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ],
+            ),
+            action: SnackBarAction(
+              label: 'VIEW',
+              textColor: AppColors.primary,
+              onPressed: _showOrderHistorySheet,
             ),
           ),
         );
@@ -277,54 +318,132 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                     data: (orders) {
                       if (orders.isEmpty) {
                         return Center(
-                          child: Text('No orders placed yet.', style: AppTypography.bodyMd),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.outline),
+                              const SizedBox(height: 10),
+                              Text('No orders placed yet.', style: AppTypography.bodyMd),
+                              const SizedBox(height: 4),
+                              Text('Execute a simulated trade to see it live here.', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
+                            ],
+                          ),
                         );
                       }
                       return ListView.separated(
+                        physics: const BouncingScrollPhysics(),
                         itemCount: orders.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final o = orders[index];
                           final isBuy = o['side'] == 'BUY';
+                          final sym = o['symbol'] as String? ?? '';
+                          final isCrypto = sym.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => sym.contains(c));
+                          final curr = (isCrypto || o['exchange'] == 'US') ? '\$' : '₹';
+                          final qty = o['quantity'] ?? 1;
+                          final avgPrice = (o['averagePrice'] as num?)?.toDouble() ?? 0.0;
+                          final totalVal = avgPrice * (qty is int ? qty : (qty as num).toInt());
+                          final status = o['status'] as String? ?? 'FILLED';
+                          final product = o['product'] as String? ?? 'MIS';
+
                           return Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: AppColors.surfaceLowest,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.borderSubtle),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: (isBuy ? AppColors.secondary : AppColors.tertiary).withOpacity(0.3),
+                              ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Row(
                                       children: [
-                                        Text(
-                                          '${o['side']} ${o['quantity']} ${o['symbol']}',
-                                          style: AppTypography.bodyLg.copyWith(
-                                            color: isBuy ? AppColors.secondary : AppColors.tertiary,
-                                            fontWeight: FontWeight.bold,
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: (isBuy ? AppColors.secondary : AppColors.tertiary).withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            o['side'] as String? ?? 'BUY',
+                                            style: AppTypography.labelSm.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: isBuy ? AppColors.secondary : AppColors.tertiary,
+                                            ),
                                           ),
                                         ),
+                                        const SizedBox(width: 8),
+                                        Text(sym, style: AppTypography.bodyLg.copyWith(fontWeight: FontWeight.bold)),
                                         const SizedBox(width: 6),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                           decoration: BoxDecoration(
                                             color: AppColors.surfaceContainer,
                                             borderRadius: BorderRadius.circular(4),
                                           ),
-                                          child: Text(o['orderType'] as String? ?? 'MARKET', style: AppTypography.labelSm.copyWith(fontSize: 9)),
+                                          child: Text(product, style: AppTypography.labelSm.copyWith(fontSize: 10)),
                                         ),
                                       ],
                                     ),
-                                    Text('Status: ${o['status']}', style: AppTypography.labelSm),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.secondary.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.check_circle, size: 10, color: AppColors.secondary),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            status,
+                                            style: AppTypography.labelSm.copyWith(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.secondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                Text(
-                                  o['averagePrice'] != null ? '₹${o['averagePrice']}' : 'Market',
-                                  style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Qty: $qty ${isCrypto ? 'Lot(s)' : 'Shares'}',
+                                      style: AppTypography.bodyMd,
+                                    ),
+                                    Text(
+                                      '$curr${totalVal.toStringAsFixed(2)}',
+                                      style: AppTypography.numericTable.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Fill: $curr${avgPrice.toStringAsFixed(2)} • ${o['orderType'] ?? 'MARKET'}',
+                                      style: AppTypography.labelSm.copyWith(color: AppColors.outline),
+                                    ),
+                                    Text(
+                                      o['id'] != null ? '${o['id']}' : 'Paper Execution',
+                                      style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -403,10 +522,13 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                       Expanded(
                         child: marketsAsync.when(
                           data: (instruments) {
+                            final rawQ = searchQuery.toLowerCase().trim();
+                            final normQ = rawQ.replaceAll('adhani', 'adani');
                             final filtered = instruments.where((inst) {
-                              if (searchQuery.isEmpty) return true;
-                              return inst.symbol.toLowerCase().contains(searchQuery) ||
-                                  inst.name.toLowerCase().contains(searchQuery);
+                              if (rawQ.isEmpty) return true;
+                              final sym = inst.symbol.toLowerCase();
+                              final nm = inst.name.toLowerCase();
+                              return sym.contains(rawQ) || nm.contains(rawQ) || sym.contains(normQ) || nm.contains(normQ);
                             }).toList();
 
                             if (filtered.isEmpty) {
@@ -659,22 +781,125 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                 Expanded(
                   child: _buildChoiceCard(
                     title: 'Delivery (CNC)',
-                    subtitle: 'Full Cash • Long Term',
+                    subtitle: 'Full Cash • 1x',
                     isSelected: _product == 'CNC',
                     onTap: () => setState(() => _product = 'CNC'),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _buildChoiceCard(
                     title: 'Intraday (MIS)',
-                    subtitle: 'Auto square-off • 5x Leverage',
+                    subtitle: '5x Leverage • Today',
                     isSelected: _product == 'MIS',
                     onTap: () => setState(() => _product = 'MIS'),
                   ),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildChoiceCard(
+                    title: 'Options (NRML)',
+                    subtitle: 'CE/PE • F&O',
+                    isSelected: _product == 'NRML',
+                    onTap: () => setState(() => _product = 'NRML'),
+                  ),
+                ),
               ],
             ),
+            if (_product == 'NRML' || instrument.category == 'INDEX') ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainer,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.primaryBrand.withOpacity(0.4)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Options Contract (F&O)', style: AppTypography.labelSm.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                        Text('Weekly Expiry', style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setState(() => _optionType = 'CE'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _optionType == 'CE' ? AppColors.secondary.withOpacity(0.2) : AppColors.surfaceLowest,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: _optionType == 'CE' ? AppColors.secondary : AppColors.borderSubtle),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text('CALL (CE)', style: AppTypography.labelSm.copyWith(color: _optionType == 'CE' ? AppColors.secondary : AppColors.outline, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setState(() => _optionType = 'PE'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _optionType == 'PE' ? AppColors.tertiary.withOpacity(0.2) : AppColors.surfaceLowest,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: _optionType == 'PE' ? AppColors.tertiary : AppColors.borderSubtle),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text('PUT (PE)', style: AppTypography.labelSm.copyWith(color: _optionType == 'PE' ? AppColors.tertiary : AppColors.outline, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text('Select Strike Price', style: AppTypography.labelSm.copyWith(fontSize: 11)),
+                    const SizedBox(height: 4),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [-100, -50, 0, 50, 100].map((offset) {
+                          final strike = ((ltp + offset) / 50).round() * 50.0;
+                          final isAtm = offset == 0;
+                          final isSelected = (_selectedStrike ?? (((ltp) / 50).round() * 50.0)) == strike;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: InkWell(
+                              onTap: () => setState(() => _selectedStrike = strike),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? AppColors.primaryBrand.withOpacity(0.2) : AppColors.surfaceLowest,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: isSelected ? AppColors.primaryBrand : AppColors.borderSubtle),
+                                ),
+                                child: Text(
+                                  '${strike.toInt()} ${isAtm ? '(ATM)' : ''}',
+                                  style: AppTypography.labelSm.copyWith(
+                                    fontSize: 11,
+                                    color: isSelected ? AppColors.primary : AppColors.onSurface,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
 
             // Execution Mode (Market, Limit, SL, SL-M)

@@ -90,6 +90,8 @@ export class MarketDataService {
   private static instruments: InstrumentMeta[] = [
     // NSE Equities & Indices
     { symbol: 'NIFTY 50', name: 'Nifty 50 Index', exchange: 'NSE', category: 'INDEX', basePrice: 24852.15, currency: 'INR', lotSize: 50, tickSize: 0.05, volatility: 0.008 },
+    { symbol: 'BANKNIFTY', name: 'Nifty Bank Index', exchange: 'NSE', category: 'INDEX', basePrice: 51820.00, currency: 'INR', lotSize: 15, tickSize: 0.05, volatility: 0.010 },
+    { symbol: 'FINNIFTY', name: 'Nifty Financial Services', exchange: 'NSE', category: 'INDEX', basePrice: 23450.00, currency: 'INR', lotSize: 40, tickSize: 0.05, volatility: 0.009 },
     { symbol: 'SENSEX', name: 'BSE Sensex Index', exchange: 'BSE', category: 'INDEX', basePrice: 81420.30, currency: 'INR', lotSize: 10, tickSize: 0.05, volatility: 0.008 },
     { symbol: 'RELIANCE', name: 'Reliance Industries Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 2945.50, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.012 },
     { symbol: 'HDFCBANK', name: 'HDFC Bank Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 1720.80, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.010 },
@@ -98,6 +100,28 @@ export class MarketDataService {
     { symbol: 'ICICIBANK', name: 'ICICI Bank Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 1260.40, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.011 },
     { symbol: 'SBIN', name: 'State Bank of India', exchange: 'NSE', category: 'EQUITY', basePrice: 815.75, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.014 },
     { symbol: 'TATAMOTORS', name: 'Tata Motors Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 960.50, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.016 },
+    { symbol: 'BAJFINANCE', name: 'Bajaj Finance Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 6850.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.015 },
+    { symbol: 'BHARTIARTL', name: 'Bharti Airtel Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 1680.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.012 },
+    { symbol: 'ITC', name: 'ITC Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 485.50, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.009 },
+    { symbol: 'LT', name: 'Larsen & Toubro Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 3560.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.013 },
+    { symbol: 'HINDUNILVR', name: 'Hindustan Unilever Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 2420.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.008 },
+    { symbol: 'KOTAKBANK', name: 'Kotak Mahindra Bank', exchange: 'NSE', category: 'EQUITY', basePrice: 1780.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.011 },
+    { symbol: 'MARUTI', name: 'Maruti Suzuki India Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 11450.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.014 },
+    { symbol: 'SUNPHARMA', name: 'Sun Pharmaceutical Industries', exchange: 'NSE', category: 'EQUITY', basePrice: 1820.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.012 },
+    { symbol: 'WIPRO', name: 'Wipro Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 540.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.013 },
+    { symbol: 'TITAN', name: 'Titan Company Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 3320.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.014 },
+    { symbol: 'TATASTEEL', name: 'Tata Steel Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 152.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.018 },
+    { symbol: 'AXISBANK', name: 'Axis Bank Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 1180.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.012 },
+    { symbol: 'ZOMATO', name: 'Zomato Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 265.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.024 },
+    { symbol: 'JIOFIN', name: 'Jio Financial Services', exchange: 'NSE', category: 'EQUITY', basePrice: 320.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.019 },
+
+    // Adani Group Equities (Matches "Adani", "Adhani", "ADANIENT", etc.)
+    { symbol: 'ADANIENT', name: 'Adani Enterprises Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 2840.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.022 },
+    { symbol: 'ADANIPORTS', name: 'Adani Ports and SEZ Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 1360.50, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.018 },
+    { symbol: 'ADANIGREEN', name: 'Adani Green Energy Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 1580.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.025 },
+    { symbol: 'ATGL', name: 'Adani Total Gas Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 720.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.023 },
+    { symbol: 'ADANIPOWER', name: 'Adani Power Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 590.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.024 },
+    { symbol: 'AMBUJACEM', name: 'Ambuja Cements Ltd. (Adani)', exchange: 'NSE', category: 'EQUITY', basePrice: 560.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.015 },
 
     // MCX Commodities
     { symbol: 'GOLD 1KG', name: 'MCX Gold Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 78450.00, currency: 'INR', lotSize: 1, tickSize: 1.0, volatility: 0.006 },
@@ -106,14 +130,23 @@ export class MarketDataService {
     { symbol: 'NATURALGAS', name: 'Natural Gas Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 245.80, currency: 'INR', lotSize: 1250, tickSize: 0.1, volatility: 0.025 },
 
     // Crypto 24/7
-    { symbol: 'BTC/USDT', name: 'Bitcoin 24/7 Simulator', exchange: 'CRYPTO', category: 'CRYPTO', basePrice: 67420.00, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.028 },
+    { symbol: 'BTC/USDT', name: 'Bitcoin 24/7 Simulator', exchange: 'CRYPTO', category: 'CRYPTO', basePrice: 77568.00, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.028 },
     { symbol: 'ETH/USDT', name: 'Ethereum 24/7 Simulator', exchange: 'CRYPTO', category: 'CRYPTO', basePrice: 2540.00, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.032 },
     { symbol: 'SOL/USDT', name: 'Solana 24/7 Simulator', exchange: 'CRYPTO', category: 'CRYPTO', basePrice: 178.50, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.040 },
+    { symbol: 'DOGE/USDT', name: 'Dogecoin 24/7 Simulator', exchange: 'CRYPTO', category: 'CRYPTO', basePrice: 0.165, currency: 'USD', lotSize: 1, tickSize: 0.0001, volatility: 0.045 },
+    { symbol: 'BNB/USDT', name: 'Binance Coin 24/7 Simulator', exchange: 'CRYPTO', category: 'CRYPTO', basePrice: 595.00, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.026 },
 
     // US Equities
     { symbol: 'NVDA', name: 'NVIDIA Corporation', exchange: 'US', category: 'EQUITY', basePrice: 141.54, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.025 },
     { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'US', category: 'EQUITY', basePrice: 231.41, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.012 },
     { symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'US', category: 'EQUITY', basePrice: 428.15, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.011 },
+    { symbol: 'TSLA', name: 'Tesla Inc.', exchange: 'US', category: 'EQUITY', basePrice: 258.40, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.028 },
+    { symbol: 'GOOGL', name: 'Alphabet Inc. Class A', exchange: 'US', category: 'EQUITY', basePrice: 172.50, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.014 },
+    { symbol: 'AMZN', name: 'Amazon.com Inc.', exchange: 'US', category: 'EQUITY', basePrice: 188.20, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.016 },
+    { symbol: 'META', name: 'Meta Platforms Inc.', exchange: 'US', category: 'EQUITY', basePrice: 582.00, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.020 },
+    { symbol: 'NFLX', name: 'Netflix Inc.', exchange: 'US', category: 'EQUITY', basePrice: 760.00, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.022 },
+    { symbol: 'AMD', name: 'Advanced Micro Devices', exchange: 'US', category: 'EQUITY', basePrice: 155.00, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.026 },
+    { symbol: 'COIN', name: 'Coinbase Global Inc.', exchange: 'US', category: 'EQUITY', basePrice: 215.00, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.038 },
     { symbol: 'SPY', name: 'SPDR S&P 500 ETF', exchange: 'US', category: 'INDEX', basePrice: 586.46, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.007 },
   ];
 
@@ -131,8 +164,18 @@ export class MarketDataService {
       list = list.filter((i) => i.category === filter.category);
     }
     if (filter?.query) {
-      const q = filter.query.toLowerCase();
-      list = list.filter((i) => i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q));
+      const rawQ = filter.query.toLowerCase().trim();
+      const normQ = rawQ.replace(/dh/g, 'd'); // Handles 'adhani' -> 'adani'
+      list = list.filter((i) => {
+        const sym = i.symbol.toLowerCase();
+        const nm = i.name.toLowerCase();
+        return (
+          sym.includes(rawQ) ||
+          nm.includes(rawQ) ||
+          sym.includes(normQ) ||
+          nm.includes(normQ)
+        );
+      });
     }
     return list;
   }

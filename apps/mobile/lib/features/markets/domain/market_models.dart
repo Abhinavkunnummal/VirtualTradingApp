@@ -22,7 +22,9 @@ class InstrumentModel {
   });
 
   factory InstrumentModel.fromJson(Map<String, dynamic> json) {
-    final price = (json['price'] as num?)?.toDouble() ?? 0.0;
+    final price = (json['price'] as num?)?.toDouble() ??
+        (json['basePrice'] as num?)?.toDouble() ??
+        0.0;
     final change = (json['change'] as num?)?.toDouble() ?? 0.0;
     final changePercent = (json['changePercent'] as num?)?.toDouble() ?? 0.0;
 
