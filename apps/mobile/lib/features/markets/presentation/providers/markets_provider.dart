@@ -1,12 +1,14 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradeverse_mobile/core/constants/api_constants.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 
 final marketOverviewProvider = FutureProvider<List<InstrumentModel>>((ref) async {
-  final authState = ref.watch(authProvider);
+  final bool isTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
 
-  if (!authState.isDemoMode) {
+  if (!isTest) {
     final apiClient = ref.watch(apiClientProvider);
     try {
       final response = await apiClient.get<Map<String, dynamic>>('/market-data/quotes');

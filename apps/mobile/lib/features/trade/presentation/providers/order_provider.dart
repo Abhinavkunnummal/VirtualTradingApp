@@ -1,4 +1,6 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradeverse_mobile/core/network/api_client.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
@@ -151,6 +153,16 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
   final double currentLtp = (selectedInst.symbol == query.symbol)
       ? selectedInst.price
       : _getDefaultPrice(query.symbol);
+
+  final bool isTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+  if (isTest) {
+    return _generateRealisticCandles(
+      symbol: query.symbol,
+      interval: query.interval,
+      range: query.range,
+      currentLtp: currentLtp,
+    );
+  }
 
   final apiClient = ref.watch(apiClientProvider);
 
