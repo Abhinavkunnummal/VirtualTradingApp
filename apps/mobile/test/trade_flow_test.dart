@@ -104,5 +104,13 @@ class _MockPortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> i
   _MockPortfolioNotifier(PortfolioModel model) : super(AsyncValue.data(model));
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  void addHolding({
+    required String symbol,
+    required String exchange,
+    required int quantity,
+    required double buyPrice,
+  }) {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }
