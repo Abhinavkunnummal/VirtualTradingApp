@@ -126,6 +126,12 @@ class PortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> {
         await fetchPortfolio();
         return true;
       }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void updateWithLiveQuotes(Map<String, LiveQuote> liveQuotes) {
     final current = state.valueOrNull;
     if (current == null || liveQuotes.isEmpty) return;
