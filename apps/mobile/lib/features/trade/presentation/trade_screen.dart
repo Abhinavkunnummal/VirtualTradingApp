@@ -172,7 +172,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                isSuccess ? 'You booked successfully with the order!' : 'Order Rejected',
+                isSuccess ? 'Simulated Order Filled' : 'Order Rejected',
                 style: AppTypography.headlineSm.copyWith(
                   color: isSuccess ? AppColors.secondary : AppColors.error,
                   fontSize: 18,
@@ -185,10 +185,20 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${_isBuy ? 'BUY' : 'SELL'} $_quantity Lot(s) of $symbol ($_product)',
+                '${_isBuy ? 'BUY' : 'SELL'} $_quantity ${isCrypto ? 'Lot(s)' : 'Shares'} of $symbol ($_product)',
                 style: AppTypography.bodyLg.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
+              if (isSuccess) ...[
+                Text(
+                  'You booked successfully with the order!',
+                  style: AppTypography.labelLg.copyWith(
+                    color: AppColors.secondary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
               if (execution != null) ...[
                 Text(
                   'Fill Price: $currency${execution['executionPrice']}',
