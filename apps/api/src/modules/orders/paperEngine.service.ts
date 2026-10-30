@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { PaperAccount, Order, Execution, Holding, LedgerEntry, IOrder } from '../../models';
 import { MarketDataService, MarketQuote } from '../market-data/marketData.service';
+import { RealtimeMarketService } from '../market-data/realtimeMarket.service';
 import { SocketService } from '../../services/socket.service';
 import { NotificationService } from '../notifications/notification.service';
 
@@ -99,9 +100,15 @@ export class PaperTradingEngine {
    */
   static async submitOrder(params: SubmitOrderParams) {
     const variety = params.orderVariety || 'REGULAR';
-    const quote = MarketDataService.getQuote(params.symbol);
+    let quote: MarketQuote | null = null;
+    if (process.env.NODE_ENV !== 'test') {
+      quote = await RealtimeMarketService.getLiveQuote(params.symbol).catch(() => null);
+    }
     if (!quote) {
-      throw new Error(`Symbol ${params.symbol} not available in market master.`);
+      quote = MarketDataService.getQuote(params.symbol);
+    }
+    if (!quote) {
+      throw new Error(`Symbol ${params.symbol} not available in market master or live feed.`);
     }
 
     // Check idempotency if provided

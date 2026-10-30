@@ -1,0 +1,170 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:tradeverse_mobile/core/constants/api_constants.dart';
+import 'package:tradeverse_mobile/core/network/api_client.dart';
+import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
+
+class LiveQuote {
+  final String symbol;
+  final double price;
+  final double change;
+  final double changePercent;
+  final double high;
+  final double low;
+  final double volume;
+  final DateTime timestamp;
+
+  const LiveQuote({
+    required this.symbol,
+    required this.price,
+    required this.change,
+    required this.changePercent,
+    required this.high,
+    required this.low,
+    required this.volume,
+    required this.timestamp,
+  });
+
+  factory LiveQuote.fromJson(Map<String, dynamic> json) {
+    return LiveQuote(
+      symbol: (json['symbol'] as String? ?? '').toUpperCase(),
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      change: (json['change'] as num?)?.toDouble() ?? 0.0,
+      changePercent: (json['changePercent'] as num?)?.toDouble() ?? 0.0,
+      high: (json['high'] as num?)?.toDouble() ?? 0.0,
+      low: (json['low'] as num?)?.toDouble() ?? 0.0,
+      volume: (json['volume'] as num?)?.toDouble() ?? 0.0,
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+}
+
+final liveQuotesProvider =
+    StateNotifierProvider<LiveQuotesNotifier, Map<String, LiveQuote>>((ref) {
+  final apiClient = ref.watch(apiClientProvider);
+  return LiveQuotesNotifier(apiClient: apiClient);
+});
+
+final liveQuoteForSymbolProvider =
+    Provider.family<LiveQuote?, String>((ref, symbol) {
+  final quotes = ref.watch(liveQuotesProvider);
+  return quotes[symbol.toUpperCase()];
+});
+
+class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
+  final ApiClient apiClient;
+  io.Socket? _socket;
+  Timer? _pollingTimer;
+
+  static const List<String> _trackedSymbols = [
+    'BTC/USDT',
+    'ETH/USDT',
+    'SOL/USDT',
+    'RELIANCE',
+    'TCS',
+    'HDFCBANK',
+    'INFY',
+    'NIFTY 50',
+    'SENSEX',
+    'GOLD 1KG',
+    'SILVER 30KG',
+    'CRUDEOIL',
+    'AAPL',
+    'NVDA',
+    'MSFT',
+  ];
+
+  LiveQuotesNotifier({required this.apiClient}) : super({}) {
+    final bool isTest =
+        !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (!isTest) {
+      _initSocket();
+      _startPollingFallback();
+    }
+  }
+
+  void _initSocket() {
+    try {
+      final base = ApiConstants.baseUrl.replaceAll('/api/v1', '');
+      _socket = io.io(
+        base,
+        io.OptionBuilder()
+            .setTransports(['websocket', 'polling'])
+            .enableAutoConnect()
+            .enableReconnection()
+            .setReconnectionDelay(1000)
+            .build(),
+      );
+
+      _socket?.onConnect((_) {
+        _socket?.emit('join_ticker', {'symbols': _trackedSymbols});
+      });
+
+      _socket?.on('ticker_tick', (data) {
+        if (data is Map<String, dynamic>) {
+          _updateQuote(LiveQuote.fromJson(data));
+        }
+      });
+    } catch (_) {
+      // Non-fatal, polling fallback will handle ticks
+    }
+  }
+
+  void _startPollingFallback() {
+    // Initial fetch immediately
+    _fetchLiveQuotes();
+
+    // 1-second interval ensures tick-by-tick real-time sync with TradingView
+    _pollingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _fetchLiveQuotes();
+    });
+  }
+
+  Future<void> _fetchLiveQuotes() async {
+    try {
+      final symbolsParam = _trackedSymbols.join(',');
+      final res = await apiClient.get<Map<String, dynamic>>(
+        '/market-data/quotes',
+        queryParameters: {'symbols': symbolsParam, 'source': 'live'},
+      );
+
+      if (res.statusCode == 200 && res.data?['success'] == true) {
+        final list = res.data!['quotes'] as List<dynamic>? ?? [];
+        if (list.isNotEmpty) {
+          final Map<String, LiveQuote> updated = Map.from(state);
+          for (final item in list) {
+            if (item is Map<String, dynamic>) {
+              final quote = LiveQuote.fromJson(item);
+              if (quote.symbol.isNotEmpty && quote.price > 0) {
+                updated[quote.symbol] = quote;
+              }
+            }
+          }
+          state = updated;
+        }
+      }
+    } catch (_) {
+      // Transient error, next second tick will retry
+    }
+  }
+
+  void _updateQuote(LiveQuote quote) {
+    if (quote.symbol.isEmpty || quote.price <= 0) return;
+    state = {
+      ...state,
+      quote.symbol: quote,
+    };
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    _socket?.dispose();
+    super.dispose();
+  }
+}

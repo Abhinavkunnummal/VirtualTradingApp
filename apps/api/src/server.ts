@@ -31,8 +31,8 @@ async function bootstrap() {
     }
   }
 
-  // Start background real-time ticker broadcaster (2.5s cycle)
-  const activeSymbols = ['RELIANCE', 'TCS', 'HDFCBANK', 'NIFTY 50', 'SENSEX', 'BTC/USDT', 'ETH/USDT', 'GOLD 1KG', 'NVDA', 'AAPL'];
+  // Start background real-time ticker broadcaster (1s cycle for tick-by-tick TradingView precision)
+  const activeSymbols = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'RELIANCE', 'TCS', 'HDFCBANK', 'NIFTY 50', 'SENSEX', 'GOLD 1KG', 'NVDA', 'AAPL'];
   const tickerInterval = setInterval(async () => {
     for (const sym of activeSymbols) {
       let quote = await RealtimeMarketService.getLiveQuote(sym).catch(() => null);
@@ -58,7 +58,7 @@ async function bootstrap() {
         }
       }
     }
-  }, 2500);
+  }, 1000);
 
   server.listen(config.port, () => {
     console.log(`TradeVerse AI API running on http://localhost:${config.port} (env: ${config.nodeEnv})`);

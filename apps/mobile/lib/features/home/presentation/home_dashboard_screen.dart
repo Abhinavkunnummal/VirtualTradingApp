@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
 import 'package:tradeverse_mobile/shared/widgets/demo_mode_banner.dart';
@@ -127,6 +128,7 @@ class HomeDashboardScreen extends ConsumerWidget {
             SliverList(
               delegate: SliverChildListDelegate([
                 _buildInstrumentTile(
+                  ref: ref,
                   symbol: 'RELIANCE',
                   name: 'Reliance Industries Ltd.',
                   exchange: 'NSE',
@@ -136,6 +138,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                   onTap: () => context.go('/trade'),
                 ),
                 _buildInstrumentTile(
+                  ref: ref,
                   symbol: 'HDFCBANK',
                   name: 'HDFC Bank Limited',
                   exchange: 'NSE',
@@ -145,6 +148,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                   onTap: () => context.go('/trade'),
                 ),
                 _buildInstrumentTile(
+                  ref: ref,
                   symbol: 'TCS',
                   name: 'Tata Consultancy Services',
                   exchange: 'NSE',
@@ -154,6 +158,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                   onTap: () => context.go('/trade'),
                 ),
                 _buildInstrumentTile(
+                  ref: ref,
                   symbol: 'BTC/USD',
                   name: 'Bitcoin (24/7 Sandbox)',
                   exchange: 'CRYPTO',
@@ -515,6 +520,7 @@ class HomeDashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildInstrumentTile({
+    required WidgetRef ref,
     required String symbol,
     required String name,
     required String exchange,
@@ -523,6 +529,15 @@ class HomeDashboardScreen extends ConsumerWidget {
     required bool isPositive,
     required VoidCallback onTap,
   }) {
+    final live = ref.watch(liveQuoteForSymbolProvider(symbol == 'BTC/USD' ? 'BTC/USDT' : symbol));
+    final isCrypto = exchange == 'CRYPTO';
+    final currency = isCrypto || exchange == 'US' ? '\$' : '₹';
+    final displayPrice = (live != null && live.price > 0) ? '$currency${live.price.toStringAsFixed(2)}' : price;
+    final displayChange = live != null
+        ? '${live.change >= 0 ? '+' : ''}$currency${live.change.toStringAsFixed(2)} (${live.changePercent.toStringAsFixed(2)}%)'
+        : change;
+    final itemIsPos = live != null ? (live.change >= 0) : isPositive;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
@@ -552,12 +567,12 @@ class HomeDashboardScreen extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(price, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
+            Text(displayPrice, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(height: 2),
             Text(
-              change,
+              displayChange,
               style: AppTypography.numericTable.copyWith(
-                color: isPositive ? AppColors.secondary : AppColors.tertiary,
+                color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),

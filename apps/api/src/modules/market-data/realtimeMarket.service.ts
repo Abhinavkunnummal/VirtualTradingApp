@@ -58,8 +58,8 @@ export class RealtimeMarketService {
   private static quoteCache = new Map<string, CacheEntry<MarketQuote>>();
   private static candleCache = new Map<string, CacheEntry<HistoricalDataResult>>();
 
-  private static readonly TTL_QUOTE = 3 * 1000; // 3 seconds
-  private static readonly TTL_CANDLES_INTRADAY = 30 * 1000; // 30 seconds
+  private static readonly TTL_QUOTE = 1000; // 1 second for live real-time tickers
+  private static readonly TTL_CANDLES_INTRADAY = 15 * 1000; // 15 seconds
   private static readonly TTL_CANDLES_DAILY = 5 * 60 * 1000; // 5 minutes
 
   /**
@@ -81,7 +81,7 @@ export class RealtimeMarketService {
   }
 
   /**
-   * Fetch Live Real-Time Quote from Finnhub, Twelve Data, or Yahoo Finance
+   * Fetch Live Real-Time Quote from Binance, Finnhub, Twelve Data, or Yahoo Finance
    */
   public static async getLiveQuote(symbol: string): Promise<MarketQuote | null> {
     const key = symbol.toUpperCase().trim();
@@ -91,6 +91,46 @@ export class RealtimeMarketService {
     }
 
     const mapping = this.getMapping(key);
+
+    // 1. Direct Binance Public Spot Feed for 24/7 Crypto (Exact TradingView tick-for-tick price)
+    if (mapping.category === 'CRYPTO') {
+      try {
+        const binanceSymbol = key.replace('/', '');
+        const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
+        if (res.ok) {
+          const data = (await res.json()) as Record<string, any>;
+          if (data && data.lastPrice) {
+            const price = parseFloat(parseFloat(data.lastPrice).toFixed(2));
+            const change = parseFloat(parseFloat(data.priceChange || '0').toFixed(2));
+            const changePercent = parseFloat(parseFloat(data.priceChangePercent || '0').toFixed(2));
+            const quote: MarketQuote = {
+              symbol: key,
+              name: mapping.name,
+              exchange: mapping.exchange,
+              category: mapping.category,
+              price,
+              change,
+              changePercent,
+              open: parseFloat(parseFloat(data.openPrice || `${price}`).toFixed(2)),
+              high: parseFloat(parseFloat(data.highPrice || `${price}`).toFixed(2)),
+              low: parseFloat(parseFloat(data.lowPrice || `${price}`).toFixed(2)),
+              close: price,
+              volume: parseFloat(parseFloat(data.volume || '1000').toFixed(2)),
+              bid: parseFloat(parseFloat(data.bidPrice || `${price * 0.9999}`).toFixed(2)),
+              ask: parseFloat(parseFloat(data.askPrice || `${price * 1.0001}`).toFixed(2)),
+              currency: 'USD',
+              status: 'LIVE',
+              timestamp: new Date().toISOString(),
+            };
+            this.quoteCache.set(key, { data: quote, expiresAt: Date.now() + this.TTL_QUOTE });
+            return quote;
+          }
+        }
+      } catch {
+        // Fall through to Twelve Data / Yahoo Finance
+      }
+    }
 
     // 1. Try Finnhub for US Equities if API key is present
     if (mapping.exchange === 'US' && mapping.finnhub && config.finnhubApiKey) {

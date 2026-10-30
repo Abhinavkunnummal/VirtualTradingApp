@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
 import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
@@ -168,7 +169,13 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                 color: isSuccess ? (_isBuy ? AppColors.secondary : AppColors.tertiary) : AppColors.error,
               ),
               const SizedBox(width: 8),
-              Text(isSuccess ? 'Simulated Order Filled' : 'Order Rejected', style: AppTypography.headlineSm),
+              Text(
+                isSuccess ? 'You booked successfully with the order!' : 'Order Rejected',
+                style: AppTypography.headlineSm.copyWith(
+                  color: isSuccess ? AppColors.secondary : AppColors.error,
+                  fontSize: 18,
+                ),
+              ),
             ],
           ),
           content: Column(
@@ -176,14 +183,21 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${_isBuy ? 'BUY' : 'SELL'} $_quantity Shares of $symbol ($_product)',
+                '${_isBuy ? 'BUY' : 'SELL'} $_quantity Lot(s) of $symbol ($_product)',
                 style: AppTypography.bodyLg.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               if (execution != null) ...[
-                Text('Fill Price: ₹${execution['executionPrice']}', style: AppTypography.numericTable),
-                Text('Slippage: ₹${execution['slippage']}', style: AppTypography.bodyMd),
-                Text('Brokerage & Fees: ₹${execution['fees']}', style: AppTypography.bodyMd),
+                Text(
+                  'Fill Price: $currency${execution['executionPrice']}',
+                  style: AppTypography.numericTable.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: AppColors.primary,
+                  ),
+                ),
+                Text('Slippage: $currency${execution['slippage']}', style: AppTypography.bodyMd),
+                Text('Brokerage & Fees: $currency${execution['fees']}', style: AppTypography.bodyMd),
               ],
               const SizedBox(height: 10),
               Container(
@@ -448,9 +462,12 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     final portfolioAsync = ref.watch(portfolioProvider);
 
     final availableCash = portfolioAsync.valueOrNull?.availableCash ?? 1000000.0;
-    final ltp = (candlesAsync.valueOrNull?.isNotEmpty ?? false)
-        ? candlesAsync.valueOrNull!.last.close
-        : instrument.price;
+    final liveQuote = ref.watch(liveQuoteForSymbolProvider(instrument.symbol));
+    final ltp = (liveQuote != null && liveQuote.price > 0)
+        ? liveQuote.price
+        : ((candlesAsync.valueOrNull?.isNotEmpty ?? false)
+            ? candlesAsync.valueOrNull!.last.close
+            : instrument.price);
     final currency = instrument.category == 'US' || instrument.category == 'CRYPTO' ? '\$' : '₹';
     final priceToUse = _customPrice ?? ltp;
     final requiredMargin = _getRequiredMargin(ltp);

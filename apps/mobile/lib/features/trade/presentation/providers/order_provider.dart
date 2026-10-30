@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradeverse_mobile/core/network/api_client.dart';
+import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
@@ -268,22 +269,24 @@ double _getDefaultPrice(String symbol) {
   }
 }
 
+final demoOrdersStateProvider = StateProvider<List<Map<String, dynamic>>>((ref) => [
+  {
+    'id': 'ord_demo_1',
+    'symbol': 'BTC/USDT',
+    'side': 'BUY',
+    'orderType': 'MARKET',
+    'product': 'CNC',
+    'quantity': 1,
+    'averagePrice': 77622.00,
+    'status': 'FILLED',
+    'createdAt': DateTime.now().toIso8601String(),
+  }
+]);
+
 final orderHistoryProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final authState = ref.watch(authProvider);
   if (authState.isDemoMode) {
-    return [
-      {
-        'id': 'ord_demo_1',
-        'symbol': 'RELIANCE',
-        'side': 'BUY',
-        'orderType': 'MARKET',
-        'product': 'CNC',
-        'quantity': 10,
-        'averagePrice': 2945.50,
-        'status': 'FILLED',
-        'createdAt': DateTime.now().toIso8601String(),
-      }
-    ];
+    return ref.watch(demoOrdersStateProvider);
   }
 
   final apiClient = ref.watch(apiClientProvider);
@@ -326,28 +329,57 @@ class SubmitOrderService {
     double? stopLossPrice,
     double? trailingStopLoss,
   }) async {
+    // 1. Resolve current live market price matching TradingView tick
+    final liveQuotes = ref.read(liveQuotesProvider);
+    final liveQuote = liveQuotes[symbol.toUpperCase()];
+    final double livePrice = (liveQuote != null && liveQuote.price > 0)
+        ? liveQuote.price
+        : (ref.read(selectedTradeInstrumentProvider).symbol.toUpperCase() == symbol.toUpperCase()
+            ? ref.read(selectedTradeInstrumentProvider).price
+            : _getDefaultPrice(symbol));
+
+    final double fillPrice = limitPrice ?? livePrice;
+    final isCrypto = symbol.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => symbol.contains(c));
+    final currencySymbol = (isCrypto || exchange == 'US') ? '\$' : '₹';
+
     if (isDemo) {
-      // Demo execution simulation
-      final fillPrice = limitPrice ?? 2945.50;
       final turnover = fillPrice * quantity;
       const brokerage = 20.0;
       final taxes = turnover * 0.001;
 
-      // Refresh portfolio in UI
-      ref.invalidate(portfolioProvider);
-      ref.invalidate(orderHistoryProvider);
+      final newOrder = {
+        'id': 'ord_demo_${DateTime.now().millisecondsSinceEpoch}',
+        'symbol': symbol,
+        'exchange': exchange,
+        'side': side,
+        'orderType': orderType,
+        'product': product,
+        'quantity': quantity,
+        'averagePrice': fillPrice,
+        'status': 'FILLED',
+        'orderVariety': orderVariety,
+        'createdAt': DateTime.now().toIso8601String(),
+      };
+
+      // Add to demo orders state
+      ref.read(demoOrdersStateProvider.notifier).update((orders) => [newOrder, ...orders]);
+
+      // Add to portfolio holdings
+      ref.read(portfolioProvider.notifier).addHolding(
+        symbol: symbol,
+        exchange: exchange,
+        quantity: quantity,
+        buyPrice: fillPrice,
+      );
+
+      final successMsg =
+          'You booked successfully with the order: $side $quantity lot(s) of $symbol at $currencySymbol${fillPrice.toStringAsFixed(2)}';
 
       return {
         'success': true,
-        'message': 'Simulated $orderVariety order executed in Demo Sandbox.',
-        'order': {
-          'id': 'ord_demo_${DateTime.now().millisecondsSinceEpoch}',
-          'symbol': symbol,
-          'status': 'FILLED',
-          'filledQuantity': quantity,
-          'averagePrice': fillPrice,
-          'orderVariety': orderVariety,
-        },
+        'message': successMsg,
+        'conciseNotification': successMsg,
+        'order': newOrder,
         'execution': {
           'executionPrice': fillPrice,
           'fees': brokerage + taxes,
@@ -380,7 +412,13 @@ class SubmitOrderService {
       if (response.statusCode == 201 && response.data?['success'] == true) {
         ref.invalidate(portfolioProvider);
         ref.invalidate(orderHistoryProvider);
-        return response.data!;
+        final execPrice = (response.data!['execution']?['executionPrice'] as num?)?.toDouble() ?? fillPrice;
+        final successMsg =
+            'You booked successfully with the order: $side $quantity lot(s) of $symbol at $currencySymbol${execPrice.toStringAsFixed(2)}';
+        final data = Map<String, dynamic>.from(response.data!);
+        data['message'] = successMsg;
+        data['conciseNotification'] = successMsg;
+        return data;
       } else {
         return {
           'success': false,

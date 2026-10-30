@@ -1,6 +1,8 @@
 import express, { Response } from 'express';
 import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { PaperAccount, Holding, Order } from '../../models';
+import { RealtimeMarketService } from '../market-data/realtimeMarket.service';
+import { MarketDataService } from '../market-data/marketData.service';
 
 export const portfolioRouter = express.Router();
 
@@ -28,29 +30,40 @@ portfolioRouter.get('/', requireAuth, async (req: AuthenticatedRequest, res: Res
     let totalInvested = 0;
     let totalCurrentValue = 0;
 
-    const formattedHoldings = holdings.map((h) => {
-      const ltp = MOCK_PRICES[h.symbol] || h.averageCost;
-      const invested = h.quantity * h.averageCost;
-      const current = h.quantity * ltp;
-      const pnl = current - invested;
-      const pnlPercent = invested > 0 ? (pnl / invested) * 100 : 0;
+    const formattedHoldings = await Promise.all(
+      holdings.map(async (h) => {
+        let ltp = MOCK_PRICES[h.symbol] || h.averageCost;
+        if (process.env.NODE_ENV !== 'test') {
+          const liveQuote = await RealtimeMarketService.getLiveQuote(h.symbol).catch(() => null);
+          if (liveQuote) {
+            ltp = liveQuote.price;
+          } else {
+            const symQuote = MarketDataService.getQuote(h.symbol);
+            if (symQuote) ltp = symQuote.price;
+          }
+        }
+        const invested = h.quantity * h.averageCost;
+        const current = h.quantity * ltp;
+        const pnl = current - invested;
+        const pnlPercent = invested > 0 ? (pnl / invested) * 100 : 0;
 
-      totalInvested += invested;
-      totalCurrentValue += current;
+        totalInvested += invested;
+        totalCurrentValue += current;
 
-      return {
-        id: h._id.toString(),
-        symbol: h.symbol,
-        exchange: h.exchange,
-        quantity: h.quantity,
-        averageBuyPrice: h.averageCost,
-        ltp,
-        investedValue: invested,
-        currentValue: current,
-        unrealizedPnl: pnl,
-        unrealizedPnlPercent: parseFloat(pnlPercent.toFixed(2)),
-      };
-    });
+        return {
+          id: h._id.toString(),
+          symbol: h.symbol,
+          exchange: h.exchange,
+          quantity: h.quantity,
+          averageBuyPrice: h.averageCost,
+          ltp,
+          investedValue: invested,
+          currentValue: current,
+          unrealizedPnl: parseFloat(pnl.toFixed(2)),
+          unrealizedPnlPercent: parseFloat(pnlPercent.toFixed(2)),
+        };
+      })
+    );
 
     const totalPortfolioValue = account.availableCash + totalCurrentValue;
     const totalPnl = totalPortfolioValue - account.startingCapital;

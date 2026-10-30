@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
 import 'package:tradeverse_mobile/shared/widgets/loading_state_widget.dart';
@@ -218,6 +219,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     final portfolioAsync = ref.watch(portfolioProvider);
+    final liveQuotes = ref.watch(liveQuotesProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -266,8 +268,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
           body: TabBarView(
             controller: _tabController,
             children: [
-              _buildHoldingsList(portfolio.holdings),
-              _buildPositionsList(),
+              _buildHoldingsList(portfolio.holdings, liveQuotes),
+              _buildPositionsList(portfolio.holdings, liveQuotes),
             ],
           ),
         ),
@@ -373,7 +375,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
     );
   }
 
-  Widget _buildHoldingsList(List<HoldingModel> holdings) {
+  Widget _buildHoldingsList(List<HoldingModel> holdings, Map<String, LiveQuote> liveQuotes) {
     if (holdings.isEmpty) {
       return Center(
         child: Column(
@@ -395,7 +397,17 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final h = holdings[index];
-        final isPos = h.unrealizedPnl >= 0;
+        final symKey = h.symbol.toUpperCase();
+        final isCrypto = symKey.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => symKey.contains(c));
+        final currency = (isCrypto || h.exchange == 'US') ? '\$' : '₹';
+
+        final liveQuote = liveQuotes[symKey];
+        final ltp = (liveQuote != null && liveQuote.price > 0) ? liveQuote.price : h.ltp;
+        final invested = h.quantity * h.averageBuyPrice;
+        final currentVal = h.quantity * ltp;
+        final pnl = currentVal - invested;
+        final pnlPct = invested > 0 ? (pnl / invested) * 100 : 0.0;
+        final isPos = pnl >= 0;
 
         return Container(
           padding: const EdgeInsets.all(12),
@@ -413,11 +425,27 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                     children: [
                       Text(h.symbol, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
                       const SizedBox(width: 6),
-                      Text('(${h.quantity} Qty)', style: AppTypography.labelSm),
+                      Text('(${h.quantity} Lot)', style: AppTypography.labelSm),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          'LIVE',
+                          style: AppTypography.labelSm.copyWith(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.secondary,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   Text(
-                    '${isPos ? '+' : ''}₹${h.unrealizedPnl.toStringAsFixed(2)} (${h.unrealizedPnlPercent}%)',
+                    '${isPos ? '+' : ''}$currency${pnl.toStringAsFixed(2)} (${pnlPct.toStringAsFixed(2)}%)',
                     style: AppTypography.numericTable.copyWith(
                       color: isPos ? AppColors.secondary : AppColors.tertiary,
                       fontWeight: FontWeight.bold,
@@ -429,10 +457,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Avg: ₹${h.averageBuyPrice}', style: AppTypography.labelSm),
-                  Text('LTP: ₹${h.ltp}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
+                  Text('Avg: $currency${h.averageBuyPrice.toStringAsFixed(2)}', style: AppTypography.labelSm),
+                  Text('LTP: $currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
                   Text(
-                    'Cur Val: ₹${h.currentValue.toStringAsFixed(2)}',
+                    'Cur Val: $currency${currentVal.toStringAsFixed(2)}',
                     style: AppTypography.numericTable.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -444,14 +472,137 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
     );
   }
 
-  Widget _buildPositionsList() {
+  Widget _buildPositionsList(List<HoldingModel> holdings, Map<String, LiveQuote> liveQuotes) {
+    final displayItems = holdings.isNotEmpty ? holdings : _positions;
+
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: _positions.length,
+      itemCount: displayItems.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        final p = _positions[index];
+        final item = displayItems[index];
+        if (item is HoldingModel) {
+          final symKey = item.symbol.toUpperCase();
+          final isCrypto = symKey.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => symKey.contains(c));
+          final currency = (isCrypto || item.exchange == 'US') ? '\$' : '₹';
+
+          final liveQuote = liveQuotes[symKey];
+          final ltp = (liveQuote != null && liveQuote.price > 0) ? liveQuote.price : item.ltp;
+          final invested = item.quantity * item.averageBuyPrice;
+          final currentVal = item.quantity * ltp;
+          final pnl = currentVal - invested;
+          final pnlPct = invested > 0 ? (pnl / invested) * 100 : 0.0;
+          final isPos = pnl >= 0;
+
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLowest,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.borderSubtle),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Text(item.symbol, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryBrand.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'CNC/MIS',
+                            style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.primary),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text('(${item.quantity} Lot)', style: AppTypography.labelSm),
+                      ],
+                    ),
+                    Text(
+                      '${isPos ? '+' : ''}$currency${pnl.toStringAsFixed(2)} (${pnlPct.toStringAsFixed(2)}%)',
+                      style: AppTypography.numericTable.copyWith(
+                        color: isPos ? AppColors.secondary : AppColors.tertiary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Avg: $currency${item.averageBuyPrice.toStringAsFixed(2)}', style: AppTypography.labelSm),
+                    Text('LTP: $currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
+                    Text('Val: $currency${currentVal.toStringAsFixed(2)}', style: AppTypography.labelSm),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
+        final p = item as Map<String, dynamic>;
         final isPos = p['isPos'] as bool;
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLowest,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.borderSubtle),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(p['symbol'] as String, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryBrand.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          p['product'] as String,
+                          style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '${isPos ? '+' : ''}₹${(p['pnl'] as num).toStringAsFixed(2)} (${p['pnlPct']}%)',
+                    style: AppTypography.numericTable.copyWith(
+                      color: isPos ? AppColors.secondary : AppColors.tertiary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Avg: ₹${p['avg']}', style: AppTypography.labelSm),
+                  Text('LTP: ₹${p['ltp']}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
+                  Text('${p['qty']} Qty', style: AppTypography.labelSm),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
         return Container(
           padding: const EdgeInsets.all(12),

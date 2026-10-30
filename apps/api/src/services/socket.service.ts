@@ -177,10 +177,11 @@ export class SocketService {
   }
 
   /**
-   * Emits simulated ticker price update to subscribers.
+   * Emits live ticker price update to subscribers.
    */
   static emitTickerUpdate(symbol: string, data: unknown): void {
     if (!this.io) return;
+    this.io.emit('ticker_tick', data);
     this.io.to(`ticker:${symbol.toUpperCase()}`).emit('ticker_tick', data);
   }
 
