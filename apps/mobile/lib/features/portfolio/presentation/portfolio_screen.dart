@@ -603,60 +603,6 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
       },
     );
   }
-
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceLowest,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.borderSubtle),
-          ),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Text(p['symbol'] as String, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryBrand.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          p['product'] as String,
-                          style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.primary),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '${isPos ? '+' : ''}₹${p['pnl'].toStringAsFixed(2)} (${p['pnlPct']}%)',
-                    style: AppTypography.numericTable.copyWith(
-                      color: isPos ? AppColors.secondary : AppColors.tertiary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Qty: ${p['qty']}', style: AppTypography.labelSm),
-                  Text('Entry: ₹${p['avg']}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
-                  Text('LTP: ₹${p['ltp']}', style: AppTypography.numericTable.copyWith(fontSize: 12, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {

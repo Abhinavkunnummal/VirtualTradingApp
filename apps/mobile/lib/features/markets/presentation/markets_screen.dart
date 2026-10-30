@@ -184,7 +184,6 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final item = filtered[index];
-          final isPos = item.isPositive;
           final currency = item.category == 'US' || item.category == 'CRYPTO' ? '\$' : '₹';
 
           return Container(
