@@ -147,7 +147,6 @@ List<CandleData> _generateRealisticCandles({
 }
 
 final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((ref, query) async {
-  final authState = ref.watch(authProvider);
   final selectedInst = ref.watch(selectedTradeInstrumentProvider);
   final double currentLtp = (selectedInst.symbol == query.symbol)
       ? selectedInst.price
