@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,9 +5,8 @@ import '../../../core/network/live_ticker_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../markets/domain/market_models.dart';
-import '../../markets/presentation/providers/markets_provider.dart';
 import '../../portfolio/presentation/providers/portfolio_provider.dart';
-import '../providers/order_provider.dart';
+import 'providers/order_provider.dart';
 import 'widgets/candlestick_chart_view.dart';
 
 class TradingViewChartScreen extends ConsumerStatefulWidget {
@@ -481,7 +479,6 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
       setState(() => _isSubmitting = false);
       Navigator.of(context).pop();
 
-      final isSuccess = res['success'] == true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AppColors.surfaceContainer,
@@ -529,7 +526,8 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = widget.instrument.currency == 'USD' ? '\$' : '₹';
+    final isCrypto = widget.instrument.symbol.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => widget.instrument.symbol.contains(c));
+    final currency = (isCrypto || widget.instrument.exchange == 'US' || widget.instrument.category == 'US') ? '\$' : '₹';
     final margin = _getRequiredMargin();
     final portfolio = ref.watch(portfolioProvider).valueOrNull;
     final available = portfolio?.availableCash ?? 1000000.0;
