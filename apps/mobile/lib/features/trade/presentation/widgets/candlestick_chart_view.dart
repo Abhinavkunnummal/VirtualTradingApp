@@ -50,6 +50,7 @@ class CandlestickChartView extends StatefulWidget {
   final ValueChanged<String>? onRangeChanged;
   final String status;
   final VoidCallback? onRetry;
+  final VoidCallback? onOpenTradingView;
 
   const CandlestickChartView({
     super.key,
@@ -65,6 +66,7 @@ class CandlestickChartView extends StatefulWidget {
     this.onRangeChanged,
     this.status = 'SIMULATED',
     this.onRetry,
+    this.onOpenTradingView,
   });
 
   static double calculateCandleWidth(double chartWidth, int candleCount, double zoom) {
@@ -410,35 +412,69 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: ['1D', '1W', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'ALL'].map((range) {
-                    final isSelected = widget.selectedRange.toUpperCase() == range.toUpperCase();
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: InkWell(
-                        key: ValueKey('range_$range'),
-                        onTap: widget.onRangeChanged != null ? () => widget.onRangeChanged!(range) : null,
-                        borderRadius: BorderRadius.circular(5),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppColors.secondary.withOpacity(0.2) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(5),
-                            border: Border.all(
-                              color: isSelected ? AppColors.secondary : AppColors.borderSubtle,
+                  children: [
+                    ...['1D', '1W', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'ALL'].map((range) {
+                      final isSelected = widget.selectedRange.toUpperCase() == range.toUpperCase();
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: InkWell(
+                          key: ValueKey('range_$range'),
+                          onTap: widget.onRangeChanged != null ? () => widget.onRangeChanged!(range) : null,
+                          borderRadius: BorderRadius.circular(5),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppColors.secondary.withOpacity(0.2) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(
+                                color: isSelected ? AppColors.secondary : AppColors.borderSubtle,
+                              ),
+                            ),
+                            child: Text(
+                              range,
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 9,
+                                color: isSelected ? AppColors.secondary : AppColors.outline,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              ),
                             ),
                           ),
-                          child: Text(
-                            range,
-                            style: AppTypography.labelSm.copyWith(
-                              fontSize: 9,
-                              color: isSelected ? AppColors.secondary : AppColors.outline,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      );
+                    }),
+                    if (widget.onOpenTradingView != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: InkWell(
+                          key: const ValueKey('open_tradingview_pro_chip'),
+                          onTap: widget.onOpenTradingView,
+                          borderRadius: BorderRadius.circular(5),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.zerodhaBlue.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: AppColors.zerodhaBlue),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.show_chart, size: 12, color: AppColors.zerodhaBlue),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'TRADINGVIEW CHART ↗',
+                                  style: AppTypography.labelSm.copyWith(
+                                    fontSize: 9,
+                                    color: AppColors.zerodhaBlue,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                    );
-                  }).toList(),
+                  ],
                 ),
               ),
             ],

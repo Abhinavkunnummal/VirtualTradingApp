@@ -47,4 +47,15 @@ class AppColors {
   static const Color outline = Color(0xFF918FA1);
   static const Color outlineVariant = Color(0xFF464555);
   static const Color borderSubtle = Color(0xFF283342);
+
+  // Upstox & Zerodha Kite Pro Theme Accents
+  static const Color zerodhaBlue = Color(0xFF387ED1);
+  static const Color upstoxPurple = Color(0xFF7B61FF);
+  static const Color kiteGreen = Color(0xFF00D09C);
+  static const Color kiteRed = Color(0xFFEB5B5B);
+  static const Color tvDarkBg = Color(0xFF131722);
+  static const Color tvCardBg = Color(0xFF1E222D);
+  static const Color tvBorder = Color(0xFF2A2E39);
+  static const Color pnlGlowGreen = Color(0xFF00E676);
+  static const Color pnlGlowRed = Color(0xFFFF1744);
 }

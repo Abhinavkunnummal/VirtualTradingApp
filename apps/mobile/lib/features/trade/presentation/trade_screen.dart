@@ -607,11 +607,26 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     final requiredMargin = _getRequiredMargin(ltp);
     final taxes = _getTaxes(ltp);
 
+    final activeHolding = portfolioAsync.valueOrNull?.holdings
+        .where((h) => h.symbol.toUpperCase() == instrument.symbol.toUpperCase())
+        .firstOrNull;
+    final hasHolding = activeHolding != null && activeHolding.quantity > 0;
+    final holdingInvested = hasHolding ? activeHolding.quantity * activeHolding.averageBuyPrice : 0.0;
+    final holdingCurrent = hasHolding ? activeHolding.quantity * ltp : 0.0;
+    final holdingPnl = hasHolding ? (holdingCurrent - holdingInvested) : 0.0;
+    final holdingPnlPct = (hasHolding && holdingInvested > 0) ? (holdingPnl / holdingInvested) * 100 : 0.0;
+    final holdingIsPos = holdingPnl >= 0;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('Order Ticket & Execution', style: AppTypography.headlineSm),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.show_chart, color: AppColors.zerodhaBlue),
+            tooltip: 'TradingView Pro Chart',
+            onPressed: () => context.push('/tradingview-pro'),
+          ),
           IconButton(
             icon: const Icon(Icons.swap_horiz),
             tooltip: 'Change Instrument',
@@ -638,59 +653,180 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.borderSubtle),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(instrument.symbol, style: AppTypography.headlineSm),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceHighest,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text('${instrument.category} ${instrument.exchange}', style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
+                            Row(
+                              children: [
+                                Text(instrument.symbol, style: AppTypography.headlineSm),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceHighest,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text('${instrument.category} ${instrument.exchange}', style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 2),
+                            Text(instrument.name, style: AppTypography.bodyMd, overflow: TextOverflow.ellipsis),
                           ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(instrument.name, style: AppTypography.bodyMd, overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('$currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTicker),
-                      const SizedBox(height: 2),
-                      Row(
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Icon(
-                            instrument.isPositive ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                            size: 16,
-                            color: instrument.isPositive ? AppColors.secondary : AppColors.tertiary,
-                          ),
-                          Text(
-                            '${instrument.isPositive ? '+' : ''}${instrument.change.toStringAsFixed(2)} (${instrument.changePercent.toStringAsFixed(2)}%)',
-                            style: AppTypography.numericTable.copyWith(
-                              color: instrument.isPositive ? AppColors.secondary : AppColors.tertiary,
-                              fontSize: 11,
-                            ),
+                          Text('$currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTicker),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(
+                                instrument.isPositive ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                                size: 16,
+                                color: instrument.isPositive ? AppColors.secondary : AppColors.tertiary,
+                              ),
+                              Text(
+                                '${instrument.isPositive ? '+' : ''}${instrument.change.toStringAsFixed(2)} (${instrument.changePercent.toStringAsFixed(2)}%)',
+                                style: AppTypography.numericTable.copyWith(
+                                  color: instrument.isPositive ? AppColors.secondary : AppColors.tertiary,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  InkWell(
+                    onTap: () => context.push('/tradingview-pro'),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.zerodhaBlue.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.zerodhaBlue.withOpacity(0.35)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.show_chart, size: 16, color: AppColors.zerodhaBlue),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Open TradingView Full Pro Chart',
+                                style: AppTypography.labelSm.copyWith(
+                                  color: AppColors.zerodhaBlue,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.zerodhaBlue),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
+
+            // Live P&L Position Ribbon (Upstox / Zerodha Style)
+            if (hasHolding)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: holdingIsPos
+                        ? [AppColors.kiteGreen.withOpacity(0.18), AppColors.surfaceContainer]
+                        : [AppColors.kiteRed.withOpacity(0.18), AppColors.surfaceContainer],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: (holdingIsPos ? AppColors.kiteGreen : AppColors.kiteRed).withOpacity(0.4),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: (holdingIsPos ? AppColors.kiteGreen : AppColors.kiteRed).withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            holdingIsPos ? Icons.trending_up : Icons.trending_down,
+                            size: 16,
+                            color: holdingIsPos ? AppColors.kiteGreen : AppColors.kiteRed,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'OPEN HOLDING: ${activeHolding.quantity} LOTS',
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Avg: $currency${activeHolding.averageBuyPrice.toStringAsFixed(2)} • Val: $currency${holdingCurrent.toStringAsFixed(2)}',
+                              style: AppTypography.bodyMd.copyWith(fontSize: 11, color: AppColors.outline),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'REALTIME P&L',
+                          style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 1),
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: holdingPnl, end: holdingPnl),
+                          duration: const Duration(milliseconds: 300),
+                          builder: (context, val, _) {
+                            return Text(
+                              '${val >= 0 ? '+' : ''}$currency${val.toStringAsFixed(2)} (${holdingPnlPct.toStringAsFixed(2)}%)',
+                              style: AppTypography.numericTable.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: val >= 0 ? AppColors.kiteGreen : AppColors.kiteRed,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
 
             // Candlestick Chart View
             CandlestickChartView(
@@ -710,6 +846,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               },
               status: instrument.isSimulated ? 'SIMULATED' : 'LIVE',
               onRetry: () => ref.refresh(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval, range: range))),
+              onOpenTradingView: () => context.push('/tradingview-pro'),
             ),
             const SizedBox(height: 16),
 

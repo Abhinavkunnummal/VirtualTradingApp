@@ -166,5 +166,32 @@ void main() {
       await tester.tap(chartFinder);
       await tester.pumpAndSettle();
     });
+
+    testWidgets('renders open_tradingview_pro_chip when onOpenTradingView provided', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      bool opened = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CandlestickChartView(
+              symbol: 'ADANIENT',
+              candles: const [],
+              selectedInterval: '15m',
+              onIntervalChanged: (_) {},
+              onOpenTradingView: () => opened = true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('open_tradingview_pro_chip')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('open_tradingview_pro_chip')));
+      await tester.pumpAndSettle();
+      expect(opened, isTrue);
+    });
   });
 }

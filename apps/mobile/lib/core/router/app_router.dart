@@ -9,6 +9,7 @@ import '../../features/auth/domain/auth_models.dart';
 import '../../features/home/presentation/home_dashboard_screen.dart';
 import '../../features/markets/presentation/markets_screen.dart';
 import '../../features/trade/presentation/trade_screen.dart';
+import '../../features/trade/presentation/trading_view_chart_screen.dart';
 import '../../features/community/presentation/community_screen.dart';
 import '../../features/portfolio/presentation/portfolio_screen.dart';
 import '../../features/learn/presentation/learn_screen.dart';
@@ -63,6 +64,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) => const MaterialPage(
           child: LearnScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/tradingview-pro',
+        name: 'tradingview_pro',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => const MaterialPage(
+          child: TradingViewChartScreen(),
         ),
       ),
       StatefulShellRoute.indexedStack(

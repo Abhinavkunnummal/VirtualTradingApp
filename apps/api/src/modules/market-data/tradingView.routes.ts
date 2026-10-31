@@ -93,6 +93,60 @@ tradingViewRouter.get(['/', '/widget'], (req: Request, res: Response) => {
       font-size: 11px;
       font-weight: 600;
     }
+    .order-btn-buy {
+      background: #00D09C;
+      color: #0b0e14;
+      font-weight: 700;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+    .order-btn-buy:hover {
+      background: #00e6aa;
+      transform: translateY(-1px);
+    }
+    .order-btn-sell {
+      background: #EB5B5B;
+      color: #ffffff;
+      font-weight: 700;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+    .order-btn-sell:hover {
+      background: #ff6b6b;
+      transform: translateY(-1px);
+    }
+    .live-pnl-pill {
+      background: rgba(0, 208, 156, 0.12);
+      border: 1px solid rgba(0, 208, 156, 0.35);
+      color: #00D09C;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #00D09C;
+      animation: pulseDot 1.5s infinite;
+    }
+    @keyframes pulseDot {
+      0% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.2); }
+      100% { opacity: 0.4; transform: scale(0.9); }
+    }
     .quick-symbols {
       display: flex;
       gap: 6px;
@@ -235,7 +289,20 @@ tradingViewRouter.get(['/', '/widget'], (req: Request, res: Response) => {
       <button class="sym-btn" onclick="switchSymbol('NASDAQ:TSLA')">TSLA</button>
       <button class="sym-btn" onclick="switchSymbol('MCX:GOLD1!')">GOLD (MCX)</button>
     </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="live-pnl-pill" id="header_pnl_badge">
+        <span class="live-dot"></span>
+        <span id="header_pnl_text">LIVE P&L: +₹744.00 (+0.54%)</span>
+      </div>
+      <button class="order-btn-buy" onclick="quickOrder('BUY')">+ BUY (LONG)</button>
+      <button class="order-btn-sell" onclick="quickOrder('SELL')">- SELL (SHORT)</button>
+    </div>
   </header>
+
+  <div id="toast" style="display:none; position:fixed; top:70px; right:20px; z-index:9999; background:#1e293b; border:2px solid #00D09C; border-radius:10px; padding:12px 18px; color:#fff; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+    <strong id="toast_title" style="color:#00D09C; display:block; font-size:14px;">Order Booked Successfully! 🎉</strong>
+    <span id="toast_msg" style="font-size:12px; color:#cbd5e1;"></span>
+  </div>
 
   <div id="chart_wrapper">
     <div id="tv_chart_container"></div>
@@ -483,9 +550,85 @@ tradingViewRouter.get(['/', '/widget'], (req: Request, res: Response) => {
       \`;
     }
 
+    function quickOrder(side) {
+      const sym = currentSymbol;
+      const isBuy = side === 'BUY';
+      const orderId = 'ord_' + Math.floor(Math.random() * 9000 + 1000);
+      const estPrice = sym.includes('BTC') ? 77568.00 : (sym.includes('ADANI') ? 2865.00 : (sym.includes('RELIANCE') ? 2958.00 : 24850.00));
+      const newOrder = {
+        id: orderId,
+        symbol: sym,
+        side: side,
+        qty: 1,
+        price: estPrice,
+        status: "FILLED",
+        type: "MARKET"
+      };
+      broker._orders.unshift(newOrder);
+
+      let pos = broker._positions.find(p => p.symbol === sym);
+      if (pos) {
+        pos.qty += (isBuy ? 1 : -1);
+      } else {
+        broker._positions.unshift({
+          symbol: sym,
+          qty: 1,
+          buyPrice: estPrice,
+          ltp: estPrice,
+          pnl: 0.00,
+          pnlPct: "+0.00%"
+        });
+      }
+
+      showToast("Order Booked Successfully! 🎉", side + " 1 Lot of " + sym + " @ ₹" + estPrice.toLocaleString() + " filled!");
+      if (activeTab === 'orders') renderOrders();
+      if (activeTab === 'positions') renderPositions();
+      updateHeaderPnl();
+    }
+
+    function showToast(title, msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast_title').innerText = title;
+      document.getElementById('toast_msg').innerText = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 4000);
+    }
+
+    function updateHeaderPnl() {
+      let totalPnl = 0;
+      let totalInvested = 0;
+      broker._positions.forEach(p => {
+        totalPnl += p.pnl;
+        totalInvested += p.buyPrice * Math.abs(p.qty);
+      });
+      const pct = totalInvested > 0 ? ((totalPnl / totalInvested) * 100).toFixed(2) : "0.00";
+      const isPos = totalPnl >= 0;
+      const badge = document.getElementById('header_pnl_badge');
+      const text = document.getElementById('header_pnl_text');
+      if (badge && text) {
+        text.innerText = "LIVE P&L: " + (isPos ? '+' : '') + "₹" + totalPnl.toFixed(2) + " (" + (isPos ? '+' : '') + pct + "%)";
+        badge.style.color = isPos ? '#00D09C' : '#EB5B5B';
+        badge.style.borderColor = isPos ? 'rgba(0, 208, 156, 0.4)' : 'rgba(235, 91, 91, 0.4)';
+      }
+    }
+
+    // Dynamic price tick pulse for positions
+    setInterval(() => {
+      broker._positions.forEach(p => {
+        const delta = (Math.random() - 0.48) * (p.ltp * 0.001);
+        p.ltp = +(p.ltp + delta).toFixed(2);
+        p.pnl = +((p.ltp - p.buyPrice) * p.qty).toFixed(2);
+        const pct = ((p.pnl / (p.buyPrice * Math.abs(p.qty))) * 100).toFixed(2);
+        p.pnlPct = (pct >= 0 ? '+' : '') + pct + '%';
+      });
+      if (activeTab === 'positions') renderPositions();
+      updateHeaderPnl();
+    }, 2000);
+
     window.addEventListener('load', () => {
       initTradingView(currentSymbol);
       renderCustomPage();
+      updateHeaderPnl();
     });
   </script>
 </body>
