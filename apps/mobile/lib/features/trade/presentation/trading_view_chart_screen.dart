@@ -26,6 +26,13 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final sym = widget.instrument?.symbol ?? ref.read(selectedTradeInstrumentProvider).symbol;
+      if (sym.isNotEmpty) {
+        ref.read(liveQuotesProvider.notifier).trackSymbol(sym);
+      }
+    });
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -511,7 +518,9 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                   onRangeChanged: (newRange) {
                     ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
                   },
-                  status: instrument.isSimulated ? 'SIMULATED' : 'LIVE',
+                  status: liveQuote?.status == 'LIVE'
+                      ? 'LIVE'
+                      : (instrument.isSimulated ? 'SIMULATED' : 'DELAYED'),
                   onRetry: () => ref.refresh(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval, range: range))),
                   onOpenTradingView: () => _showTradingViewModal(context, instrument),
                 ),
@@ -609,6 +618,11 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
   String _product = 'MIS'; // MIS (Intraday 5x) or CNC (Delivery 1x)
   bool _isSubmitting = false;
 
+  double get _liveLtp {
+    final quote = ref.read(liveQuoteForSymbolProvider(widget.instrument.symbol));
+    return quote != null && quote.price > 0 ? quote.price : widget.currentLtp;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -616,7 +630,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
   }
 
   double _getRequiredMargin() {
-    final raw = _quantity * widget.currentLtp;
+    final raw = _quantity * _liveLtp;
     return _product == 'MIS' ? raw / 5.0 : raw;
   }
 
@@ -642,7 +656,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
     }
 
     try {
-      await ref.read(submitOrderProvider).submitOrder(
+      final result = await ref.read(submitOrderProvider).submitOrder(
         symbol: widget.instrument.symbol,
         exchange: widget.instrument.exchange,
         side: _isBuy ? 'BUY' : 'SELL',
@@ -650,6 +664,19 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
         product: _product,
         quantity: _quantity,
       );
+      if (result['success'] != true) {
+        throw StateError(result['message'] as String? ?? 'Order execution failed.');
+      }
+      final execution = result['execution'];
+      final order = result['order'];
+      final bookedPrice = execution is Map<String, dynamic>
+          ? (execution['executionPrice'] as num?)?.toDouble()
+          : (order is Map<String, dynamic>
+              ? (order['averagePrice'] as num?)?.toDouble()
+              : null);
+
+      final isCrypto = widget.instrument.symbol.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => widget.instrument.symbol.contains(c));
+      final currency = (isCrypto || widget.instrument.exchange == 'US' || widget.instrument.category == 'US') ? '\$' : '₹';
 
       if (!mounted) return;
       setState(() => _isSubmitting = false);
@@ -680,7 +707,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                       ),
                     ),
                     Text(
-                      '${_isBuy ? 'BOUGHT' : 'SOLD'} $_quantity ${widget.instrument.symbol} @ ₹${widget.currentLtp.toStringAsFixed(2)} ($_product)',
+                      '${_isBuy ? 'BOUGHT' : 'SOLD'} $_quantity ${widget.instrument.symbol} @ $currency${(bookedPrice ?? _liveLtp).toStringAsFixed(2)} ($_product)',
                       style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
                     ),
                   ],
@@ -702,6 +729,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(liveQuoteForSymbolProvider(widget.instrument.symbol));
     final isCrypto = widget.instrument.symbol.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => widget.instrument.symbol.contains(c));
     final currency = (isCrypto || widget.instrument.exchange == 'US' || widget.instrument.category == 'US') ? '\$' : '₹';
     final margin = _getRequiredMargin();
@@ -740,7 +768,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                 ],
               ),
               Text(
-                '$currency${widget.currentLtp.toStringAsFixed(2)}',
+                '$currency${_liveLtp.toStringAsFixed(2)}',
                 style: AppTypography.numericTicker.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],

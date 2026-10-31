@@ -31,6 +31,18 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   bool _enableTrailing = false;
   bool _isSubmitting = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final sym = ref.read(selectedTradeInstrumentProvider).symbol;
+      if (sym.isNotEmpty) {
+        ref.read(liveQuotesProvider.notifier).trackSymbol(sym);
+      }
+    });
+  }
+
   double _getRequiredMargin(double currentLtp) {
     final effectivePrice = _orderType == 'MARKET' ? currentLtp : (_customPrice ?? currentLtp);
     if (_product == 'NRML') {
@@ -590,6 +602,9 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(selectedTradeInstrumentProvider, (_, next) {
+      ref.read(liveQuotesProvider.notifier).trackSymbol(next.symbol);
+    });
     final instrument = ref.watch(selectedTradeInstrumentProvider);
     final interval = ref.watch(selectedCandleIntervalProvider);
     final range = ref.watch(selectedHistoryRangeProvider);
@@ -845,7 +860,9 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               onRangeChanged: (newRange) {
                 ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
               },
-              status: instrument.isSimulated ? 'SIMULATED' : 'LIVE',
+              status: liveQuote?.status == 'LIVE'
+                  ? 'LIVE'
+                  : (instrument.isSimulated ? 'SIMULATED' : 'DELAYED'),
               onRetry: () => ref.refresh(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval, range: range))),
               onOpenTradingView: () => context.push('/tradingview-pro'),
             ),

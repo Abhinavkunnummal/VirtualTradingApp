@@ -16,6 +16,7 @@ class LiveQuote {
   final double low;
   final double volume;
   final DateTime timestamp;
+  final String status;
 
   const LiveQuote({
     required this.symbol,
@@ -26,6 +27,7 @@ class LiveQuote {
     required this.low,
     required this.volume,
     required this.timestamp,
+    this.status = 'UNKNOWN',
   });
 
   factory LiveQuote.fromJson(Map<String, dynamic> json) {
@@ -40,6 +42,7 @@ class LiveQuote {
       timestamp: json['timestamp'] != null
           ? DateTime.tryParse(json['timestamp'] as String) ?? DateTime.now()
           : DateTime.now(),
+      status: (json['status'] as String? ?? 'UNKNOWN').toUpperCase(),
     );
   }
 }
@@ -60,8 +63,9 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
   final ApiClient apiClient;
   io.Socket? _socket;
   Timer? _pollingTimer;
+  bool _isFetching = false;
 
-  static const List<String> _trackedSymbols = [
+  static const List<String> _defaultTrackedSymbols = [
     'BTC/USDT',
     'ETH/USDT',
     'SOL/USDT',
@@ -78,6 +82,7 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
     'NVDA',
     'MSFT',
   ];
+  final Set<String> _trackedSymbols = {..._defaultTrackedSymbols};
 
   LiveQuotesNotifier({required this.apiClient}) : super({}) {
     final bool isTest =
@@ -102,7 +107,7 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
       );
 
       _socket?.onConnect((_) {
-        _socket?.emit('join_ticker', {'symbols': _trackedSymbols});
+        _socket?.emit('join_ticker', {'symbols': _trackedSymbols.toList()});
       });
 
       _socket?.on('ticker_tick', (data) {
@@ -113,6 +118,16 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
     } catch (_) {
       // Non-fatal, polling fallback will handle ticks
     }
+  }
+
+  /// Subscribe to instruments opened by the user, including searched symbols.
+  void trackSymbol(String symbol) {
+    final normalized = symbol.trim().toUpperCase();
+    if (normalized.isEmpty || !_trackedSymbols.add(normalized)) return;
+    if (_socket?.connected == true) {
+      _socket?.emit('join_ticker', {'symbols': [normalized]});
+    }
+    _fetchLiveQuotes();
   }
 
   void _startPollingFallback() {
@@ -126,6 +141,8 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
   }
 
   Future<void> _fetchLiveQuotes() async {
+    if (_isFetching) return;
+    _isFetching = true;
     try {
       final symbolsParam = _trackedSymbols.join(',');
       final res = await apiClient.get<Map<String, dynamic>>(
@@ -150,6 +167,8 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
       }
     } catch (_) {
       // Transient error, next second tick will retry
+    } finally {
+      _isFetching = false;
     }
   }
 

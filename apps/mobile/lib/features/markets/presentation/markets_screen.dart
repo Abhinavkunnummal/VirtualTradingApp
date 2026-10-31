@@ -204,6 +204,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               onTap: () {
+                ref.read(liveQuotesProvider.notifier).trackSymbol(item.symbol);
                 ref.read(selectedTradeInstrumentProvider.notifier).state = item;
                 context.go('/trade');
               },
@@ -262,6 +263,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
                     key: ValueKey('tv_chart_btn_${item.symbol}'),
                     borderRadius: BorderRadius.circular(6),
                     onTap: () {
+                      ref.read(liveQuotesProvider.notifier).trackSymbol(item.symbol);
                       ref.read(selectedTradeInstrumentProvider.notifier).state = item;
                       context.push('/tradingview-pro');
                     },

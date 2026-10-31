@@ -335,11 +335,30 @@ class SubmitOrderService {
     // 1. Resolve current live market price matching TradingView tick
     final liveQuotes = ref.read(liveQuotesProvider);
     final liveQuote = liveQuotes[symbol.toUpperCase()];
-    final double livePrice = (liveQuote != null && liveQuote.price > 0)
+    double livePrice = (liveQuote != null && liveQuote.price > 0)
         ? liveQuote.price
         : (ref.read(selectedTradeInstrumentProvider).symbol.toUpperCase() == symbol.toUpperCase()
             ? ref.read(selectedTradeInstrumentProvider).price
             : _getDefaultPrice(symbol));
+
+    // Demo orders still use the newest server quote when the feed is reachable.
+    // The cached stream quote remains an offline fallback.
+    if (isDemo) {
+      try {
+        final encodedSymbol = Uri.encodeComponent(symbol);
+        final response = await apiClient.get<Map<String, dynamic>>(
+          '/market-data/quote/$encodedSymbol',
+          queryParameters: {'source': 'live'},
+        );
+        final quoteJson = response.data?['quote'];
+        if (response.statusCode == 200 && quoteJson is Map<String, dynamic>) {
+          final freshPrice = (quoteJson['price'] as num?)?.toDouble();
+          if (freshPrice != null && freshPrice > 0) livePrice = freshPrice;
+        }
+      } catch (_) {
+        // Keep the latest streamed quote if the one-shot refresh is unavailable.
+      }
+    }
 
     final double fillPrice = limitPrice ?? livePrice;
     final isCrypto = symbol.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => symbol.contains(c));

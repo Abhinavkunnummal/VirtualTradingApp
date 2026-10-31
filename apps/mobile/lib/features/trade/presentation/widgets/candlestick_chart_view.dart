@@ -103,7 +103,8 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
 
   // Technical indicator visibility toggles
   bool _showSma20 = false;
-  bool _showEma20 = false;
+  // Keep a trend line visible by default; traders can still toggle it off.
+  bool _showEma20 = true;
   bool _showRsi = false;
   bool _showMacd = false;
 
