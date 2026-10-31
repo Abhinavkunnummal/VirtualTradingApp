@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'candlestick_chart_view.dart';
 
 class ChartIndicatorCalculator {
@@ -126,6 +127,35 @@ class ChartIndicatorCalculator {
       'macd': macdLine,
       'signal': signalLine,
       'histogram': histogram,
+    };
+  }
+
+  /// Bollinger Bands (period, stdDevMultiplier)
+  static Map<String, List<double?>> calculateBollingerBands(
+    List<CandleData> candles, [
+    int period = 20,
+    double multiplier = 2.0,
+  ]) {
+    final middle = calculateSMA(candles, period);
+    final upper = List<double?>.filled(candles.length, null);
+    final lower = List<double?>.filled(candles.length, null);
+
+    for (int i = period - 1; i < candles.length; i++) {
+      if (middle[i] == null) continue;
+      double varianceSum = 0.0;
+      for (int j = 0; j < period; j++) {
+        final diff = candles[i - j].close - middle[i]!;
+        varianceSum += diff * diff;
+      }
+      final stdDev = math.sqrt(varianceSum / period);
+      upper[i] = middle[i]! + (multiplier * stdDev);
+      lower[i] = middle[i]! - (multiplier * stdDev);
+    }
+
+    return {
+      'upper': upper,
+      'middle': middle,
+      'lower': lower,
     };
   }
 }

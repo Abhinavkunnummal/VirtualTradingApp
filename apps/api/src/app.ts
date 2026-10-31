@@ -14,12 +14,13 @@ import { communityRouter } from './modules/community/community.routes';
 import { aiRouter } from './modules/ai/ai.routes';
 import { newsRouter } from './modules/news/news.routes';
 import { notificationRouter } from './modules/notifications/notification.routes';
+import { tradingViewRouter } from './modules/market-data/tradingView.routes';
 
 export function createApp(): express.Application {
   const app = express();
 
   // Security Middleware
-  app.use(helmet());
+  app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: config.corsOrigins, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
@@ -82,6 +83,12 @@ export function createApp(): express.Application {
   apiV1Router.use('/ai', aiRouter);
   apiV1Router.use('/news', newsRouter);
   apiV1Router.use('/notifications', notificationRouter);
+  apiV1Router.use('/tradingview', tradingViewRouter);
+  apiV1Router.use('/market-data/tradingview', tradingViewRouter);
+
+  // Direct routes for TradingView interactive chart and Account Manager terminal
+  app.use('/tradingview', tradingViewRouter);
+  app.use('/chart', tradingViewRouter);
 
   app.use('/api/v1', apiV1Router);
 

@@ -52,6 +52,18 @@ void main() {
       expect(macd.containsKey('histogram'), isTrue);
       expect(macd['macd']!.length, equals(35));
     });
+
+    test('calculateBollingerBands produces upper, middle, and lower bands', () {
+      final bb = ChartIndicatorCalculator.calculateBollingerBands(sampleCandles, 20, 2.0);
+      expect(bb.containsKey('upper'), isTrue);
+      expect(bb.containsKey('middle'), isTrue);
+      expect(bb.containsKey('lower'), isTrue);
+      expect(bb['upper']!.length, equals(35));
+      expect(bb['upper']![0], isNull);
+      expect(bb['upper']![19], isNotNull);
+      expect(bb['upper']![19]!, greaterThan(bb['middle']![19]!));
+      expect(bb['middle']![19]!, greaterThan(bb['lower']![19]!));
+    });
   });
 
   group('CandlestickChartView Widget Tests', () {
