@@ -64,6 +64,177 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     );
   }
 
+  void _showTradingViewModal(BuildContext context, InstrumentModel instrument) {
+    final tvSymbol = _resolveTvSymbol(instrument.symbol);
+    final externalUrl = 'https://in.tradingview.com/chart/3gcDTCUI/?symbol=$tvSymbol';
+    final localUrl = 'http://localhost:5000/tradingview?symbol=${instrument.symbol}';
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.tvCardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.show_chart, color: AppColors.zerodhaBlue, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'TradingView Pro Terminal',
+                        style: AppTypography.headlineSm.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20, color: AppColors.outline),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.tvDarkBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.tvBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('TradingView Symbol:', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.zerodhaBlue.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            tvSymbol,
+                            style: AppTypography.labelSm.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.zerodhaBlue,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Live Feed Source:', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
+                        Text('Binance 24/7 Spot / NSE Real-Time', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Indicators Active:', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
+                        Text('RSI(14), SMA(20), EMA(20), MACD', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.w600, color: AppColors.secondary)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'TradingView Live Chart Terminal URL',
+                style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 11),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.tvDarkBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: SelectableText(
+                  externalUrl,
+                  style: AppTypography.numericTable.copyWith(fontSize: 11, color: AppColors.zerodhaBlue),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.tvDarkBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: SelectableText(
+                  localUrl,
+                  style: AppTypography.numericTable.copyWith(fontSize: 11, color: AppColors.kiteGreen),
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.zerodhaBlue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('TradingView Terminal ready for $tvSymbol on http://localhost:5000/tradingview'),
+                        backgroundColor: AppColors.zerodhaBlue,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.check_circle_outline, size: 18),
+                  label: const Text('Confirm & Use TradingView Terminal', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _resolveTvSymbol(String symbol) {
+    final clean = symbol.trim().toUpperCase();
+    if (clean.contains('BTC')) return 'BINANCE:BTCUSDT';
+    if (clean.contains('ETH')) return 'BINANCE:ETHUSDT';
+    if (clean.contains('SOL')) return 'BINANCE:SOLUSDT';
+    if (clean.contains('DOGE')) return 'BINANCE:DOGEUSDT';
+    if (clean.contains('BNB')) return 'BINANCE:BNBUSDT';
+    if (clean == 'NIFTY 50' || clean == 'NIFTY') return 'NSE:NIFTY';
+    if (clean == 'BANKNIFTY') return 'NSE:BANKNIFTY';
+    if (clean == 'FINNIFTY') return 'NSE:FINNIFTY';
+    if (clean == 'SENSEX') return 'BSE:SENSEX';
+    if (clean.contains('GOLD')) return 'MCX:GOLD1!';
+    if (clean.contains('SILVER')) return 'MCX:SILVER1!';
+    if (clean.contains('CRUDE')) return 'MCX:CRUDEOIL1!';
+    if (clean.contains('NATURALGAS')) return 'MCX:NATURALGAS1!';
+    final usEquities = ['AAPL', 'NVDA', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'AMD', 'COIN', 'SPY'];
+    if (usEquities.contains(clean)) return 'NASDAQ:$clean';
+    return 'NSE:$clean';
+  }
+
   @override
   Widget build(BuildContext context) {
     final instrument = widget.instrument ?? ref.watch(selectedTradeInstrumentProvider);
@@ -155,35 +326,39 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
           ],
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 14),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.kiteGreen.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.kiteGreen.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: AppColors.kiteGreen,
-                    shape: BoxShape.circle,
+          InkWell(
+            onTap: () => _showTradingViewModal(context, instrument),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              margin: const EdgeInsets.only(right: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.kiteGreen.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.kiteGreen.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: AppColors.kiteGreen,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  'TRADINGVIEW PRO',
-                  style: AppTypography.labelSm.copyWith(
-                    color: AppColors.kiteGreen,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
+                  const SizedBox(width: 5),
+                  Text(
+                    'TRADINGVIEW PRO ↗',
+                    style: AppTypography.labelSm.copyWith(
+                      color: AppColors.kiteGreen,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -338,6 +513,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                   },
                   status: instrument.isSimulated ? 'SIMULATED' : 'LIVE',
                   onRetry: () => ref.refresh(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval, range: range))),
+                  onOpenTradingView: () => _showTradingViewModal(context, instrument),
                 ),
               ),
             ),

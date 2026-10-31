@@ -72,10 +72,27 @@ export const SYMBOL_MAPPINGS: Record<string, SymbolMeta> = {
 
   // Crypto 24/7
   'BTC/USDT': { yf: 'BTC-USD', twelve: 'BTC/USD', finnhub: 'BINANCE:BTCUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Bitcoin 24/7' },
+  'BTC': { yf: 'BTC-USD', twelve: 'BTC/USD', finnhub: 'BINANCE:BTCUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Bitcoin 24/7' },
+  'BTCUSDT': { yf: 'BTC-USD', twelve: 'BTC/USD', finnhub: 'BINANCE:BTCUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Bitcoin 24/7' },
+  'BTCUSD': { yf: 'BTC-USD', twelve: 'BTC/USD', finnhub: 'BINANCE:BTCUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Bitcoin 24/7' },
+  'BTC/USD': { yf: 'BTC-USD', twelve: 'BTC/USD', finnhub: 'BINANCE:BTCUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Bitcoin 24/7' },
   'ETH/USDT': { yf: 'ETH-USD', twelve: 'ETH/USD', finnhub: 'BINANCE:ETHUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Ethereum 24/7' },
+  'ETH': { yf: 'ETH-USD', twelve: 'ETH/USD', finnhub: 'BINANCE:ETHUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Ethereum 24/7' },
+  'ETHUSDT': { yf: 'ETH-USD', twelve: 'ETH/USD', finnhub: 'BINANCE:ETHUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Ethereum 24/7' },
+  'ETHUSD': { yf: 'ETH-USD', twelve: 'ETH/USD', finnhub: 'BINANCE:ETHUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Ethereum 24/7' },
+  'ETH/USD': { yf: 'ETH-USD', twelve: 'ETH/USD', finnhub: 'BINANCE:ETHUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Ethereum 24/7' },
   'SOL/USDT': { yf: 'SOL-USD', twelve: 'SOL/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Solana 24/7' },
+  'SOL': { yf: 'SOL-USD', twelve: 'SOL/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Solana 24/7' },
+  'SOLUSDT': { yf: 'SOL-USD', twelve: 'SOL/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Solana 24/7' },
   'DOGE/USDT': { yf: 'DOGE-USD', twelve: 'DOGE/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Dogecoin 24/7' },
+  'DOGE': { yf: 'DOGE-USD', twelve: 'DOGE/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Dogecoin 24/7' },
+  'DOGEUSDT': { yf: 'DOGE-USD', twelve: 'DOGE/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Dogecoin 24/7' },
   'BNB/USDT': { yf: 'BNB-USD', twelve: 'BNB/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Binance Coin 24/7' },
+  'BNB': { yf: 'BNB-USD', twelve: 'BNB/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Binance Coin 24/7' },
+  'BNBUSDT': { yf: 'BNB-USD', twelve: 'BNB/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Binance Coin 24/7' },
+  'XRP': { yf: 'XRP-USD', twelve: 'XRP/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Ripple 24/7' },
+  'XRP/USDT': { yf: 'XRP-USD', twelve: 'XRP/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Ripple 24/7' },
+  'XRPUSDT': { yf: 'XRP-USD', twelve: 'XRP/USD', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Ripple 24/7' },
 
   // US Equities
   'AAPL': { yf: 'AAPL', twelve: 'AAPL', finnhub: 'AAPL', category: 'EQUITY', exchange: 'US', name: 'Apple Inc.' },
@@ -107,12 +124,26 @@ export class RealtimeMarketService {
     if (SYMBOL_MAPPINGS[upper]) return SYMBOL_MAPPINGS[upper];
 
     // Generic fallback for any user searched ticker
-    const isCrypto = upper.includes('/') || upper.includes('BTC') || upper.includes('ETH');
+    const isCrypto = upper.includes('/') || upper.includes('BTC') || upper.includes('ETH') || upper.includes('SOL') || upper.includes('DOGE') || upper.includes('BNB');
     const isIndian = upper.endsWith('.NS') || upper.endsWith('.BO');
+    if (isCrypto) {
+      let bSym = upper.replace('/', '').replace('-', '');
+      if (!bSym.endsWith('USDT') && !bSym.endsWith('USD') && !bSym.endsWith('BUSD')) {
+        bSym = `${bSym}USDT`;
+      }
+      return {
+        yf: `${upper.split('/')[0]}-USD`,
+        twelve: `${upper.split('/')[0]}/USD`,
+        finnhub: `BINANCE:${bSym}`,
+        category: 'CRYPTO',
+        exchange: 'CRYPTO',
+        name: `${upper} 24/7`,
+      };
+    }
     return {
       yf: isIndian ? upper : upper.replace('/', '-'),
-      category: isCrypto ? 'CRYPTO' : 'EQUITY',
-      exchange: isIndian ? 'NSE' : (isCrypto ? 'CRYPTO' : 'US'),
+      category: 'EQUITY',
+      exchange: isIndian ? 'NSE' : 'US',
       name: symbol,
     };
   }
@@ -132,7 +163,10 @@ export class RealtimeMarketService {
     // 1. Direct Binance Public Spot Feed for 24/7 Crypto (Exact TradingView tick-for-tick price)
     if (mapping.category === 'CRYPTO') {
       try {
-        const binanceSymbol = key.replace('/', '');
+        let binanceSymbol = key.replace('/', '').replace('-', '').toUpperCase();
+        if (!binanceSymbol.endsWith('USDT') && !binanceSymbol.endsWith('USD') && !binanceSymbol.endsWith('BUSD')) {
+          binanceSymbol = `${binanceSymbol}USDT`;
+        }
         const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`;
         const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
         if (res.ok) {
@@ -321,6 +355,74 @@ export class RealtimeMarketService {
 
     const mapping = this.getMapping(key);
 
+    // 0. Direct Binance Spot Klines for 24/7 Crypto (Exact TradingView tick-for-tick candles)
+    if (mapping.category === 'CRYPTO') {
+      try {
+        let binanceSymbol = key.replace('/', '').replace('-', '').toUpperCase();
+        if (!binanceSymbol.endsWith('USDT') && !binanceSymbol.endsWith('USD') && !binanceSymbol.endsWith('BUSD')) {
+          binanceSymbol = `${binanceSymbol}USDT`;
+        }
+        const binanceInterval = this.toBinanceInterval(interval);
+        const klinesUrl = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=${limit || 60}`;
+        const res = await fetch(klinesUrl, { signal: AbortSignal.timeout(3500) });
+        if (res.ok) {
+          const rawKlines = (await res.json()) as any[];
+          if (Array.isArray(rawKlines) && rawKlines.length > 0) {
+            const candles: Candle[] = rawKlines.map((k) => ({
+              timestamp: Math.floor(Number(k[0]) / 1000),
+              open: parseFloat(parseFloat(k[1]).toFixed(2)),
+              high: parseFloat(parseFloat(k[2]).toFixed(2)),
+              low: parseFloat(parseFloat(k[3]).toFixed(2)),
+              close: parseFloat(parseFloat(k[4]).toFixed(2)),
+              volume: parseFloat(parseFloat(k[5]).toFixed(2)),
+            }));
+
+            // Exact LTP synchronization with latest forming candle
+            const latestQuote = await this.getLiveQuote(key);
+            if (latestQuote && candles.length > 0) {
+              const last = candles[candles.length - 1];
+              last.close = latestQuote.price;
+              last.high = Math.max(last.high, latestQuote.price);
+              last.low = Math.min(last.low, latestQuote.price);
+            }
+
+            let indicators = undefined;
+            if (includeIndicators) {
+              indicators = TechnicalIndicatorService.calculateAll(candles);
+            }
+
+            const fromDate = new Date(candles[0].timestamp * 1000).toISOString().split('T')[0];
+            const toDate = new Date(candles[candles.length - 1].timestamp * 1000).toISOString().split('T')[0];
+
+            const resultPayload: HistoricalDataResult = {
+              symbol: key,
+              name: mapping.name,
+              exchange: mapping.exchange,
+              category: mapping.category,
+              currency: 'USD',
+              interval,
+              requestedRange: range,
+              actualRange: `${fromDate} to ${toDate}`,
+              from: candles[0].timestamp,
+              to: candles[candles.length - 1].timestamp,
+              count: candles.length,
+              status: 'LIVE',
+              provider: 'TradeVerse Real-Time Feed (Binance Spot Live)',
+              candles,
+              indicators,
+              latestQuote: latestQuote || undefined,
+            };
+
+            this.candleCache.set(cacheKey, { data: resultPayload, expiresAt: Date.now() + ttl });
+            this.persistCandlesAsync(key, interval, candles).catch(() => {});
+            return resultPayload;
+          }
+        }
+      } catch {
+        // Fall through to Yahoo Finance
+      }
+    }
+
     // Map interval and range to Yahoo Finance parameters
     const yfInterval = this.toYahooInterval(interval);
     const yfRange = this.toYahooRange(range, interval);
@@ -455,6 +557,21 @@ export class RealtimeMarketService {
       case '5Y': return '5y';
       case 'ALL': return 'max';
       default: return '1mo';
+    }
+  }
+
+  private static toBinanceInterval(interval: CandleInterval): string {
+    switch (interval) {
+      case '1m': return '1m';
+      case '5m': return '5m';
+      case '15m': return '15m';
+      case '30m': return '30m';
+      case '1h': return '1h';
+      case '4h': return '4h';
+      case '1d': return '1d';
+      case '1w': return '1w';
+      case '1mo': return '1M';
+      default: return '15m';
     }
   }
 

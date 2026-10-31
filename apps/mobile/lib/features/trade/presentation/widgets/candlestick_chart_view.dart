@@ -25,6 +25,24 @@ class CandleData {
 
   bool get isBullish => close >= open;
 
+  CandleData copyWith({
+    int? timestamp,
+    double? open,
+    double? high,
+    double? low,
+    double? close,
+    double? volume,
+  }) {
+    return CandleData(
+      timestamp: timestamp ?? this.timestamp,
+      open: open ?? this.open,
+      high: high ?? this.high,
+      low: low ?? this.low,
+      close: close ?? this.close,
+      volume: volume ?? this.volume,
+    );
+  }
+
   factory CandleData.fromJson(Map<String, dynamic> json) {
     return CandleData(
       timestamp: (json['timestamp'] as num?)?.toInt() ?? 0,
@@ -153,7 +171,17 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
 
   @override
   Widget build(BuildContext context) {
-    final activeCandle = _inspectedCandle ?? (widget.candles.isNotEmpty ? widget.candles.last : null);
+    final List<CandleData> effectiveCandles = List<CandleData>.from(widget.candles);
+    if (widget.currentPrice != null && effectiveCandles.isNotEmpty) {
+      final lastCandle = effectiveCandles.last;
+      final livePrice = widget.currentPrice!;
+      effectiveCandles[effectiveCandles.length - 1] = lastCandle.copyWith(
+        close: livePrice,
+        high: math.max(lastCandle.high, livePrice),
+        low: math.min(lastCandle.low, livePrice),
+      );
+    }
+    final activeCandle = _inspectedCandle ?? (effectiveCandles.isNotEmpty ? effectiveCandles.last : null);
     final displayPrice = activeCandle?.close ?? widget.currentPrice;
     final currency = widget.currencySymbol ??
         (widget.symbol.contains('/') ||
@@ -240,9 +268,34 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                     _buildOhlcItem('C', activeCandle.close, isClose: true, isBull: activeCandle.isBullish),
                   ],
                 ),
-                Text(
-                  'Vol: ${(activeCandle.volume / 1000).toStringAsFixed(1)}K',
-                  style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.outline),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: activeCandle.isBullish ? AppColors.secondary.withOpacity(0.15) : AppColors.tertiary.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: activeCandle.isBullish ? AppColors.secondary.withOpacity(0.35) : AppColors.tertiary.withOpacity(0.35),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        activeCandle.isBullish ? Icons.trending_up : Icons.trending_down,
+                        size: 11,
+                        color: activeCandle.isBullish ? AppColors.secondary : AppColors.tertiary,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        activeCandle.isBullish ? 'UPTREND' : 'DOWNTREND',
+                        style: AppTypography.labelSm.copyWith(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: activeCandle.isBullish ? AppColors.secondary : AppColors.tertiary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -338,7 +391,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                                 child: CustomPaint(
                                   size: Size(constraints.maxWidth, chartHeight),
                                   painter: _CandlestickPainter(
-                                    candles: widget.candles,
+                                    candles: effectiveCandles,
                                     inspectedCandle: _inspectedCandle,
                                     currentPrice: widget.currentPrice,
                                     currencySymbol: currency,
@@ -528,9 +581,21 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
 
     final adjustedX = touchX - _panOffset;
     final index = (adjustedX / candleWidth).clamp(0, widget.candles.length - 1).toInt();
-    setState(() {
-      _inspectedCandle = widget.candles[index];
-    });
+    final candle = widget.candles[index];
+    if (index == widget.candles.length - 1 && widget.currentPrice != null) {
+      final livePrice = widget.currentPrice!;
+      setState(() {
+        _inspectedCandle = candle.copyWith(
+          close: livePrice,
+          high: math.max(candle.high, livePrice),
+          low: math.min(candle.low, livePrice),
+        );
+      });
+    } else {
+      setState(() {
+        _inspectedCandle = candle;
+      });
+    }
   }
 
   Widget _buildOhlcItem(String label, double value, {bool isClose = false, bool isBull = true}) {

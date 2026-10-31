@@ -225,34 +225,57 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
                 ],
               ),
               subtitle: Text(item.name, style: AppTypography.bodyMd.copyWith(fontSize: 12)),
-              trailing: Builder(
-                builder: (context) {
-                  final live = ref.watch(liveQuoteForSymbolProvider(item.symbol));
-                  final displayPrice = (live != null && live.price > 0) ? live.price : item.price;
-                  final displayChange = live != null ? live.change : item.change;
-                  final displayPct = live != null ? live.changePercent : item.changePercent;
-                  final itemIsPos = displayChange >= 0;
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Builder(
+                    builder: (context) {
+                      final live = ref.watch(liveQuoteForSymbolProvider(item.symbol));
+                      final displayPrice = (live != null && live.price > 0) ? live.price : item.price;
+                      final displayChange = live != null ? live.change : item.change;
+                      final displayPct = live != null ? live.changePercent : item.changePercent;
+                      final itemIsPos = displayChange >= 0;
 
-                  return Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '$currency${displayPrice.toStringAsFixed(2)}',
-                        style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '$currency${displayPrice.toStringAsFixed(2)}',
+                            style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${itemIsPos ? '+' : ''}${displayChange.toStringAsFixed(2)} (${displayPct.toStringAsFixed(2)}%)',
+                            style: AppTypography.numericTable.copyWith(
+                              color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    key: ValueKey('tv_chart_btn_${item.symbol}'),
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      ref.read(selectedTradeInstrumentProvider.notifier).state = item;
+                      context.push('/tradingview-pro');
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.zerodhaBlue.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.zerodhaBlue.withOpacity(0.35)),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${itemIsPos ? '+' : ''}${displayChange.toStringAsFixed(2)} (${displayPct.toStringAsFixed(2)}%)',
-                        style: AppTypography.numericTable.copyWith(
-                          color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  );
-                },
+                      child: const Icon(Icons.show_chart, color: AppColors.zerodhaBlue, size: 18),
+                    ),
+                  ),
+                ],
               ),
             ),
           );

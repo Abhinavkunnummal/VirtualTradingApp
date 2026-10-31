@@ -164,15 +164,17 @@ const handleQuoteRequest = async (symbol: string, res: Response, sourceParam?: s
 };
 
 // GET /api/v1/market-data/quote/:symbol
-marketDataRouter.get('/quote/:symbol', async (req: Request, res: Response) => {
+marketDataRouter.get(['/quote/:symbol(*)', '/quote/:symbol'], async (req: Request, res: Response) => {
+  const symbol = ((req.query.symbol as string) || req.params.symbol) as string;
   const source = (req.query.source || req.query.live === 'true' ? 'live' : '') as string;
-  return handleQuoteRequest(req.params.symbol as string, res, source);
+  return handleQuoteRequest(symbol, res, source);
 });
 
 // GET /api/v1/market/quotes/:id
-marketDataRouter.get('/quotes/:id', async (req: Request, res: Response) => {
+marketDataRouter.get(['/quotes/:id(*)', '/quotes/:id'], async (req: Request, res: Response) => {
+  const symbol = ((req.query.symbol as string) || req.params.id) as string;
   const source = (req.query.source || req.query.live === 'true' ? 'live' : '') as string;
-  return handleQuoteRequest(req.params.id as string, res, source);
+  return handleQuoteRequest(symbol, res, source);
 });
 
 // GET /api/v1/market-data/quotes
@@ -213,7 +215,7 @@ marketDataRouter.get('/quotes', async (req: Request, res: Response) => {
 
 // Handler for candles request
 const handleCandlesRequest = async (req: Request, res: Response) => {
-  const symbol = (req.params.symbol || req.params.id) as string;
+  const symbol = ((req.query.symbol as string) || req.params.symbol || req.params.id) as string;
   const interval = (req.query.interval as CandleInterval) || '15m';
   const range = (req.query.range as HistoryRange) || (req.query.limit ? undefined : '1D');
   const from = req.query.from ? parseInt(req.query.from as string, 10) : undefined;
@@ -318,10 +320,10 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
 };
 
 // GET /api/v1/market-data/candles/:symbol
-marketDataRouter.get('/candles/:symbol', handleCandlesRequest);
+marketDataRouter.get(['/candles/:symbol(*)', '/candles/:symbol'], handleCandlesRequest);
 
 // GET /api/v1/market/candles/:id
-marketDataRouter.get('/candles/:id', handleCandlesRequest);
+marketDataRouter.get(['/candles/:id(*)', '/candles/:id'], handleCandlesRequest);
 
 // GET /api/v1/market-data/status & GET /api/v1/market/status
 marketDataRouter.get('/status', (req: Request, res: Response) => {
@@ -401,8 +403,8 @@ marketDataRouter.get('/alpha/quote/:symbol', async (req: Request, res: Response)
 });
 
 // GET /api/v1/market-data/alpha/candles/:symbol
-marketDataRouter.get('/alpha/candles/:symbol', async (req: Request, res: Response) => {
-  const symbol = req.params.symbol as string;
+marketDataRouter.get(['/alpha/candles/:symbol(*)', '/alpha/candles/:symbol'], async (req: Request, res: Response) => {
+  const symbol = ((req.query.symbol as string) || req.params.symbol) as string;
   const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '60', 10), 5), 1260);
 
   const liveCandles = await AlphaVantageService.fetchDailyCandles(symbol, limit);

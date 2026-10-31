@@ -329,34 +329,51 @@ tradingViewRouter.get(['/', '/widget'], (req: Request, res: Response) => {
 
     function initTradingView(sym) {
       currentSymbol = sym;
-      document.getElementById('tv_chart_container').innerHTML = '';
-      tvWidget = new TradingView.widget({
-        "autosize": true,
-        "symbol": sym,
-        "interval": "${interval}",
-        "timezone": "Asia/Kolkata",
-        "theme": "dark",
-        "style": "1",
-        "locale": "en",
-        "toolbar_bg": "#0f172a",
-        "enable_publishing": false,
-        "withdateranges": true,
-        "hide_side_toolbar": false,
-        "allow_symbol_change": true,
-        "details": true,
-        "hotlist": true,
-        "calendar": true,
-        "studies": [
-          "RSI@tv-basicstudies",
-          "MASimple@tv-basicstudies",
-          "MACD@tv-basicstudies",
-          "BollingerBands@tv-basicstudies"
-        ],
-        "container_id": "tv_chart_container"
-      });
+      const container = document.getElementById('tv_chart_container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (typeof TradingView !== 'undefined' && TradingView.widget) {
+        try {
+          tvWidget = new TradingView.widget({
+            "autosize": true,
+            "symbol": sym,
+            "interval": "${interval}",
+            "timezone": "Asia/Kolkata",
+            "theme": "dark",
+            "style": "1",
+            "locale": "en",
+            "toolbar_bg": "#0f172a",
+            "enable_publishing": false,
+            "withdateranges": true,
+            "hide_side_toolbar": false,
+            "allow_symbol_change": true,
+            "details": true,
+            "hotlist": true,
+            "calendar": true,
+            "studies": [
+              "RSI@tv-basicstudies",
+              "MASimple@tv-basicstudies",
+              "MACD@tv-basicstudies",
+              "BollingerBands@tv-basicstudies"
+            ],
+            "container_id": "tv_chart_container"
+          });
+          return;
+        } catch (e) {
+          console.warn("TradingView widget init warning, falling back to embedded iframe:", e);
+        }
+      }
+
+      // 100% Reliable fallback to TradingView Advanced Real-Time Chart Widget Iframe
+      container.innerHTML = '<iframe src="https://s.tradingview.com/widgetembed/?symbol=' + encodeURIComponent(sym) + '&interval=${interval}&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en" style="width:100%;height:100%;border:none;"></iframe>';
     }
 
+    // Initial launch
+    setTimeout(() => initTradingView(currentSymbol), 100);
+
     function switchSymbol(sym) {
+      currentSymbol = sym;
       if (tvWidget && typeof tvWidget.activeChart === 'function') {
         try {
           tvWidget.activeChart().setSymbol(sym);

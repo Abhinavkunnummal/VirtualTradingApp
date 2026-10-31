@@ -166,12 +166,14 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
   }
 
   final apiClient = ref.watch(apiClientProvider);
+  final encodedSymbol = Uri.encodeComponent(query.symbol);
 
   // 1. Primary endpoint: /market/candles or /market-data/candles with interval & range
   try {
     final response = await apiClient.get<Map<String, dynamic>>(
-      '/market/candles/${query.symbol}',
+      '/market/candles/$encodedSymbol',
       queryParameters: {
+        'symbol': query.symbol,
         'interval': query.interval,
         'range': query.range,
         'limit': 250,
@@ -189,8 +191,9 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
   // 2. Legacy fallback endpoint
   try {
     final response = await apiClient.get<Map<String, dynamic>>(
-      '/market-data/candles/${query.symbol}',
+      '/market-data/candles/$encodedSymbol',
       queryParameters: {
+        'symbol': query.symbol,
         'interval': query.interval,
         'range': query.range,
         'limit': 250,
@@ -208,8 +211,8 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
   // 3. Fallback: Alpha Vantage daily candles
   try {
     final alphaResponse = await apiClient.get<Map<String, dynamic>>(
-      '/market-data/alpha/candles/${query.symbol}',
-      queryParameters: {'limit': 100},
+      '/market-data/alpha/candles/$encodedSymbol',
+      queryParameters: {'symbol': query.symbol, 'limit': 100},
     );
 
     if (alphaResponse.statusCode == 200 && alphaResponse.data?['success'] == true) {
