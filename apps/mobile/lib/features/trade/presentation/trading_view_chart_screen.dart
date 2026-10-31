@@ -78,7 +78,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
           backgroundColor: AppColors.tvDarkBg,
           title: const Text('TradingView Pro Chart'),
         ),
-        body: const Center(
+        body: Center(
           child: Text('No stock selected. Return to Markets to choose an instrument.', style: AppTypography.bodyMd),
         ),
       );
@@ -466,7 +466,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
     }
 
     try {
-      final res = await ref.read(submitOrderProvider).submitOrder(
+      await ref.read(submitOrderProvider).submitOrder(
         symbol: widget.instrument.symbol,
         exchange: widget.instrument.exchange,
         side: _isBuy ? 'BUY' : 'SELL',
