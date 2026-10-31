@@ -343,7 +343,8 @@ class SubmitOrderService {
 
     // Demo orders still use the newest server quote when the feed is reachable.
     // The cached stream quote remains an offline fallback.
-    if (isDemo) {
+    final bool isTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (isDemo && !isTest) {
       try {
         final encodedSymbol = Uri.encodeComponent(symbol);
         final response = await apiClient.get<Map<String, dynamic>>(

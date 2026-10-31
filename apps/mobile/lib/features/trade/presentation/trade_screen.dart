@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
+import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestick_chart_view.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
@@ -611,6 +612,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     final candlesAsync = ref.watch(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval, range: range)));
     final portfolioAsync = ref.watch(portfolioProvider);
 
+    final isDemo = ref.watch(authProvider).isDemoMode;
     final availableCash = portfolioAsync.valueOrNull?.availableCash ?? 1000000.0;
     final liveQuote = ref.watch(liveQuoteForSymbolProvider(instrument.symbol));
     final ltp = (liveQuote != null && liveQuote.price > 0)
@@ -862,7 +864,9 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               },
               status: liveQuote?.status == 'LIVE'
                   ? 'LIVE'
-                  : (instrument.isSimulated ? 'SIMULATED' : 'DELAYED'),
+                  : (liveQuote?.status == 'DELAYED'
+                      ? 'DELAYED'
+                      : ((isDemo || instrument.isSimulated) ? 'SIMULATED' : 'LIVE')),
               onRetry: () => ref.refresh(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval, range: range))),
               onOpenTradingView: () => context.push('/tradingview-pro'),
             ),

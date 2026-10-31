@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/live_ticker_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../auth/presentation/providers/auth_provider.dart';
 import '../../markets/domain/market_models.dart';
 import '../../portfolio/presentation/providers/portfolio_provider.dart';
 import 'providers/order_provider.dart';
@@ -520,7 +521,9 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                   },
                   status: liveQuote?.status == 'LIVE'
                       ? 'LIVE'
-                      : (instrument.isSimulated ? 'SIMULATED' : 'DELAYED'),
+                      : (liveQuote?.status == 'DELAYED'
+                          ? 'DELAYED'
+                          : ((ref.watch(authProvider).isDemoMode || instrument.isSimulated) ? 'SIMULATED' : 'LIVE')),
                   onRetry: () => ref.refresh(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval, range: range))),
                   onOpenTradingView: () => _showTradingViewModal(context, instrument),
                 ),

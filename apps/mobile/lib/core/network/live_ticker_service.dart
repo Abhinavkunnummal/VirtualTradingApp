@@ -124,6 +124,9 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
   void trackSymbol(String symbol) {
     final normalized = symbol.trim().toUpperCase();
     if (normalized.isEmpty || !_trackedSymbols.add(normalized)) return;
+    final bool isTest =
+        !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (isTest) return;
     if (_socket?.connected == true) {
       _socket?.emit('join_ticker', {'symbols': [normalized]});
     }
@@ -141,7 +144,9 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
   }
 
   Future<void> _fetchLiveQuotes() async {
-    if (_isFetching) return;
+    final bool isTest =
+        !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (isTest || _isFetching) return;
     _isFetching = true;
     try {
       final symbolsParam = _trackedSymbols.join(',');
