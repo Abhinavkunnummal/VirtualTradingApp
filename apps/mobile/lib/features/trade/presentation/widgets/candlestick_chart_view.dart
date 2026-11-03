@@ -221,34 +221,43 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text(widget.symbol, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: widget.status == 'LIVE'
-                          ? AppColors.secondary.withOpacity(0.15)
-                          : AppColors.warning.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        widget.symbol,
+                        style: AppTypography.headlineSm.copyWith(fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
                         color: widget.status == 'LIVE'
-                            ? AppColors.secondary.withOpacity(0.3)
-                            : AppColors.warning.withOpacity(0.3),
+                            ? AppColors.secondary.withOpacity(0.15)
+                            : AppColors.warning.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: widget.status == 'LIVE'
+                              ? AppColors.secondary.withOpacity(0.3)
+                              : AppColors.warning.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        '${widget.status} • ${widget.selectedInterval.toUpperCase()}',
+                        style: AppTypography.labelSm.copyWith(
+                          fontSize: 9,
+                          color: widget.status == 'LIVE' ? AppColors.secondary : AppColors.warning,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    child: Text(
-                      '${widget.status} • ${widget.selectedInterval.toUpperCase()}',
-                      style: AppTypography.labelSm.copyWith(
-                        fontSize: 9,
-                        color: widget.status == 'LIVE' ? AppColors.secondary : AppColors.warning,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               if (displayPrice != null)
                 Text(
                   '$currency${displayPrice.toStringAsFixed(2)}',
@@ -267,17 +276,24 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    _buildOhlcItem('O', activeCandle.open),
-                    const SizedBox(width: 6),
-                    _buildOhlcItem('H', activeCandle.high),
-                    const SizedBox(width: 6),
-                    _buildOhlcItem('L', activeCandle.low),
-                    const SizedBox(width: 6),
-                    _buildOhlcItem('C', activeCandle.close, isClose: true, isBull: activeCandle.isBullish),
-                  ],
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: [
+                        _buildOhlcItem('O', activeCandle.open),
+                        const SizedBox(width: 6),
+                        _buildOhlcItem('H', activeCandle.high),
+                        const SizedBox(width: 6),
+                        _buildOhlcItem('L', activeCandle.low),
+                        const SizedBox(width: 6),
+                        _buildOhlcItem('C', activeCandle.close, isClose: true, isBull: activeCandle.isBullish),
+                      ],
+                    ),
+                  ),
                 ),
+                const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                   decoration: BoxDecoration(
@@ -429,9 +445,12 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('INTERVAL', style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+              const SizedBox(width: 8),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
                   children: ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'].map((interval) {
                     final isSelected = widget.selectedInterval.toLowerCase() == interval.toLowerCase();
                     return Padding(
@@ -463,7 +482,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                   }).toList(),
                 ),
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 6),
 
@@ -472,10 +491,13 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('RANGE', style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
+              const SizedBox(width: 8),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
                     ...['1D', '1W', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'ALL'].map((range) {
                       final isSelected = widget.selectedRange.toUpperCase() == range.toUpperCase();
                       return Padding(
@@ -540,8 +562,9 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
         ],
       ),
     );

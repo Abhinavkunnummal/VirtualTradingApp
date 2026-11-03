@@ -206,7 +206,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         children: [
                           const Icon(Icons.play_circle_outline, size: 18, color: AppColors.primary),
                           const SizedBox(width: 8),
-                          Text('Explore in Demo Mode', style: AppTypography.labelMd.copyWith(color: AppColors.onSurface)),
+                          Flexible(
+                            child: Text(
+                              'Explore in Demo Mode',
+                              style: AppTypography.labelMd.copyWith(color: AppColors.onSurface),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -214,8 +220,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 20),
 
                   // Register Link
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text("Don't have an account?", style: AppTypography.bodyMd),
                       const SizedBox(width: 6),

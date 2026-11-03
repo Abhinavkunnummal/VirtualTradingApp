@@ -692,7 +692,13 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                           children: [
                             Row(
                               children: [
-                                Text(instrument.symbol, style: AppTypography.headlineSm),
+                                Flexible(
+                                  child: Text(
+                                    instrument.symbol,
+                                    style: AppTypography.headlineSm,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                                 const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
@@ -748,20 +754,26 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.show_chart, size: 16, color: AppColors.zerodhaBlue),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Open TradingView Full Pro Chart',
-                                style: AppTypography.labelSm.copyWith(
-                                  color: AppColors.zerodhaBlue,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(Icons.show_chart, size: 16, color: AppColors.zerodhaBlue),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Open TradingView Full Pro Chart',
+                                    style: AppTypography.labelSm.copyWith(
+                                      color: AppColors.zerodhaBlue,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 6),
                           const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.zerodhaBlue),
                         ],
                       ),
@@ -1179,16 +1191,15 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             ),
             const SizedBox(height: 6),
             // Quick Quantity Chips
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
               children: [10, 25, 50, 100].map((qty) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    label: Text('+$qty', style: AppTypography.labelSm.copyWith(fontSize: 10)),
-                    backgroundColor: AppColors.surfaceContainer,
-                    side: const BorderSide(color: AppColors.borderSubtle),
-                    onPressed: () => setState(() => _quantity += qty),
-                  ),
+                return ActionChip(
+                  label: Text('+$qty', style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                  backgroundColor: AppColors.surfaceContainer,
+                  side: const BorderSide(color: AppColors.borderSubtle),
+                  onPressed: () => setState(() => _quantity += qty),
                 );
               }).toList(),
             ),
@@ -1488,7 +1499,14 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
+        Expanded(
+          child: Text(
+            label,
+            style: AppTypography.labelSm.copyWith(color: AppColors.outline),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
         Text(
           value,
           style: AppTypography.numericTable.copyWith(

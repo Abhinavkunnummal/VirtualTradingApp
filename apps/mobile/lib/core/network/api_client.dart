@@ -28,10 +28,12 @@ class ApiClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Attach authorization token if present
-          final token = await tokenStorage.getAccessToken();
-          if (token != null && token.isNotEmpty) {
-            options.headers['Authorization'] = 'Bearer $token';
+          // Attach authorization token if present and not explicitly omitted
+          if (!options.headers.containsKey('Authorization')) {
+            final token = await tokenStorage.getAccessToken();
+            if (token != null && token.isNotEmpty) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
           }
           return handler.next(options);
         },

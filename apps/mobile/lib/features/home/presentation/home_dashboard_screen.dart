@@ -90,20 +90,29 @@ class HomeDashboardScreen extends ConsumerWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.secondary,
-                            shape: BoxShape.circle,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppColors.secondary,
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text('Simulated Ticker Stream', style: AppTypography.headlineSm),
-                      ],
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Simulated Ticker Stream',
+                              style: AppTypography.headlineSm,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Text('Live Feed', style: AppTypography.labelSm.copyWith(color: AppColors.secondary)),
                   ],
                 ),
@@ -231,7 +240,9 @@ class HomeDashboardScreen extends ConsumerWidget {
                         style: AppTypography.headlineSm.copyWith(fontSize: 15),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
@@ -249,7 +260,6 @@ class HomeDashboardScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 6),
                           Text('v2.4 Sandbox', style: AppTypography.labelSm),
                         ],
                       ),
@@ -375,7 +385,14 @@ class HomeDashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Virtual Capital (Simulated)', style: AppTypography.labelMd.copyWith(color: AppColors.outline)),
+              Expanded(
+                child: Text(
+                  'Virtual Capital (Simulated)',
+                  style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -384,6 +401,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                   border: Border.all(color: AppColors.borderSubtle),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.lock_outline, size: 11, color: AppColors.outline),
                     const SizedBox(width: 4),
@@ -399,7 +417,10 @@ class HomeDashboardScreen extends ConsumerWidget {
             style: AppTypography.numericTicker.copyWith(fontSize: 28, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -408,6 +429,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       isPos ? Icons.trending_up : Icons.trending_down,
@@ -425,7 +447,6 @@ class HomeDashboardScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
               Text("Today's Sim Return", style: AppTypography.labelSm),
             ],
           ),
@@ -470,30 +491,37 @@ class HomeDashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _QuickActionButton(
-          icon: Icons.add_circle_outline,
-          label: 'Add Cash',
-          onTap: () => context.go('/portfolio'),
-        ),
-        _QuickActionButton(
-          icon: Icons.swap_horiz,
-          label: 'Sim Trade',
-          onTap: () => context.go('/trade'),
-        ),
-        _QuickActionButton(
-          icon: Icons.school_outlined,
-          label: 'Learn AI',
-          onTap: () => context.push('/learn'),
-        ),
-        _QuickActionButton(
-          icon: Icons.bookmark_border,
-          label: 'Watchlist',
-          onTap: () => context.go('/markets'),
-        ),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _QuickActionButton(
+            icon: Icons.add_circle_outline,
+            label: 'Add Cash',
+            onTap: () => context.go('/portfolio'),
+          ),
+          const SizedBox(width: 12),
+          _QuickActionButton(
+            icon: Icons.swap_horiz,
+            label: 'Sim Trade',
+            onTap: () => context.go('/trade'),
+          ),
+          const SizedBox(width: 12),
+          _QuickActionButton(
+            icon: Icons.school_outlined,
+            label: 'Learn AI',
+            onTap: () => context.push('/learn'),
+          ),
+          const SizedBox(width: 12),
+          _QuickActionButton(
+            icon: Icons.bookmark_border,
+            label: 'Watchlist',
+            onTap: () => context.go('/markets'),
+          ),
+        ],
+      ),
     );
   }
 

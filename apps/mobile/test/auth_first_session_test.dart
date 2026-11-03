@@ -159,6 +159,7 @@ void main() {
     });
 
     test('401 from unauthenticated request does not wipe valid cached tokens', () async {
+      apiClient.clearAuthToken();
       await tokenStorage.saveTokens(
         accessToken: 'valid_access_token',
         refreshToken: 'valid_refresh_token',
@@ -175,11 +176,11 @@ void main() {
         );
       });
 
-      // Clear the request header to simulate an unauthenticated call
+      // Pass empty authorization header to simulate an unauthenticated call
       try {
         await apiClient.dio.get<dynamic>(
           '/public-endpoint',
-          options: Options(headers: {'Authorization': null}),
+          options: Options(headers: {'Authorization': ''}),
         );
       } catch (_) {}
 

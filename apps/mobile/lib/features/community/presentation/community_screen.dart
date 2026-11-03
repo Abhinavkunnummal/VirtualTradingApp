@@ -257,39 +257,48 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> with SingleTi
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: AppColors.primaryBrand.withOpacity(0.2),
-                    child: Text(
-                      msg.authorName.isNotEmpty ? msg.authorName[0].toUpperCase() : 'T',
-                      style: AppTypography.labelSm.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(msg.authorName, style: AppTypography.headlineSm.copyWith(fontSize: 13)),
-                  const SizedBox(width: 6),
-                  if (msg.sentiment != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: msg.sentiment == 'BULLISH'
-                            ? AppColors.secondaryContainer.withOpacity(0.2)
-                            : AppColors.tertiaryContainer.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+              Expanded(
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: AppColors.primaryBrand.withOpacity(0.2),
                       child: Text(
-                        msg.sentiment!,
-                        style: AppTypography.labelSm.copyWith(
-                          fontSize: 9,
-                          color: msg.sentiment == 'BULLISH' ? AppColors.secondary : AppColors.tertiary,
-                          fontWeight: FontWeight.bold,
+                        msg.authorName.isNotEmpty ? msg.authorName[0].toUpperCase() : 'T',
+                        style: AppTypography.labelSm.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        msg.authorName,
+                        style: AppTypography.headlineSm.copyWith(fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (msg.sentiment != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: msg.sentiment == 'BULLISH'
+                              ? AppColors.secondaryContainer.withOpacity(0.2)
+                              : AppColors.tertiaryContainer.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          msg.sentiment!,
+                          style: AppTypography.labelSm.copyWith(
+                            fontSize: 9,
+                            color: msg.sentiment == 'BULLISH' ? AppColors.secondary : AppColors.tertiary,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Text(msg.createdAt, style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10)),
             ],
           ),

@@ -550,7 +550,10 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
                 title: Text(mod.title, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
                 subtitle: Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Row(
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
@@ -563,7 +566,6 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
                           style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
                         ),
                       ),
-                      const SizedBox(width: 8),
                       Text('${mod.readTimeMinutes} min read', style: AppTypography.labelSm),
                     ],
                   ),

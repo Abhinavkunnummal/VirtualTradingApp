@@ -310,7 +310,14 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Total Account Value', style: AppTypography.labelMd.copyWith(color: AppColors.outline)),
+              Expanded(
+                child: Text(
+                  'Total Account Value',
+                  style: AppTypography.labelMd.copyWith(color: AppColors.outline),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -327,7 +334,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
             style: AppTypography.numericTicker.copyWith(fontSize: 26, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Text(
                 '${isPos ? '+' : ''}₹${portfolio.totalPnl.toStringAsFixed(2)} (${portfolio.totalPnlPercent}%)',
@@ -336,7 +346,6 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 8),
               Text('Unrealized P&L', style: AppTypography.labelSm),
             ],
           ),
@@ -435,29 +444,38 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Text(h.symbol, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
-                      const SizedBox(width: 6),
-                      Text('(${h.quantity} Lot)', style: AppTypography.labelSm),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          'LIVE',
-                          style: AppTypography.labelSm.copyWith(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.secondary,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            h.symbol,
+                            style: AppTypography.headlineSm.copyWith(fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Text('(${h.quantity} Lot)', style: AppTypography.labelSm),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            'LIVE',
+                            style: AppTypography.labelSm.copyWith(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '${isPos ? '+' : ''}$currency${pnl.toStringAsFixed(2)} (${pnlPct.toStringAsFixed(2)}%)',
                     style: AppTypography.numericTable.copyWith(
@@ -468,16 +486,21 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                 ],
               ),
               const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Avg: $currency${h.averageBuyPrice.toStringAsFixed(2)}', style: AppTypography.labelSm),
-                  Text('LTP: $currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
-                  Text(
-                    'Cur Val: $currency${currentVal.toStringAsFixed(2)}',
-                    style: AppTypography.numericTable.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ],
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    Text('Avg: $currency${h.averageBuyPrice.toStringAsFixed(2)}', style: AppTypography.labelSm),
+                    const SizedBox(width: 12),
+                    Text('LTP: $currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Cur Val: $currency${currentVal.toStringAsFixed(2)}',
+                      style: AppTypography.numericTable.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -520,25 +543,34 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Text(item.symbol, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryBrand.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(4),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              item.symbol,
+                              style: AppTypography.headlineSm.copyWith(fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          child: Text(
-                            'CNC/MIS',
-                            style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBrand.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'CNC/MIS',
+                              style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.primary),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text('(${item.quantity} Lot)', style: AppTypography.labelSm),
-                      ],
+                          const SizedBox(width: 6),
+                          Text('(${item.quantity} Lot)', style: AppTypography.labelSm),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       '${isPos ? '+' : ''}$currency${pnl.toStringAsFixed(2)} (${pnlPct.toStringAsFixed(2)}%)',
                       style: AppTypography.numericTable.copyWith(
@@ -549,13 +581,18 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                   ],
                 ),
                 const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Avg: $currency${item.averageBuyPrice.toStringAsFixed(2)}', style: AppTypography.labelSm),
-                    Text('LTP: $currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
-                    Text('Val: $currency${currentVal.toStringAsFixed(2)}', style: AppTypography.labelSm),
-                  ],
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      Text('Avg: $currency${item.averageBuyPrice.toStringAsFixed(2)}', style: AppTypography.labelSm),
+                      const SizedBox(width: 12),
+                      Text('LTP: $currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontSize: 12)),
+                      const SizedBox(width: 12),
+                      Text('Val: $currency${currentVal.toStringAsFixed(2)}', style: AppTypography.labelSm),
+                    ],
+                  ),
                 ),
               ],
             ),

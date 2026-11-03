@@ -452,51 +452,56 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
         ),
         title: Row(
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      instrument.symbol,
-                      style: AppTypography.headlineSm.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: AppColors.tvCardBg,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppColors.tvBorder),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          instrument.symbol,
+                          style: AppTypography.headlineSm.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      child: Text(
-                        instrument.exchange,
-                        style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
-                      ),
-                    ),
-                    if (_isDelayed) ...[
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: AppColors.kiteRed.withOpacity(0.18),
+                          color: AppColors.tvCardBg,
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppColors.kiteRed.withOpacity(0.4)),
+                          border: Border.all(color: AppColors.tvBorder),
                         ),
                         child: Text(
-                          'DELAYED',
-                          style: AppTypography.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.kiteRed),
+                          instrument.exchange,
+                          style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
                         ),
                       ),
+                      if (_isDelayed) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.kiteRed.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AppColors.kiteRed.withOpacity(0.4)),
+                          ),
+                          child: Text(
+                            'DELAYED',
+                            style: AppTypography.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.kiteRed),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-                Text(
-                  instrument.name,
-                  style: AppTypography.bodyMd.copyWith(fontSize: 11, color: AppColors.outline),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+                  ),
+                  Text(
+                    instrument.name,
+                    style: AppTypography.bodyMd.copyWith(fontSize: 11, color: AppColors.outline),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -527,37 +532,44 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      ScaleTransition(
-                        scale: _pulseAnimation,
-                        child: Text(
-                          '$currency${ltp.toStringAsFixed(2)}',
-                          style: AppTypography.numericTicker.copyWith(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isPos ? AppColors.kiteGreen : AppColors.kiteRed,
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          ScaleTransition(
+                            scale: _pulseAnimation,
+                            child: Text(
+                              '$currency${ltp.toStringAsFixed(2)}',
+                              style: AppTypography.numericTicker.copyWith(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: isPos ? AppColors.kiteGreen : AppColors.kiteRed,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: (isPos ? AppColors.kiteGreen : AppColors.kiteRed).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '${isPos ? '+' : ''}${change.toStringAsFixed(2)} (${changePct.toStringAsFixed(2)}%)',
-                          style: AppTypography.numericTable.copyWith(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: isPos ? AppColors.kiteGreen : AppColors.kiteRed,
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: (isPos ? AppColors.kiteGreen : AppColors.kiteRed).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${isPos ? '+' : ''}${change.toStringAsFixed(2)} (${changePct.toStringAsFixed(2)}%)',
+                              style: AppTypography.numericTable.copyWith(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isPos ? AppColors.kiteGreen : AppColors.kiteRed,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Row(
                     children: [
                       Text(
@@ -805,35 +817,39 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                   color: AppColors.surfaceLowest,
                   border: Border(bottom: BorderSide(color: AppColors.tvBorder)),
                 ),
-                child: Row(
-                  children: [
-                    _buildDrawingToolIcon('cursor', Icons.pan_tool_alt, 'Cursor / Pan'),
-                    _buildDrawingToolIcon('trend_line', Icons.timeline, 'Trend Line'),
-                    _buildDrawingToolIcon('horizontal_line', Icons.horizontal_rule, 'Horizontal Line'),
-                    _buildDrawingToolIcon('rectangle', Icons.crop_square, 'Rectangle'),
-                    _buildDrawingToolIcon('fibonacci', Icons.format_line_spacing, 'Fibonacci Retracement'),
-                    _buildDrawingToolIcon('text_note', Icons.sticky_note_2_outlined, 'Text Note'),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.undo, size: 16, color: AppColors.outline),
-                      tooltip: 'Undo',
-                      onPressed: _undoDrawing,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: Icon(
-                        Icons.delete_outline,
-                        size: 16,
-                        color: _drawings.isEmpty ? AppColors.outline : AppColors.kiteRed,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      _buildDrawingToolIcon('cursor', Icons.pan_tool_alt, 'Cursor / Pan'),
+                      _buildDrawingToolIcon('trend_line', Icons.timeline, 'Trend Line'),
+                      _buildDrawingToolIcon('horizontal_line', Icons.horizontal_rule, 'Horizontal Line'),
+                      _buildDrawingToolIcon('rectangle', Icons.crop_square, 'Rectangle'),
+                      _buildDrawingToolIcon('fibonacci', Icons.format_line_spacing, 'Fibonacci Retracement'),
+                      _buildDrawingToolIcon('text_note', Icons.sticky_note_2_outlined, 'Text Note'),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        icon: const Icon(Icons.undo, size: 16, color: AppColors.outline),
+                        tooltip: 'Undo',
+                        onPressed: _undoDrawing,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                       ),
-                      tooltip: 'Clear All',
-                      onPressed: _drawings.isEmpty ? null : _clearAllDrawings,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: Icon(
+                          Icons.delete_outline,
+                          size: 16,
+                          color: _drawings.isEmpty ? AppColors.outline : AppColors.kiteRed,
+                        ),
+                        tooltip: 'Clear All',
+                        onPressed: _drawings.isEmpty ? null : _clearAllDrawings,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -898,16 +914,19 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                           elevation: 2,
                         ),
                         onPressed: () => _openQuickOrderModal(context, instrument, ltp, true),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.arrow_upward, size: 16),
-                            const SizedBox(width: 6),
-                            Text(
-                              'BUY $currency${ltp.toStringAsFixed(2)}',
-                              style: AppTypography.headlineSm.copyWith(fontSize: 14, fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.arrow_upward, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                'BUY $currency${ltp.toStringAsFixed(2)}',
+                                style: AppTypography.headlineSm.copyWith(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -924,16 +943,19 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                           elevation: 2,
                         ),
                         onPressed: () => _openQuickOrderModal(context, instrument, ltp, false),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.arrow_downward, size: 16),
-                            const SizedBox(width: 6),
-                            Text(
-                              'SELL $currency${ltp.toStringAsFixed(2)}',
-                              style: AppTypography.headlineSm.copyWith(fontSize: 14, fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.arrow_downward, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                'SELL $currency${ltp.toStringAsFixed(2)}',
+                                style: AppTypography.headlineSm.copyWith(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
