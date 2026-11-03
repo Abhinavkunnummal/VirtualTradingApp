@@ -576,11 +576,6 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                     ),
                   ],
                 ),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 6),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
