@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TradeVerse Lightweight Chart</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #131722;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    #chart-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #watermark {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      z-index: 2;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+    }
+    #watermark-symbol {
+      color: rgba(255, 255, 255, 0.22);
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+    #watermark-brand {
+      color: rgba(255, 255, 255, 0.12);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    #status-badge {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 2;
+      pointer-events: none;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: none;
+    }
+    .badge-delayed {
+      background: rgba(239, 83, 80, 0.18);
+      color: #ef5350;
+      border: 1px solid rgba(239, 83, 80, 0.4);
+    }
+  </style>
+  <script src="lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <div id="watermark">
+    <div id="watermark-symbol">TRADINGVIEW</div>
+    <div id="watermark-brand">TradeVerse AI Engine</div>
+  </div>
+  <div id="status-badge"></div>
+  <div id="chart-container"></div>
+
+  <script>
+    (function () {
+      let chart = null;
+      let mainSeries = null;
+      let volumeSeries = null;
+      let currentChartType = 'candles';
+      let currentTheme = 'dark';
+      let cachedCandles = [];
+      let indicatorSeriesMap = new Map();
+      let positionPriceLines = [];
+
+      const DARK_THEME = {
+        layout: {
+          background: { type: 'solid', color: '#131722' },
+          textColor: '#d1d4dc',
+          fontSize: 11,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        },
+        grid: {
+          vertLines: { color: 'rgba(42, 46, 57, 0.6)' },
+          horzLines: { color: 'rgba(42, 46, 57, 0.6)' },
+        },
+        crosshair: {
+          mode: 1,
+          vertLine: { color: '#758696', width: 1, style: 3, labelBackgroundColor: '#1e222d' },
+          horzLine: { color: '#758696', width: 1, style: 3, labelBackgroundColor: '#1e222d' },
+        },
+        timeScale: {
+          borderColor: '#2a2e39',
+          timeVisible: true,
+          secondsVisible: false,
+        },
+        rightPriceScale: {
+          borderColor: '#2a2e39',
+          scaleMargins: { top: 0.1, bottom: 0.25 },
+        },
+      };
+
+      const LIGHT_THEME = {
+        layout: {
+          background: { type: 'solid', color: '#ffffff' },
+          textColor: '#131722',
+          fontSize: 11,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        },
+        grid: {
+          vertLines: { color: 'rgba(240, 243, 250, 0.8)' },
+          horzLines: { color: 'rgba(240, 243, 250, 0.8)' },
+        },
+        crosshair: {
+          mode: 1,
+          vertLine: { color: '#9598a1', width: 1, style: 3, labelBackgroundColor: '#ffffff' },
+          horzLine: { color: '#9598a1', width: 1, style: 3, labelBackgroundColor: '#ffffff' },
+        },
+        timeScale: {
+          borderColor: '#e0e3eb',
+          timeVisible: true,
+          secondsVisible: false,
+        },
+        rightPriceScale: {
+          borderColor: '#e0e3eb',
+          scaleMargins: { top: 0.1, bottom: 0.25 },
+        },
+      };
+
+      function postToFlutter(type, data) {
+        try {
+          if (window.Flutter && window.Flutter.postMessage) {
+            window.Flutter.postMessage(JSON.stringify({ type: type, data: data || {} }));
+          }
+        } catch (e) {
+          console.error('[Chart Bridge Error]', e);
+        }
+      }
+
+      function initChart() {
+        const container = document.getElementById('chart-container');
+        if (!container || typeof LightweightCharts === 'undefined') {
+          console.error('[Chart] LightweightCharts library not loaded');
+          return;
+        }
+
+        const width = container.clientWidth || window.innerWidth;
+        const height = container.clientHeight || window.innerHeight;
+
+        chart = LightweightCharts.createChart(container, {
+          width: width,
+          height: height,
+          ...DARK_THEME,
+        });
+
+        // Main candlestick series
+        createMainSeries(currentChartType);
+
+        // Volume histogram series in background pane
+        volumeSeries = chart.addHistogramSeries({
+          priceFormat: { type: 'volume' },
+          priceScaleId: '',
+          priceLineVisible: false,
+        });
+        chart.priceScale('').applyOptions({
+          scaleMargins: { top: 0.82, bottom: 0 },
+        });
+
+        // Crosshair listener for Flutter feedback
+        chart.subscribeCrosshairMove(function (param) {
+          if (!param || !param.time || !param.seriesData) return;
+          const data = param.seriesData.get(mainSeries);
+          if (data) {
+            postToFlutter('crosshair', {
+              time: param.time,
+              price: data.close !== undefined ? data.close : data.value,
+              open: data.open,
+              high: data.high,
+              low: data.low,
+              close: data.close,
+            });
+          }
+        });
+
+        // Resize handler
+        window.addEventListener('resize', function () {
+          if (chart && container) {
+            chart.applyOptions({
+              width: container.clientWidth || window.innerWidth,
+              height: container.clientHeight || window.innerHeight,
+            });
+          }
+        });
+
+        postToFlutter('onChartReady', { status: 'ready' });
+      }
+
+      function createMainSeries(type) {
+        if (!chart) return;
+        if (mainSeries) {
+          chart.removeSeries(mainSeries);
+          mainSeries = null;
+        }
+
+        currentChartType = type || 'candles';
+
+        if (currentChartType === 'bars') {
+          mainSeries = chart.addBarSeries({
+            upColor: '#089981',
+            downColor: '#f23645',
+            priceLineVisible: true,
+          });
+        } else if (currentChartType === 'line') {
+          mainSeries = chart.addLineSeries({
+            color: '#2962ff',
+            lineWidth: 2,
+            priceLineVisible: true,
+          });
+        } else if (currentChartType === 'area') {
+          mainSeries = chart.addAreaSeries({
+            topColor: 'rgba(41, 98, 255, 0.35)',
+            bottomColor: 'rgba(41, 98, 255, 0.02)',
+            lineColor: '#2962ff',
+            lineWidth: 2,
+            priceLineVisible: true,
+          });
+        } else {
+          mainSeries = chart.addCandlestickSeries({
+            upColor: '#089981',
+            downColor: '#f23645',
+            borderVisible: false,
+            wickUpColor: '#089981',
+            wickDownColor: '#f23645',
+            priceLineVisible: true,
+          });
+        }
+
+        if (cachedCandles.length > 0) {
+          applyCandlesData(cachedCandles);
+        }
+      }
+
+      function applyCandlesData(candles) {
+        if (!candles || !Array.isArray(candles) || !mainSeries) return;
+
+        // Ensure candles are sorted ascending by time
+        candles.sort(function (a, b) { return a.time - b.time; });
+
+        if (currentChartType === 'line' || currentChartType === 'area') {
+          const lineData = candles.map(function (c) {
+            return { time: c.time, value: c.close };
+          });
+          mainSeries.setData(lineData);
+        } else {
+          mainSeries.setData(candles);
+        }
+
+        if (volumeSeries) {
+          const volumeData = candles.map(function (c) {
+            const isUp = c.close >= c.open;
+            return {
+              time: c.time,
+              value: c.volume || 0,
+              color: isUp ? 'rgba(8, 153, 129, 0.35)' : 'rgba(242, 54, 69, 0.35)',
+            };
+          });
+          volumeSeries.setData(volumeData);
+        }
+
+        chart.timeScale().fitContent();
+      }
+
+      // --- Exposed Bridge API for Flutter WebViewController ---
+
+      window.setCandles = function (data) {
+        try {
+          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+          cachedCandles = Array.isArray(parsed) ? parsed : (parsed.candles || []);
+          applyCandlesData(cachedCandles);
+        } catch (e) {
+          console.error('[Bridge] setCandles error:', e);
+        }
+      };
+
+      window.updateCandle = function (data) {
+        try {
+          const c = typeof data === 'string' ? JSON.parse(data) : data;
+          if (!c || !mainSeries) return;
+
+          if (currentChartType === 'line' || currentChartType === 'area') {
+            mainSeries.update({ time: c.time, value: c.close });
+          } else {
+            mainSeries.update({
+              time: c.time,
+              open: c.open,
+              high: c.high,
+              low: c.low,
+              close: c.close,
+            });
+          }
+
+          if (volumeSeries && c.volume !== undefined) {
+            const isUp = c.close >= c.open;
+            volumeSeries.update({
+              time: c.time,
+              value: c.volume || 0,
+              color: isUp ? 'rgba(8, 153, 129, 0.35)' : 'rgba(242, 54, 69, 0.35)',
+            });
+          }
+
+          // Update cached array
+          if (cachedCandles.length > 0) {
+            const last = cachedCandles[cachedCandles.length - 1];
+            if (last && last.time === c.time) {
+              cachedCandles[cachedCandles.length - 1] = c;
+            } else if (last && c.time > last.time) {
+              cachedCandles.push(c);
+            }
+          } else {
+            cachedCandles.push(c);
+          }
+        } catch (e) {
+          console.error('[Bridge] updateCandle error:', e);
+        }
+      };
+
+      window.setSymbol = function (symbol) {
+        const el = document.getElementById('watermark-symbol');
+        if (el) el.innerText = String(symbol || 'TRADINGVIEW').toUpperCase();
+      };
+
+      window.setDelayedBadge = function (isDelayed) {
+        const el = document.getElementById('status-badge');
+        if (!el) return;
+        if (isDelayed) {
+          el.innerText = 'DELAYED FEED';
+          el.className = 'badge-delayed';
+          el.style.display = 'block';
+        } else {
+          el.style.display = 'none';
+        }
+      };
+
+      window.setTheme = function (theme) {
+        currentTheme = theme === 'light' ? 'light' : 'dark';
+        const options = currentTheme === 'light' ? LIGHT_THEME : DARK_THEME;
+        document.body.style.backgroundColor = options.layout.background.color;
+        if (chart) chart.applyOptions(options);
+      };
+
+      window.setChartType = function (type) {
+        createMainSeries(type);
+      };
+
+      window.addIndicator = function (indicatorJson) {
+        try {
+          const ind = typeof indicatorJson === 'string' ? JSON.parse(indicatorJson) : indicatorJson;
+          if (!ind || !ind.id || !chart) return;
+
+          window.removeIndicator(ind.id);
+
+          const lineSeries = chart.addLineSeries({
+            color: ind.color || '#ff9800',
+            lineWidth: ind.lineWidth || 2,
+            title: ind.title || ind.id,
+            priceLineVisible: false,
+          });
+
+          if (Array.isArray(ind.data)) {
+            lineSeries.setData(ind.data);
+          }
+          indicatorSeriesMap.set(ind.id, lineSeries);
+        } catch (e) {
+          console.error('[Bridge] addIndicator error:', e);
+        }
+      };
+
+      window.removeIndicator = function (id) {
+        if (!chart || !id) return;
+        const series = indicatorSeriesMap.get(id);
+        if (series) {
+          chart.removeSeries(series);
+          indicatorSeriesMap.delete(id);
+        }
+      };
+
+      window.setPositionLines = function (data) {
+        try {
+          const pos = typeof data === 'string' ? JSON.parse(data) : data;
+          window.clearPositionLines();
+          if (!pos || !mainSeries) return;
+
+          const currency = pos.currency || '₹';
+
+          // Entry Price Line
+          if (pos.entryPrice && pos.entryPrice > 0) {
+            const entryLine = mainSeries.createPriceLine({
+              price: pos.entryPrice,
+              color: '#2962ff',
+              lineWidth: 2,
+              lineStyle: 0, // Solid
+              axisLabelVisible: true,
+              title: (pos.isBuy ? 'BUY' : 'SELL') + ' (' + (pos.quantity || 1) + ' lots) @ ' + currency + pos.entryPrice.toFixed(2),
+            });
+            positionPriceLines.push(entryLine);
+          }
+
+          // Stop Loss Line
+          if (pos.slPrice && pos.slPrice > 0) {
+            const slLine = mainSeries.createPriceLine({
+              price: pos.slPrice,
+              color: '#f23645',
+              lineWidth: 1,
+              lineStyle: 2, // Dashed
+              axisLabelVisible: true,
+              title: 'SL @ ' + currency + pos.slPrice.toFixed(2),
+            });
+            positionPriceLines.push(slLine);
+          }
+
+          // Target / Take Profit Line
+          if (pos.targetPrice && pos.targetPrice > 0) {
+            const targetLine = mainSeries.createPriceLine({
+              price: pos.targetPrice,
+              color: '#089981',
+              lineWidth: 1,
+              lineStyle: 2, // Dashed
+              axisLabelVisible: true,
+              title: 'TARGET @ ' + currency + pos.targetPrice.toFixed(2),
+            });
+            positionPriceLines.push(targetLine);
+          }
+        } catch (e) {
+          console.error('[Bridge] setPositionLines error:', e);
+        }
+      };
+
+      window.clearPositionLines = function () {
+        if (!mainSeries) return;
+        while (positionPriceLines.length > 0) {
+          const line = positionPriceLines.pop();
+          try {
+            mainSeries.removePriceLine(line);
+          } catch (_) {}
+        }
+      };
+
+      // Bootstrap
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        initChart();
+      } else {
+        window.addEventListener('DOMContentLoaded', initChart);
+      }
+    })();
+  </script>
+</body>
+</html>
