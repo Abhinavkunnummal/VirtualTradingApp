@@ -149,10 +149,12 @@ void main() {
       expect(find.text('DELIVERY (CNC)'), findsOneWidget);
       expect(find.text('10'), findsOneWidget); // default quantity 10 lots
 
-      // Increase quantity to 11
-      await tester.tap(find.byIcon(Icons.add_circle_outline));
-      await tester.pumpAndSettle();
-      expect(find.text('11'), findsOneWidget);
+      // Adjust quantity to 2 lots to fit within demo cash margin
+      for (int k = 0; k < 8; k++) {
+        await tester.tap(find.byIcon(Icons.remove_circle_outline));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('2'), findsOneWidget);
 
       // Switch to DELIVERY (CNC)
       await tester.tap(find.text('DELIVERY (CNC)'));
