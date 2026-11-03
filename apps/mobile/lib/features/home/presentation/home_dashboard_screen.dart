@@ -128,7 +128,14 @@ class HomeDashboardScreen extends ConsumerWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Trending Instruments', style: AppTypography.headlineSm),
+                    Expanded(
+                      child: Text(
+                        'Trending Instruments',
+                        style: AppTypography.headlineSm,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => context.go('/markets'),
                       child: Text('View All', style: AppTypography.labelSm.copyWith(color: AppColors.primary)),
@@ -712,21 +719,29 @@ class HomeDashboardScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(displayPrice, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  Text(
-                    displayChange,
-                    style: AppTypography.numericTable.copyWith(
-                      color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+              Flexible(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(displayPrice, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        displayChange,
+                        style: AppTypography.numericTable.copyWith(
+                          color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

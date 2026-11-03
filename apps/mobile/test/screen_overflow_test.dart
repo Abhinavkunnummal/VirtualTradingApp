@@ -74,6 +74,17 @@ void main() {
     );
   }
 
+  void expectNoOverflow(WidgetTester tester) {
+    final err = tester.takeException();
+    if (err != null) {
+      debugPrint('ASSERTION_FAILURE_FOUND: $err');
+      if (err is FlutterError) {
+        debugPrint(err.toStringDeep());
+      }
+    }
+    expect(err, isNull);
+  }
+
   group('RenderFlex Overflow Guard Tests at 320x568 Compact Size', () {
     testWidgets('LoginScreen renders at 320x568 without RenderFlex overflow', (tester) async {
       setCompactScreen(tester);
@@ -89,14 +100,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('Log In to Account'), findsOneWidget);
       expect(find.byKey(const ValueKey('login_retry_button')), findsOneWidget);
 
       // Simulate keyboard open (260px inset)
       tester.view.viewInsets = const FakeViewPadding(bottom: 260);
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
     });
 
     testWidgets('RegisterScreen renders at 320x568 without RenderFlex overflow', (tester) async {
@@ -113,13 +124,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('Create Sandbox Account'), findsOneWidget);
 
       // Simulate keyboard open
       tester.view.viewInsets = const FakeViewPadding(bottom: 260);
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
     });
 
     testWidgets('HomeDashboardScreen renders at 320x568 without RenderFlex overflow', (tester) async {
@@ -129,7 +140,7 @@ void main() {
       await tester.pumpWidget(buildTestApp(const HomeDashboardScreen()));
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('Simulated Ticker Stream'), findsOneWidget);
     });
 
@@ -140,7 +151,7 @@ void main() {
       await tester.pumpWidget(buildTestApp(const MarketsScreen()));
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('All Assets'), findsOneWidget);
     });
 
@@ -151,7 +162,7 @@ void main() {
       await tester.pumpWidget(buildTestApp(const TradeScreen()));
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('Order Ticket & Execution'), findsOneWidget);
     });
 
@@ -162,13 +173,13 @@ void main() {
       await tester.pumpWidget(buildTestApp(const TradingViewChartScreen(instrument: testInstrument)));
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('BTC/USDT'), findsWidgets);
 
       // Open quick order modal and verify no overflow
       await tester.tap(find.textContaining('BUY \$77645.00'));
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('Confirm BUY Order'), findsOneWidget);
     });
 
@@ -179,24 +190,24 @@ void main() {
       await tester.pumpWidget(buildTestApp(const PortfolioScreen()));
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('Total Account Value'), findsOneWidget);
 
       // Open Top Up Modal
       await tester.tap(find.byIcon(Icons.add_circle_outline));
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('Credit Virtual Funds'), findsOneWidget);
 
       // Close modal
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
 
       // Open Reset Capital Modal
       await tester.tap(find.byIcon(Icons.refresh));
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('Reset Virtual Sandbox Capital'), findsOneWidget);
     });
 
@@ -207,7 +218,7 @@ void main() {
       await tester.pumpWidget(buildTestApp(const CommunityScreen()));
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('Trading Floor Rooms'), findsOneWidget);
     });
 
@@ -218,7 +229,7 @@ void main() {
       await tester.pumpWidget(buildTestApp(const LearnScreen()));
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
+      expectNoOverflow(tester);
       expect(find.text('Learn Trading with AI'), findsOneWidget);
     });
   });

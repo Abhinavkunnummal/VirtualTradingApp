@@ -452,35 +452,28 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
               Wrap(
                 alignment: WrapAlignment.spaceBetween,
                 crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
+                spacing: 6,
                 runSpacing: 4,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        h.symbol,
-                        style: AppTypography.headlineSm.copyWith(fontSize: 14),
+                  Text(
+                    h.symbol,
+                    style: AppTypography.headlineSm.copyWith(fontSize: 14),
+                  ),
+                  Text('(${h.quantity} Lot)', style: AppTypography.labelSm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      'LIVE',
+                      style: AppTypography.labelSm.copyWith(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.secondary,
                       ),
-                      const SizedBox(width: 6),
-                      Text('(${h.quantity} Lot)', style: AppTypography.labelSm),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          'LIVE',
-                          style: AppTypography.labelSm.copyWith(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.secondary,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                   Text(
                     '${isPos ? '+' : ''}$currency${pnl.toStringAsFixed(2)} (${pnlPct.toStringAsFixed(2)}%)',
@@ -549,32 +542,25 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                 Wrap(
                   alignment: WrapAlignment.spaceBetween,
                   crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
+                  spacing: 6,
                   runSpacing: 4,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          item.symbol,
-                          style: AppTypography.headlineSm.copyWith(fontSize: 14),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryBrand.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'CNC/MIS',
-                            style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.primary),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text('(${item.quantity} Lot)', style: AppTypography.labelSm),
-                      ],
+                    Text(
+                      item.symbol,
+                      style: AppTypography.headlineSm.copyWith(fontSize: 14),
                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryBrand.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'CNC/MIS',
+                        style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.primary),
+                      ),
+                    ),
+                    Text('(${item.quantity} Lot)', style: AppTypography.labelSm),
                     Text(
                       '${isPos ? '+' : ''}$currency${pnl.toStringAsFixed(2)} (${pnlPct.toStringAsFixed(2)}%)',
                       style: AppTypography.numericTable.copyWith(

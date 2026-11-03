@@ -261,17 +261,23 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(
-                              '$currency${displayPrice.toStringAsFixed(2)}',
-                              style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '$currency${displayPrice.toStringAsFixed(2)}',
+                                style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                              ),
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              '${itemIsPos ? '+' : ''}${displayChange.toStringAsFixed(2)} (${displayPct.toStringAsFixed(2)}%)',
-                              style: AppTypography.numericTable.copyWith(
-                                color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '${itemIsPos ? '+' : ''}${displayChange.toStringAsFixed(2)} (${displayPct.toStringAsFixed(2)}%)',
+                                style: AppTypography.numericTable.copyWith(
+                                  color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -495,28 +501,31 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
           const SizedBox(height: 10),
           Row(
             children: [
-              Wrap(
-                spacing: 6,
-                children: article.relatedSymbols.map((sym) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceLowest,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AppColors.borderSubtle),
-                    ),
-                    child: Text(
-                      sym,
-                      style: AppTypography.labelSm.copyWith(
-                        fontSize: 9,
-                        color: AppColors.onSurface,
-                        fontWeight: FontWeight.w600,
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: article.relatedSymbols.map((sym) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLowest,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppColors.borderSubtle),
                       ),
-                    ),
-                  );
-                }).toList(),
+                      child: Text(
+                        sym,
+                        style: AppTypography.labelSm.copyWith(
+                          fontSize: 9,
+                          color: AppColors.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 '${article.readTimeMinutes} min read',
                 style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10),
