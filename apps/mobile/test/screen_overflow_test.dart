@@ -79,7 +79,9 @@ void main() {
     if (err != null) {
       debugPrint('ASSERTION_FAILURE_FOUND: $err');
       if (err is FlutterError) {
-        debugPrint(err.toStringDeep());
+        for (final d in err.diagnostics) {
+          debugPrint('DIAG_NODE: ${d.toStringDeep()}');
+        }
       }
     }
     expect(err, isNull);

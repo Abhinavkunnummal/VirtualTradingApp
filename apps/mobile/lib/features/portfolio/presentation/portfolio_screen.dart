@@ -81,7 +81,14 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Add Virtual Practice Funds', style: AppTypography.headlineSm),
+                    Expanded(
+                      child: Text(
+                        'Add Virtual Practice Funds',
+                        style: AppTypography.headlineSm.copyWith(fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.close, size: 20),
                       onPressed: () => Navigator.of(ctx).pop(),
@@ -189,7 +196,14 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Reset Virtual Sandbox Capital', style: AppTypography.headlineSm),
+                  Expanded(
+                    child: Text(
+                      'Reset Virtual Sandbox Capital',
+                      style: AppTypography.headlineSm.copyWith(fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.close, size: 20),
                     onPressed: () => Navigator.of(ctx).pop(),

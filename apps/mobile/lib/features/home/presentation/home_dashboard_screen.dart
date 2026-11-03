@@ -88,28 +88,21 @@ class HomeDashboardScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.secondary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: AppColors.secondary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Simulated Ticker Stream',
-                              style: AppTypography.headlineSm,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        'Simulated Ticker Stream',
+                        style: AppTypography.headlineSm,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -283,8 +276,9 @@ class HomeDashboardScreen extends ConsumerWidget {
               IconButton(
                 icon: const Icon(Icons.logout, size: 20, color: AppColors.outline),
                 tooltip: 'Logout',
+                visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                 onPressed: () async {
                   await ref.read(authProvider.notifier).logout();
                   if (context.mounted) {
@@ -728,29 +722,27 @@ class HomeDashboardScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(displayPrice, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
-                    ),
-                    const SizedBox(height: 2),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        displayChange,
-                        style: AppTypography.numericTable.copyWith(
-                          color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(displayPrice, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      displayChange,
+                      style: AppTypography.numericTable.copyWith(
+                        color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
