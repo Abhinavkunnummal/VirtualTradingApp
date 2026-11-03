@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import 'package:tradeverse_mobile/core/theme/app_typography.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
+import 'package:tradeverse_mobile/features/markets/presentation/providers/recent_searches_service.dart';
 import 'package:tradeverse_mobile/features/markets/domain/news_models.dart';
 import 'package:tradeverse_mobile/features/markets/presentation/providers/news_provider.dart';
 
@@ -20,23 +22,55 @@ class MarketsScreen extends ConsumerStatefulWidget {
 class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
+
+  static const List<String> _filters = [
+    'All Assets',
+    'NSE',
+    'BSE',
+    'Crypto',
+    'US',
+    'Indices',
+    'ETFs',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
+  void _onSearchChanged(String value) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) {
+        ref.read(searchQueryProvider.notifier).state = value;
+        if (value.trim().length >= 2) {
+          ref.read(recentSearchesProvider.notifier).addSearch(value.trim());
+        }
+      }
+    });
+  }
+
+  void _selectSearchTerm(String term) {
+    _searchController.text = term;
+    ref.read(searchQueryProvider.notifier).state = term;
+    ref.read(recentSearchesProvider.notifier).addSearch(term);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final marketsAsync = ref.watch(marketOverviewProvider);
+    final searchResultsAsync = ref.watch(instrumentSearchResultsProvider);
+    final selectedFilter = ref.watch(searchFilterProvider);
+    final recentSearches = ref.watch(recentSearchesProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -76,34 +110,35 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(112),
+          preferredSize: const Size.fromHeight(108),
           child: Column(
             children: [
-              // Search Input
+              // 250ms Debounced Search Bar
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: TextField(
                   controller: _searchController,
-                  onChanged: (_) => setState(() {}),
+                  onChanged: _onSearchChanged,
                   decoration: InputDecoration(
-                    hintText: 'Search NSE, BSE, MCX, US, Crypto...',
+                    hintText: 'Search 500+ NSE, BSE, Crypto, US, ETFs...',
                     prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.outline),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 18),
                             onPressed: () {
                               _searchController.clear();
+                              ref.read(searchQueryProvider.notifier).state = '';
                               setState(() {});
                             },
                           )
                         : null,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   ),
                 ),
               ),
-              // Category Tabs
+              // Main Navigation Tabs (Discovery vs News)
               TabBar(
                 controller: _tabController,
-                isScrollable: true,
                 indicatorColor: AppColors.primaryBrand,
                 indicatorWeight: 2.5,
                 labelColor: AppColors.primary,
@@ -111,10 +146,6 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
                 labelStyle: AppTypography.labelSm.copyWith(fontWeight: FontWeight.w600),
                 tabs: const [
                   Tab(text: 'All Assets'),
-                  Tab(text: 'NSE/BSE Equities'),
-                  Tab(text: 'MCX Commodities'),
-                  Tab(text: 'Crypto 24/7'),
-                  Tab(text: 'US Stocks'),
                   Tab(text: 'Live News Feed'),
                 ],
               ),
@@ -125,66 +156,161 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildMarketsTab(marketsAsync, null),
-          _buildMarketsTab(marketsAsync, 'EQUITY'),
-          _buildMarketsTab(marketsAsync, 'COMMODITY'),
-          _buildMarketsTab(marketsAsync, 'CRYPTO'),
-          _buildMarketsTab(marketsAsync, 'US'),
+          // Tab 1: Fast Filtered Search & Discovery
+          _buildDiscoveryTab(
+            context,
+            searchResultsAsync: searchResultsAsync,
+            selectedFilter: selectedFilter,
+            recentSearches: recentSearches,
+          ),
+          // Tab 2: Market News Feed
           _buildLiveNewsView(context),
         ],
       ),
     );
   }
 
-  Widget _buildMarketsTab(AsyncValue<List<InstrumentModel>> marketsAsync, String? categoryFilter) {
-    return marketsAsync.when(
-      data: (instruments) => _buildAssetList(instruments, categoryFilter),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: AppColors.error),
-            const SizedBox(height: 12),
-            Text('Failed to load market data', style: AppTypography.bodyLg),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () => ref.refresh(marketOverviewProvider),
-              child: const Text('Retry'),
-            ),
-          ],
+  Widget _buildDiscoveryTab(
+    BuildContext context, {
+    required AsyncValue<List<InstrumentModel>> searchResultsAsync,
+    required String selectedFilter,
+    required List<String> recentSearches,
+  }) {
+    return Column(
+      children: [
+        // Horizontal Filter Chips Bar (All Assets, NSE, BSE, Crypto, US, Indices, ETFs)
+        Container(
+          height: 48,
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceLowest,
+            border: Border(bottom: BorderSide(color: AppColors.borderSubtle)),
+          ),
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            scrollDirection: Axis.horizontal,
+            itemCount: _filters.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final filter = _filters[index];
+              final isSelected = selectedFilter == filter || (selectedFilter == 'All' && filter == 'All Assets');
+
+              return ChoiceChip(
+                label: Text(
+                  filter,
+                  style: AppTypography.labelSm.copyWith(
+                    color: isSelected ? AppColors.primary : AppColors.outline,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 11,
+                  ),
+                ),
+                selected: isSelected,
+                selectedColor: AppColors.primaryBrand.withOpacity(0.2),
+                backgroundColor: AppColors.surfaceContainer,
+                side: BorderSide(
+                  color: isSelected ? AppColors.primaryBrand : AppColors.borderSubtle,
+                ),
+                onSelected: (val) {
+                  if (val) {
+                    ref.read(searchFilterProvider.notifier).state = filter == 'All Assets' ? 'All' : filter;
+                  }
+                },
+              );
+            },
+          ),
         ),
-      ),
+
+        // Recent Searches Ribbon (visible when search input is empty)
+        if (_searchController.text.trim().isEmpty && recentSearches.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.history, size: 14, color: AppColors.outline),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Recent Searches',
+                          style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: () => ref.read(recentSearchesProvider.notifier).clearAll(),
+                      child: Text(
+                        'Clear all',
+                        style: AppTypography.labelSm.copyWith(color: AppColors.primary, fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: recentSearches.map((term) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          avatar: const Icon(Icons.north_west, size: 12, color: AppColors.outline),
+                          label: Text(term, style: AppTypography.labelSm.copyWith(fontSize: 11, color: AppColors.onSurface)),
+                          backgroundColor: AppColors.surfaceContainer,
+                          side: const BorderSide(color: AppColors.borderSubtle),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          onPressed: () => _selectSearchTerm(term),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // Instruments Results List
+        Expanded(
+          child: searchResultsAsync.when(
+            data: (instruments) => _buildAssetList(context, instruments),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                  const SizedBox(height: 12),
+                  Text('Failed to load market data', style: AppTypography.bodyLg),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () => ref.refresh(instrumentSearchResultsProvider),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildAssetList(List<InstrumentModel> allInstruments, String? categoryFilter) {
-    final rawQ = _searchController.text.toLowerCase().trim();
-    final normQ = rawQ.replaceAll('adhani', 'adani');
-    final filtered = allInstruments.where((item) {
-      final matchesCategory = categoryFilter == null
-          ? true
-          : (categoryFilter == 'EQUITY'
-              ? (item.category == 'EQUITY' || item.category == 'INDEX')
-              : item.category == categoryFilter);
-      final sym = item.symbol.toLowerCase();
-      final nm = item.name.toLowerCase();
-      final matchesQuery = rawQ.isEmpty ||
-          sym.contains(rawQ) ||
-          nm.contains(rawQ) ||
-          sym.contains(normQ) ||
-          nm.contains(normQ);
-      return matchesCategory && matchesQuery;
-    }).toList();
-
-    if (filtered.isEmpty) {
+  Widget _buildAssetList(BuildContext context, List<InstrumentModel> instruments) {
+    if (instruments.isEmpty) {
+      final q = _searchController.text.trim();
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.search_off, size: 48, color: AppColors.outline),
             const SizedBox(height: 12),
-            Text('No instruments found matching "$rawQ"', style: AppTypography.bodyMd),
+            Text(
+              q.isEmpty ? 'No instruments found in this filter' : 'No instruments found matching "$q"',
+              style: AppTypography.bodyMd,
+            ),
           ],
         ),
       );
@@ -192,15 +318,15 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
 
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(marketOverviewProvider);
+        ref.invalidate(instrumentSearchResultsProvider);
       },
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        itemCount: filtered.length,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        itemCount: instruments.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
-          final item = filtered[index];
-          final currency = item.category == 'US' || item.category == 'CRYPTO' ? '\$' : '₹';
+          final item = instruments[index];
+          final currency = item.currency == 'USD' || item.category == 'US' || item.category == 'CRYPTO' ? '\$' : '₹';
 
           return Container(
             decoration: BoxDecoration(
@@ -209,16 +335,19 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
               border: Border.all(color: AppColors.borderSubtle),
             ),
             child: InkWell(
+              // Instant Tap-To-Chart Navigation
               onTap: () {
                 ref.read(liveQuotesProvider.notifier).trackSymbol(item.symbol);
                 ref.read(selectedTradeInstrumentProvider.notifier).state = item;
-                context.go('/trade');
+                ref.read(recentSearchesProvider.notifier).addSearch(item.symbol);
+                context.push('/tradingview-pro');
               },
               borderRadius: BorderRadius.circular(10),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                 child: Row(
                   children: [
+                    // Left Column: Symbol, Exchange badge, Name, Lot size & Tick size
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,66 +372,129 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
                                   style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
                                 ),
                               ),
+                              if (item.category == 'ETF')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryBrand.withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'ETF',
+                                    style: AppTypography.labelSm.copyWith(fontSize: 8, color: AppColors.primary, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
                             ],
                           ),
                           const SizedBox(height: 2),
-                          Text(item.name, style: AppTypography.bodyMd.copyWith(fontSize: 12), overflow: TextOverflow.ellipsis),
+                          Text(
+                            item.name,
+                            style: AppTypography.bodyMd.copyWith(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                          const SizedBox(height: 3),
+                          // Lot size & Tick size readout
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 2,
+                            children: [
+                              Text(
+                                'Lot: ${item.lotSize}',
+                                style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.outline),
+                              ),
+                              Text(
+                                '•',
+                                style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.outline),
+                              ),
+                              Text(
+                                'Tick: $currency${item.tickSize}',
+                                style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.outline),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Builder(
-                      builder: (context) {
-                        final live = ref.watch(liveQuoteForSymbolProvider(item.symbol));
-                        final displayPrice = (live != null && live.price > 0) ? live.price : item.price;
-                        final displayChange = live != null ? live.change : item.change;
-                        final displayPct = live != null ? live.changePercent : item.changePercent;
-                        final itemIsPos = displayChange >= 0;
 
-                        return Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                '$currency${displayPrice.toStringAsFixed(2)}',
-                                style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                    // Right Side: Price, 24h Change, and Instant Tap-To-Order Button
+                    Flexible(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Builder(
+                            builder: (context) {
+                              final live = ref.watch(liveQuoteForSymbolProvider(item.symbol));
+                              final displayPrice = (live != null && live.price > 0) ? live.price : item.price;
+                              final displayChange = live != null ? live.change : item.change;
+                              final displayPct = live != null ? live.changePercent : item.changePercent;
+                              final itemIsPos = displayChange >= 0;
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '$currency${displayPrice.toStringAsFixed(2)}',
+                                      style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '${itemIsPos ? '+' : ''}${displayChange.toStringAsFixed(2)} (${displayPct.toStringAsFixed(2)}%)',
+                                      style: AppTypography.numericTable.copyWith(
+                                        color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 5),
+
+                          // Instant Tap-To-Order Action
+                          InkWell(
+                            key: ValueKey('order_btn_${item.symbol}'),
+                            borderRadius: BorderRadius.circular(4),
+                            onTap: () {
+                              ref.read(liveQuotesProvider.notifier).trackSymbol(item.symbol);
+                              ref.read(selectedTradeInstrumentProvider.notifier).state = item;
+                              ref.read(recentSearchesProvider.notifier).addSearch(item.symbol);
+                              context.go('/trade');
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryBrand.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppColors.primaryBrand.withOpacity(0.35)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.swap_horiz, size: 12, color: AppColors.primary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'TRADE',
+                                    style: AppTypography.labelSm.copyWith(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                '${itemIsPos ? '+' : ''}${displayChange.toStringAsFixed(2)} (${displayPct.toStringAsFixed(2)}%)',
-                                style: AppTypography.numericTable.copyWith(
-                                  color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      key: ValueKey('tv_chart_btn_${item.symbol}'),
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: () {
-                        ref.read(liveQuotesProvider.notifier).trackSymbol(item.symbol);
-                        ref.read(selectedTradeInstrumentProvider.notifier).state = item;
-                        context.push('/tradingview-pro');
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppColors.zerodhaBlue.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppColors.zerodhaBlue.withOpacity(0.35)),
-                        ),
-                        child: const Icon(Icons.show_chart, color: AppColors.zerodhaBlue, size: 18),
+                          ),
+                        ],
                       ),
                     ),
                   ],

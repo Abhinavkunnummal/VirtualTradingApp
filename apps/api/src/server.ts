@@ -6,6 +6,7 @@ import { config } from './config';
 import { SocketService } from './services/socket.service';
 import { MarketDataService } from './modules/market-data/marketData.service';
 import { RealtimeMarketService } from './modules/market-data/realtimeMarket.service';
+import { InstrumentMasterService } from './modules/market-data/instrumentMaster.service';
 import { PaperTradingEngine } from './modules/orders/paperEngine.service';
 
 async function bootstrap() {
@@ -30,6 +31,11 @@ async function bootstrap() {
       console.info('Tip: Verify IP address whitelist in MongoDB Atlas Network Access and MONGODB_URI credentials.');
     }
   }
+
+  // Initialize and seed Instrument Master catalog
+  await InstrumentMasterService.init().catch((err) => {
+    console.warn('Instrument master init warning:', (err as Error).message);
+  });
 
   // Start background real-time ticker broadcaster (1s cycle for tick-by-tick TradingView precision)
   const activeSymbols = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'RELIANCE', 'TCS', 'HDFCBANK', 'NIFTY 50', 'SENSEX', 'GOLD 1KG', 'NVDA', 'AAPL'];

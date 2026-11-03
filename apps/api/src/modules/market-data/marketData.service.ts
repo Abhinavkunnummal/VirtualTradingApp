@@ -152,7 +152,31 @@ export class MarketDataService {
 
   static getInstrument(symbol: string): InstrumentMeta | undefined {
     const clean = symbol.trim().toUpperCase();
-    return this.instruments.find((i) => i.symbol === clean);
+    const found = this.instruments.find((i) => i.symbol === clean);
+    if (found) return found;
+
+    try {
+      // Lazy lookup from InstrumentMasterService
+      const { InstrumentMasterService } = require('./instrumentMaster.service');
+      const master = InstrumentMasterService.getInstrument(clean);
+      if (master) {
+        return {
+          symbol: master.symbol,
+          name: master.displayName,
+          exchange: master.exchange,
+          category: (master.assetClass === 'ETF' ? 'EQUITY' : master.assetClass) as AssetCategory,
+          basePrice: master.basePrice || 100.0,
+          currency: master.quoteCurrency,
+          lotSize: master.lotSize,
+          tickSize: master.tickSize,
+          volatility: 0.015,
+        };
+      }
+    } catch {
+      // Fallback
+    }
+
+    return undefined;
   }
 
   static getAllInstruments(filter?: { exchange?: string; category?: string; query?: string }) {

@@ -4,7 +4,7 @@ import { z } from 'zod';
 // Enums & Literals
 // ==========================================
 export type ExchangeType = 'NSE' | 'BSE' | 'MCX' | 'US' | 'CRYPTO';
-export type AssetCategory = 'EQUITY' | 'INDEX' | 'COMMODITY' | 'CRYPTO' | 'DERIVATIVE';
+export type AssetCategory = 'EQUITY' | 'INDEX' | 'COMMODITY' | 'CRYPTO' | 'DERIVATIVE' | 'ETF';
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'MARKET' | 'LIMIT' | 'SL' | 'SL_M';
 export type ProductType = 'CNC' | 'MIS'; // CNC = Delivery, MIS = Intraday (5x leverage)
@@ -30,6 +30,9 @@ export interface Instrument {
   currency: string;
   tickSize: number;
   lotSize: number;
+  isin?: string;
+  segment?: string;
+  basePrice?: number;
   description?: string;
 }
 
@@ -256,6 +259,43 @@ export const ChartCandlesResponseSchema = z.object({
 });
 
 export type ChartCandlesResponse = z.infer<typeof ChartCandlesResponseSchema>;
+
+export const InstrumentSearchQuerySchema = z.object({
+  q: z.string().optional().default(''),
+  exchange: z.enum(['ALL', 'NSE', 'BSE', 'MCX', 'US', 'CRYPTO']).optional().default('ALL'),
+  category: z.enum(['ALL', 'EQUITY', 'INDEX', 'ETF', 'COMMODITY', 'CRYPTO', 'US']).optional().default('ALL'),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+});
+
+export type InstrumentSearchQuery = z.infer<typeof InstrumentSearchQuerySchema>;
+
+export interface InstrumentSearchResultItem {
+  symbol: string;
+  name: string;
+  exchange: ExchangeType;
+  category: AssetCategory;
+  segment?: string;
+  isin?: string;
+  tickSize: number;
+  lotSize: number;
+  price: number;
+  basePrice: number;
+  change: number;
+  changePercent: number;
+  isPositive: boolean;
+  currency: string;
+  isSimulated?: boolean;
+}
+
+export interface InstrumentSearchResponse {
+  success: boolean;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  instruments: InstrumentSearchResultItem[];
+}
 
 export const AiAnalysisRequestSchema = z.object({
   symbol: z.string().min(1),

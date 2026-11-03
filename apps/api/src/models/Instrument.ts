@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type AssetClass = 'EQUITY' | 'INDEX' | 'COMMODITY' | 'CRYPTO' | 'DERIVATIVE';
+export type AssetClass = 'EQUITY' | 'INDEX' | 'COMMODITY' | 'CRYPTO' | 'DERIVATIVE' | 'ETF';
 export type Exchange = 'NSE' | 'BSE' | 'MCX' | 'US' | 'CRYPTO';
 export type TradingStatus = 'ACTIVE' | 'HALTED' | 'CLOSED';
 
@@ -13,6 +13,9 @@ export interface IInstrument extends Document {
   quoteCurrency: string;
   tickSize: number;
   lotSize: number;
+  basePrice?: number;
+  isin?: string;
+  segment?: string;
   tradingStatus: TradingStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -30,20 +33,25 @@ const InstrumentSchema = new Schema<IInstrument>(
       type: String,
       required: true,
       index: true,
+      trim: true,
+      uppercase: true,
     },
     displayName: {
       type: String,
       required: true,
+      trim: true,
     },
     assetClass: {
       type: String,
-      enum: ['EQUITY', 'INDEX', 'COMMODITY', 'CRYPTO', 'DERIVATIVE'],
+      enum: ['EQUITY', 'INDEX', 'COMMODITY', 'CRYPTO', 'DERIVATIVE', 'ETF'],
       required: true,
+      index: true,
     },
     exchange: {
       type: String,
       enum: ['NSE', 'BSE', 'MCX', 'US', 'CRYPTO'],
       required: true,
+      index: true,
     },
     quoteCurrency: {
       type: String,
@@ -57,6 +65,22 @@ const InstrumentSchema = new Schema<IInstrument>(
       type: Number,
       default: 1,
     },
+    basePrice: {
+      type: Number,
+      default: 100.0,
+    },
+    isin: {
+      type: String,
+      sparse: true,
+      index: true,
+      trim: true,
+      uppercase: true,
+    },
+    segment: {
+      type: String,
+      default: 'EQ',
+      trim: true,
+    },
     tradingStatus: {
       type: String,
       enum: ['ACTIVE', 'HALTED', 'CLOSED'],
@@ -66,6 +90,13 @@ const InstrumentSchema = new Schema<IInstrument>(
   {
     timestamps: true,
   }
+);
+
+// Compound and text indexes for rapid search
+InstrumentSchema.index({ exchange: 1, symbol: 1 });
+InstrumentSchema.index(
+  { symbol: 'text', displayName: 'text' },
+  { weights: { symbol: 10, displayName: 5 }, name: 'symbol_name_text_idx' }
 );
 
 export const Instrument =

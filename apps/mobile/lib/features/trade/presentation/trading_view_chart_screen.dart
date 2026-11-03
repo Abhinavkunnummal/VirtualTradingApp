@@ -478,21 +478,39 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                           style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
                         ),
                       ),
-                      if (_isDelayed) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.kiteRed.withOpacity(0.18),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AppColors.kiteRed.withOpacity(0.4)),
-                          ),
-                          child: Text(
-                            'DELAYED',
-                            style: AppTypography.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.kiteRed),
-                          ),
-                        ),
-                      ],
+                      const SizedBox(width: 6),
+                      Builder(
+                        builder: (context) {
+                          final isCrypto = widget.instrument.exchange == 'CRYPTO' ||
+                              widget.instrument.category == 'CRYPTO' ||
+                              widget.instrument.symbol.contains('/') ||
+                              widget.instrument.symbol.toUpperCase().endsWith('USDT');
+                          final showLive = isCrypto && !_isDelayed;
+
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: showLive
+                                  ? AppColors.secondary.withOpacity(0.18)
+                                  : AppColors.warning.withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: showLive
+                                    ? AppColors.secondary.withOpacity(0.4)
+                                    : AppColors.warning.withOpacity(0.4),
+                              ),
+                            ),
+                            child: Text(
+                              showLive ? 'LIVE' : 'DELAYED 15m',
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: showLive ? AppColors.secondary : AppColors.warning,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                   Text(

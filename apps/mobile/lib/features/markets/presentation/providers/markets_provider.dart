@@ -422,3 +422,56 @@ final watchlistsProvider = FutureProvider<List<WatchlistModel>>((ref) async {
     ),
   ];
 });
+
+final searchQueryProvider = StateProvider<String>((ref) => '');
+final searchFilterProvider = StateProvider<String>((ref) => 'All');
+
+final instrumentSearchResultsProvider = FutureProvider<List<InstrumentModel>>((ref) async {
+  final query = ref.watch(searchQueryProvider).trim();
+  final filter = ref.watch(searchFilterProvider);
+  final isTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+
+  String exchangeParam = 'ALL';
+  String categoryParam = 'ALL';
+
+  if (filter == 'NSE') {
+    exchangeParam = 'NSE';
+  } else if (filter == 'BSE') {
+    exchangeParam = 'BSE';
+  } else if (filter == 'Crypto') {
+    exchangeParam = 'CRYPTO';
+  } else if (filter == 'US') {
+    exchangeParam = 'US';
+  } else if (filter == 'Indices') {
+    categoryParam = 'INDEX';
+  } else if (filter == 'ETFs') {
+    categoryParam = 'ETF';
+  }
+
+  if (!isTest) {
+    final apiClient = ref.watch(apiClientProvider);
+    try {
+      final endpoint = '/market/instruments/search?q=${Uri.encodeComponent(query)}&exchange=$exchangeParam&category=$categoryParam&limit=60';
+      final response = await apiClient.get<Map<String, dynamic>>(endpoint);
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final list = response.data!['instruments'] as List<dynamic>? ?? [];
+        return list.map((item) => InstrumentModel.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {
+      // Fallback
+    }
+  }
+
+  // Fallback in-memory filter
+  final overview = await ref.watch(marketOverviewProvider.future);
+  return overview.where((item) {
+    if (exchangeParam != 'ALL' && item.exchange.toUpperCase() != exchangeParam) return false;
+    if (categoryParam != 'ALL' && item.category.toUpperCase() != categoryParam) return false;
+    if (query.isEmpty) return true;
+    final sym = item.symbol.toLowerCase();
+    final name = item.name.toLowerCase();
+    final q = query.toLowerCase();
+    final nq = q.replaceAll('adhani', 'adani');
+    return sym.contains(q) || name.contains(q) || sym.contains(nq) || name.contains(nq);
+  }).toList();
+});

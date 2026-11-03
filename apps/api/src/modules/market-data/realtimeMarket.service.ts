@@ -11,6 +11,7 @@ import {
 } from './marketData.service';
 import { TechnicalIndicatorService } from './indicators';
 import { HistoricalCandle } from '../../models/HistoricalCandle';
+import { InstrumentMasterService } from './instrumentMaster.service';
 
 interface CacheEntry<T> {
   data: T;
@@ -176,6 +177,44 @@ export class RealtimeMarketService {
   public static getMapping(symbol: string): SymbolMeta {
     const upper = symbol.toUpperCase().trim();
     if (SYMBOL_MAPPINGS[upper]) return SYMBOL_MAPPINGS[upper];
+
+    // Check instrument master
+    const master = InstrumentMasterService.getInstrument(upper);
+    if (master) {
+      if (master.exchange === 'NSE') {
+        return {
+          yf: `${master.symbol}.NS`,
+          category: master.assetClass as any,
+          exchange: 'NSE',
+          name: master.displayName,
+        };
+      } else if (master.exchange === 'BSE') {
+        return {
+          yf: `${master.symbol}.BO`,
+          category: master.assetClass as any,
+          exchange: 'BSE',
+          name: master.displayName,
+        };
+      } else if (master.exchange === 'US') {
+        return {
+          yf: master.symbol,
+          category: master.assetClass as any,
+          exchange: 'US',
+          name: master.displayName,
+        };
+      } else if (master.exchange === 'CRYPTO') {
+        let bSym = master.symbol.replace('/', '').replace('-', '');
+        if (!bSym.endsWith('USDT') && !bSym.endsWith('USD')) bSym = `${bSym}USDT`;
+        return {
+          yf: `${master.symbol.split('/')[0]}-USD`,
+          twelve: `${master.symbol.split('/')[0]}/USD`,
+          finnhub: `BINANCE:${bSym}`,
+          category: 'CRYPTO',
+          exchange: 'CRYPTO',
+          name: master.displayName,
+        };
+      }
+    }
 
     // Generic fallback for any user searched ticker
     const isCrypto = upper.includes('/') || upper.includes('BTC') || upper.includes('ETH') || upper.includes('SOL') || upper.includes('DOGE') || upper.includes('BNB');

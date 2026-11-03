@@ -155,7 +155,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expectNoOverflow(tester);
-      expect(find.text('All Assets'), findsOneWidget);
+      expect(find.text('All Assets'), findsWidgets);
     });
 
     testWidgets('TradeScreen renders at 320x568 without RenderFlex overflow', (tester) async {

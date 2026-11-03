@@ -4,6 +4,7 @@ import { MarketDataService, CandleInterval, HistoryRange, Candle } from './marke
 import { AlphaVantageService } from './alphaVantage.service';
 import { TechnicalIndicatorService, TechnicalIndicators } from './indicators';
 import { RealtimeMarketService } from './realtimeMarket.service';
+import { InstrumentMasterService, InstrumentSearchQuerySchema } from './instrumentMaster.service';
 import { optionalAuth } from '../../middleware/auth.middleware';
 
 export const marketDataRouter = express.Router();
@@ -13,92 +14,76 @@ marketDataRouter.use(optionalAuth);
 // GET /api/v1/market/instruments/search or /api/v1/market-data/instruments/search
 marketDataRouter.get('/instruments/search', async (req: Request, res: Response) => {
   const query = (((req.query.q || req.query.query || req.query.keywords) as string) || '').trim();
-  const formatInst = (i: any) => ({
-    symbol: i.symbol,
-    name: i.name,
-    exchange: i.exchange || 'NSE',
-    category: i.category || 'EQUITY',
-    price: i.basePrice || i.price || 100.0,
-    basePrice: i.basePrice || i.price || 100.0,
-    change: i.change || 0.0,
-    changePercent: i.changePercent || 0.0,
-    isPositive: (i.change || 0) >= 0,
-    currency: i.currency || (i.category === 'US' || i.category === 'CRYPTO' ? 'USD' : 'INR'),
-    lotSize: i.lotSize || 1,
-    tickSize: i.tickSize || 0.05,
-    isSimulated: true,
+  const exchange = ((req.query.exchange as string) || 'ALL').trim().toUpperCase();
+  const category = ((req.query.category as string) || 'ALL').trim().toUpperCase();
+  const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 30));
+
+  const validation = InstrumentSearchQuerySchema.safeParse({
+    q: query,
+    exchange: ['ALL', 'NSE', 'BSE', 'MCX', 'US', 'CRYPTO'].includes(exchange) ? exchange : 'ALL',
+    category: ['ALL', 'EQUITY', 'INDEX', 'ETF', 'COMMODITY', 'CRYPTO', 'US'].includes(category) ? category : 'ALL',
+    page,
+    limit,
   });
 
-  if (!query) {
-    const defaultList = MarketDataService.getAllInstruments().slice(0, 60).map(formatInst);
-    return res.status(200).json({
-      success: true,
-      count: defaultList.length,
-      instruments: defaultList,
-    });
-  }
+  const validQuery = validation.success ? validation.data : { q: query, exchange: 'ALL', category: 'ALL', page, limit };
 
-  // 1. Search local instrument master (supports 'adhani' -> 'adani' normalization)
-  const localMatches = MarketDataService.getAllInstruments({ query }).map(formatInst);
-
-  // 2. Search Alpha Vantage if configured
-  let globalMatches: any[] = [];
-  try {
-    if (AlphaVantageService.isConfigured()) {
-      const avResults = await AlphaVantageService.searchSymbols(query);
-      globalMatches = avResults.map((r) => formatInst({
-        symbol: r.symbol,
-        name: r.name,
-        exchange: r.region || 'US',
-        category: r.type === 'Crypto' ? 'CRYPTO' : 'EQUITY',
-        currency: r.currency || 'USD',
-        basePrice: 150.0,
-      }));
-    }
-  } catch {
-    // Non-fatal if Alpha Vantage is down
-  }
-
-  // Deduplicate by symbol
-  const seen = new Set<string>();
-  const combined = [];
-  for (const item of [...localMatches, ...globalMatches]) {
-    const key = item.symbol.toUpperCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      combined.push(item);
-    }
-  }
+  const searchResult = await InstrumentMasterService.searchInstruments({
+    query: validQuery.q,
+    exchange: validQuery.exchange,
+    category: validQuery.category,
+    page: validQuery.page,
+    limit: validQuery.limit,
+  });
 
   return res.status(200).json({
     success: true,
-    count: combined.length,
-    instruments: combined,
+    total: searchResult.total,
+    count: searchResult.instruments.length,
+    page: searchResult.page,
+    limit: searchResult.limit,
+    totalPages: searchResult.totalPages,
+    instruments: searchResult.instruments,
   });
 });
 
-// GET /api/v1/market-data/instruments
-marketDataRouter.get('/instruments', (req: Request, res: Response) => {
-  const { exchange, category, query } = req.query as {
-    exchange?: string;
-    category?: string;
-    query?: string;
-  };
+// POST /api/v1/market-data/instruments/sync
+marketDataRouter.post('/instruments/sync', async (_req: Request, res: Response) => {
+  try {
+    const result = await InstrumentMasterService.syncFromUpstream();
+    return res.status(200).json({
+      success: true,
+      message: 'Instrument master synchronized successfully.',
+      ...result,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Failed to synchronize instruments.',
+    });
+  }
+});
 
-  const list = MarketDataService.getAllInstruments({ exchange, category, query });
+// GET /api/v1/market-data/instruments
+marketDataRouter.get('/instruments', async (req: Request, res: Response) => {
+  const exchange = ((req.query.exchange as string) || 'ALL').trim().toUpperCase();
+  const category = ((req.query.category as string) || 'ALL').trim().toUpperCase();
+  const query = (((req.query.query || req.query.q) as string) || '').trim();
+
+  const searchResult = await InstrumentMasterService.searchInstruments({
+    query,
+    exchange,
+    category,
+    page: 1,
+    limit: 100,
+  });
+
   return res.status(200).json({
     success: true,
-    count: list.length,
-    instruments: list.map((i) => ({
-      symbol: i.symbol,
-      name: i.name,
-      exchange: i.exchange,
-      category: i.category,
-      basePrice: i.basePrice,
-      currency: i.currency,
-      lotSize: i.lotSize,
-      tickSize: i.tickSize,
-    })),
+    total: searchResult.total,
+    count: searchResult.instruments.length,
+    instruments: searchResult.instruments,
   });
 });
 
