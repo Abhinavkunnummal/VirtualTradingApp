@@ -41,10 +41,13 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(
-          'Markets & Discovery',
-          style: AppTypography.headlineSm.copyWith(fontSize: 15),
-          overflow: TextOverflow.ellipsis,
+        title: const FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Markets & Discovery',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
         ),
         actions: [
           Container(
@@ -220,16 +223,15 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            runSpacing: 2,
                             children: [
-                              Flexible(
-                                child: Text(
-                                  item.symbol,
-                                  style: AppTypography.headlineSm.copyWith(fontSize: 15),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                              Text(
+                                item.symbol,
+                                style: AppTypography.headlineSm.copyWith(fontSize: 15),
                               ),
-                              const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(

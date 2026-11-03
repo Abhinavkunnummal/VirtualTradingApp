@@ -469,11 +469,15 @@ class HomeDashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Virtual Cash Available', style: AppTypography.labelSm),
+                    Text('Virtual Cash Available', style: AppTypography.labelSm, maxLines: 1, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
-                    Text(
-                      '₹${portfolio.availableCash.toStringAsFixed(2)}',
-                      style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '₹${portfolio.availableCash.toStringAsFixed(2)}',
+                        style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
@@ -484,11 +488,15 @@ class HomeDashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Invested Exposure', style: AppTypography.labelSm),
+                    Text('Invested Exposure', style: AppTypography.labelSm, maxLines: 1, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
-                    Text(
-                      '₹${portfolio.investedValue.toStringAsFixed(2)}',
-                      style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '₹${portfolio.investedValue.toStringAsFixed(2)}',
+                        style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
@@ -619,32 +627,34 @@ class HomeDashboardScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(sym, style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontWeight: FontWeight.bold)),
+                    Text(
+                      sym,
+                      style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 2),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Text(
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
                             displayPrice,
                             style: AppTypography.numericTable,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
+                          const SizedBox(width: 6),
+                          Text(
                             displayChange,
                             style: AppTypography.numericTable.copyWith(
                               color: isPos ? AppColors.secondary : AppColors.tertiary,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.end,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -693,16 +703,15 @@ class HomeDashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 2,
                       children: [
-                        Flexible(
-                          child: Text(
-                            symbol,
-                            style: AppTypography.headlineSm.copyWith(fontSize: 15),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        Text(
+                          symbol,
+                          style: AppTypography.headlineSm.copyWith(fontSize: 15),
                         ),
-                        const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
