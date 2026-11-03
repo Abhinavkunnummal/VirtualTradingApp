@@ -239,6 +239,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                         displayName ?? 'TradeVerse AI',
                         style: AppTypography.headlineSm.copyWith(fontSize: 15),
                         overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                       Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,
@@ -353,6 +354,7 @@ class HomeDashboardScreen extends ConsumerWidget {
             child: Text(
               'Paper Trading Mode • Fictional Capital • No Real Money at Risk',
               style: AppTypography.labelSm.copyWith(color: AppColors.onSurfaceVariant, fontSize: 10),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -416,9 +418,13 @@ class HomeDashboardScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            '₹${portfolio.totalPortfolioValue.toStringAsFixed(2)}',
-            style: AppTypography.numericTicker.copyWith(fontSize: 28, fontWeight: FontWeight.w700),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '₹${portfolio.totalPortfolioValue.toStringAsFixed(2)}',
+              style: AppTypography.numericTicker.copyWith(fontSize: 28, fontWeight: FontWeight.w700),
+            ),
           ),
           const SizedBox(height: 6),
           Wrap(
@@ -432,23 +438,26 @@ class HomeDashboardScreen extends ConsumerWidget {
                   color: (isPos ? AppColors.secondary : AppColors.tertiary).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isPos ? Icons.trending_up : Icons.trending_down,
-                      size: 14,
-                      color: isPos ? AppColors.secondary : AppColors.tertiary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${isPos ? '+' : ''}₹${portfolio.totalPnl.toStringAsFixed(2)} (${portfolio.totalPnlPercent}%)',
-                      style: AppTypography.numericTable.copyWith(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isPos ? Icons.trending_up : Icons.trending_down,
+                        size: 14,
                         color: isPos ? AppColors.secondary : AppColors.tertiary,
-                        fontWeight: FontWeight.w600,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Text(
+                        '${isPos ? '+' : ''}₹${portfolio.totalPnl.toStringAsFixed(2)} (${portfolio.totalPnlPercent}%)',
+                        style: AppTypography.numericTable.copyWith(
+                          color: isPos ? AppColors.secondary : AppColors.tertiary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               Text("Today's Sim Return", style: AppTypography.labelSm),
@@ -722,27 +731,29 @@ class HomeDashboardScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(displayPrice, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(height: 2),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      displayChange,
-                      style: AppTypography.numericTable.copyWith(
-                        color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+              Flexible(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(displayPrice, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        displayChange,
+                        style: AppTypography.numericTable.copyWith(
+                          color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),

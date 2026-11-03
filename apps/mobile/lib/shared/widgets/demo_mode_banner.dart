@@ -44,7 +44,8 @@ class DemoModeBanner extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (onLoginTap != null)
+          if (onLoginTap != null) ...[
+            const SizedBox(width: 6),
             GestureDetector(
               onTap: onLoginTap,
               child: Text(
@@ -56,6 +57,7 @@ class DemoModeBanner extends StatelessWidget {
                 ),
               ),
             ),
+          ],
         ],
       ),
     );
