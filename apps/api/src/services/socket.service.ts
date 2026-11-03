@@ -2,6 +2,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { CommunityMessage } from '../models';
+import { ChartStreamService } from '../modules/market-data/chartStream.service';
 
 export interface AuthenticatedSocket extends Socket {
   data: {
@@ -98,6 +99,16 @@ export class SocketService {
         }
       });
 
+      // Handle Lightweight Charts streaming subscription
+      socket.on('chart:subscribe', (data: { symbol: string; interval?: string }) => {
+        ChartStreamService.handleSubscribe(socket, data);
+      });
+
+      // Handle Lightweight Charts streaming unsubscription
+      socket.on('chart:unsubscribe', (data?: { symbol?: string; interval?: string }) => {
+        ChartStreamService.handleUnsubscribe(socket, data);
+      });
+
       // Handle real-time chat messages
       socket.on(
         'send_message',
@@ -154,7 +165,7 @@ export class SocketService {
       );
 
       socket.on('disconnect', () => {
-        // Cleaned up automatically by Socket.IO
+        ChartStreamService.handleDisconnect(socket);
       });
     });
   }
