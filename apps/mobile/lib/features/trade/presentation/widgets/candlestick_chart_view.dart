@@ -483,8 +483,9 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 6),
+          ],
+        ),
+        const SizedBox(height: 6),
 
           // 6. 5-Year History Range Selector Chips (1D, 1W, 1M, 3M, 6M, 1Y, 3Y, 5Y, ALL)
           Row(
