@@ -49,3 +49,7 @@ Thumbs.db
 *.key
 *.keystore
 *.jks
+
+# Local Release Binaries
+releases/
+*.apk
