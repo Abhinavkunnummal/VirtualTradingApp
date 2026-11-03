@@ -625,12 +625,16 @@ class HomeDashboardScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          displayChange,
-                          style: AppTypography.numericTable.copyWith(
-                            color: isPos ? AppColors.secondary : AppColors.tertiary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                        Flexible(
+                          child: Text(
+                            displayChange,
+                            style: AppTypography.numericTable.copyWith(
+                              color: isPos ? AppColors.secondary : AppColors.tertiary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
                           ),
                         ),
                       ],

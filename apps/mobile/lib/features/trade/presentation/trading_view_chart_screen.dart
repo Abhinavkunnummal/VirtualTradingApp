@@ -611,26 +611,33 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.flash_on, size: 14, color: AppColors.warning),
-                            const SizedBox(width: 4),
-                            Text(
-                              'OPEN POSITION: ${activeHolding.quantity} LOTS',
-                              style: AppTypography.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Avg Entry: $currency${activeHolding.averageBuyPrice.toStringAsFixed(2)}',
-                          style: AppTypography.bodyMd.copyWith(fontSize: 11, color: AppColors.outline),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.flash_on, size: 14, color: AppColors.warning),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  'OPEN POSITION: ${activeHolding.quantity} LOTS',
+                                  style: AppTypography.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Avg Entry: $currency${activeHolding.averageBuyPrice.toStringAsFixed(2)}',
+                            style: AppTypography.bodyMd.copyWith(fontSize: 11, color: AppColors.outline),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -1172,19 +1179,24 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.instrument.symbol,
-                    style: AppTypography.headlineSm.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    '${widget.instrument.exchange} • ${widget.instrument.name}',
-                    style: AppTypography.bodyMd.copyWith(fontSize: 12, color: AppColors.outline),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.instrument.symbol,
+                      style: AppTypography.headlineSm.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      '${widget.instrument.exchange} • ${widget.instrument.name}',
+                      style: AppTypography.bodyMd.copyWith(fontSize: 12, color: AppColors.outline),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -1320,15 +1332,22 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Quantity (Lots):', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600)),
+              Expanded(
+                child: Text(
+                  'Quantity (Lots):',
+                  style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.remove_circle_outline, color: AppColors.outline),
                     onPressed: _quantity > 1 ? () => setState(() => _quantity -= 1) : null,
                   ),
                   Container(
-                    width: 50,
+                    width: 40,
                     alignment: Alignment.center,
                     child: Text(
                       '$_quantity',
@@ -1358,7 +1377,14 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Required Margin:', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
+                    Expanded(
+                      child: Text(
+                        'Required Margin:',
+                        style: AppTypography.labelSm.copyWith(color: AppColors.outline),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       '$currency${margin.toStringAsFixed(2)}',
                       style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary),
@@ -1369,7 +1395,14 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Available Margin:', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
+                    Expanded(
+                      child: Text(
+                        'Available Margin:',
+                        style: AppTypography.labelSm.copyWith(color: AppColors.outline),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text('$currency${available.toStringAsFixed(2)}', style: AppTypography.numericTable),
                   ],
                 ),
@@ -1377,7 +1410,14 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Brokerage & Charges:', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
+                    Expanded(
+                      child: Text(
+                        'Brokerage & Charges:',
+                        style: AppTypography.labelSm.copyWith(color: AppColors.outline),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text('$currency 20.00', style: AppTypography.numericTable),
                   ],
                 ),

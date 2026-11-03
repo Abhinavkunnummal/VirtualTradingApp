@@ -384,14 +384,22 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTypography.labelSm.copyWith(fontSize: 10)),
-        const SizedBox(height: 2),
         Text(
-          value,
-          style: AppTypography.numericTable.copyWith(
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-            color: color ?? AppColors.onSurface,
+          label,
+          style: AppTypography.labelSm.copyWith(fontSize: 10),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: AppTypography.numericTable.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+              color: color ?? AppColors.onSurface,
+            ),
           ),
         ),
       ],

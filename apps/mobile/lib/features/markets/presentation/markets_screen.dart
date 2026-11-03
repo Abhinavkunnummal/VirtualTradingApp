@@ -41,7 +41,11 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Markets & Discovery', style: AppTypography.headlineSm),
+        title: Text(
+          'Markets & Discovery',
+          style: AppTypography.headlineSm.copyWith(fontSize: 15),
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
