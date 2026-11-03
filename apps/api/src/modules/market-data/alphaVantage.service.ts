@@ -1,5 +1,6 @@
 import { config } from '../../config';
 import { MarketQuote, Candle } from './marketData.service';
+import { sharedAlphaVantageBudget, RateLimitBudgetGuard } from './rateLimitBudget';
 
 interface CacheEntry<T> {
   data: T;
@@ -41,6 +42,10 @@ export class AlphaVantageService {
     return Boolean(this.apiKey && this.apiKey.length > 5);
   }
 
+  public static getBudgetGuard(): RateLimitBudgetGuard {
+    return sharedAlphaVantageBudget;
+  }
+
   private static getFromCache<T>(key: string): T | null {
     const entry = this.cache.get(key);
     if (!entry) return null;
@@ -68,8 +73,11 @@ export class AlphaVantageService {
     const cached = this.getFromCache<Partial<MarketQuote>>(cacheKey);
     if (cached) return cached;
 
+    if (!sharedAlphaVantageBudget.canRequest()) return null;
+
     try {
       const url = `${this.BASE_URL}?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${this.apiKey}`;
+      sharedAlphaVantageBudget.recordRequest();
       const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
       if (!response.ok) return null;
 
@@ -119,8 +127,11 @@ export class AlphaVantageService {
     const cached = this.getFromCache<Partial<MarketQuote>>(cacheKey);
     if (cached) return cached;
 
+    if (!sharedAlphaVantageBudget.canRequest()) return null;
+
     try {
       const url = `${this.BASE_URL}?function=CURRENCY_EXCHANGE_RATE&from_currency=${encodeURIComponent(fromCurrency)}&to_currency=${encodeURIComponent(toCurrency)}&apikey=${this.apiKey}`;
+      sharedAlphaVantageBudget.recordRequest();
       const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
       if (!response.ok) return null;
 
@@ -164,8 +175,11 @@ export class AlphaVantageService {
     const cached = this.getFromCache<Candle[]>(cacheKey);
     if (cached) return cached;
 
+    if (!sharedAlphaVantageBudget.canRequest()) return null;
+
     try {
       const url = `${this.BASE_URL}?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(symbol)}&outputsize=${outputsize}&apikey=${this.apiKey}`;
+      sharedAlphaVantageBudget.recordRequest();
       const response = await fetch(url, { signal: AbortSignal.timeout(9000) });
       if (!response.ok) return null;
 
@@ -210,8 +224,11 @@ export class AlphaVantageService {
     const cached = this.getFromCache<Candle[]>(cacheKey);
     if (cached) return cached;
 
+    if (!sharedAlphaVantageBudget.canRequest()) return null;
+
     try {
       const url = `${this.BASE_URL}?function=TIME_SERIES_WEEKLY&symbol=${encodeURIComponent(symbol)}&apikey=${this.apiKey}`;
+      sharedAlphaVantageBudget.recordRequest();
       const response = await fetch(url, { signal: AbortSignal.timeout(9000) });
       if (!response.ok) return null;
 
@@ -255,8 +272,11 @@ export class AlphaVantageService {
     const cached = this.getFromCache<Candle[]>(cacheKey);
     if (cached) return cached;
 
+    if (!sharedAlphaVantageBudget.canRequest()) return null;
+
     try {
       const url = `${this.BASE_URL}?function=TIME_SERIES_MONTHLY&symbol=${encodeURIComponent(symbol)}&apikey=${this.apiKey}`;
+      sharedAlphaVantageBudget.recordRequest();
       const response = await fetch(url, { signal: AbortSignal.timeout(9000) });
       if (!response.ok) return null;
 
@@ -304,9 +324,12 @@ export class AlphaVantageService {
     const cached = this.getFromCache<Candle[]>(cacheKey);
     if (cached) return cached;
 
+    if (!sharedAlphaVantageBudget.canRequest()) return null;
+
     try {
       const avInterval = interval.endsWith('m') ? `${interval}in` : interval; // e.g. 15m -> 15min
       const url = `${this.BASE_URL}?function=TIME_SERIES_INTRADAY&symbol=${encodeURIComponent(symbol)}&interval=${avInterval}&apikey=${this.apiKey}`;
+      sharedAlphaVantageBudget.recordRequest();
       const response = await fetch(url, { signal: AbortSignal.timeout(9000) });
       if (!response.ok) return null;
 
@@ -351,8 +374,11 @@ export class AlphaVantageService {
     const cached = this.getFromCache<AlphaSymbolSearchResult[]>(cacheKey);
     if (cached) return cached;
 
+    if (!sharedAlphaVantageBudget.canRequest()) return [];
+
     try {
       const url = `${this.BASE_URL}?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(keywords)}&apikey=${this.apiKey}`;
+      sharedAlphaVantageBudget.recordRequest();
       const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
       if (!response.ok) return [];
 

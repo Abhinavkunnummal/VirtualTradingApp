@@ -3,6 +3,9 @@ import { config } from '../../config';
 import { RealtimeMarketService } from './realtimeMarket.service';
 import { AlphaVantageService } from './alphaVantage.service';
 import { SocketService } from '../../services/socket.service';
+import { RateLimitBudgetGuard, sharedAlphaVantageBudget } from './rateLimitBudget';
+
+export { RateLimitBudgetGuard, sharedAlphaVantageBudget };
 
 export interface ChartCandle {
   time: number; // Unix timestamp in seconds (for Lightweight Charts)
@@ -23,80 +26,6 @@ export interface ChartTickPayload {
   close: number;
   volume: number;
   delayed?: boolean;
-}
-
-/**
- * Budget guard to prevent exhausting Alpha Vantage free tier limits (5 req/min, 100 req/day).
- */
-export class RateLimitBudgetGuard {
-  private maxPerMinute: number;
-  private maxPerDay: number;
-  private requestTimestamps: number[] = [];
-  private dayCount: number = 0;
-  private currentDay: string = '';
-
-  constructor(maxPerMinute = 5, maxPerDay = 100) {
-    this.maxPerMinute = maxPerMinute;
-    this.maxPerDay = maxPerDay;
-    this.currentDay = new Date().toISOString().slice(0, 10);
-  }
-
-  public setLimits(maxPerMinute: number, maxPerDay: number): void {
-    this.maxPerMinute = maxPerMinute;
-    this.maxPerDay = maxPerDay;
-  }
-
-  public canRequest(now = Date.now()): boolean {
-    this.pruneOld(now);
-    if (this.requestTimestamps.length >= this.maxPerMinute) {
-      return false;
-    }
-    if (this.dayCount >= this.maxPerDay) {
-      return false;
-    }
-    return true;
-  }
-
-  public recordRequest(now = Date.now()): boolean {
-    if (!this.canRequest(now)) {
-      return false;
-    }
-    this.requestTimestamps.push(now);
-    this.dayCount++;
-    return true;
-  }
-
-  public getStatus(now = Date.now()): {
-    minuteUsed: number;
-    maxPerMinute: number;
-    dayUsed: number;
-    maxPerDay: number;
-    isBudgetExhausted: boolean;
-  } {
-    this.pruneOld(now);
-    return {
-      minuteUsed: this.requestTimestamps.length,
-      maxPerMinute: this.maxPerMinute,
-      dayUsed: this.dayCount,
-      maxPerDay: this.maxPerDay,
-      isBudgetExhausted: !this.canRequest(now),
-    };
-  }
-
-  public reset(): void {
-    this.requestTimestamps = [];
-    this.dayCount = 0;
-    this.currentDay = new Date().toISOString().slice(0, 10);
-  }
-
-  private pruneOld(now: number): void {
-    const today = new Date(now).toISOString().slice(0, 10);
-    if (today !== this.currentDay) {
-      this.currentDay = today;
-      this.dayCount = 0;
-    }
-    this.requestTimestamps = this.requestTimestamps.filter((t) => now - t < 60000);
-  }
 }
 
 /**
@@ -234,14 +163,15 @@ export class ChartStreamService {
   private static formingCandles = new Map<string, ChartCandle>();
 
   // Rate limit guard for non-crypto upstream
-  private static budgetGuard = new RateLimitBudgetGuard(5, 100);
+  private static budgetGuard = sharedAlphaVantageBudget;
 
   public static getBudgetGuard(): RateLimitBudgetGuard {
     return this.budgetGuard;
   }
 
   public static getFormingCandle(symbol: string, interval = '15m'): ChartCandle | undefined {
-    const roomName = `chart:${symbol.toUpperCase()}:${interval.toLowerCase()}`;
+    const canonical = RealtimeMarketService.canonicalizeSymbol(symbol);
+    const roomName = `chart:${canonical}:${interval.toLowerCase()}`;
     return this.formingCandles.get(roomName);
   }
 
@@ -258,7 +188,8 @@ export class ChartStreamService {
   ): void {
     if (!data?.symbol || typeof data.symbol !== 'string') return;
 
-    const symbol = data.symbol.toUpperCase().trim();
+    const symbol = RealtimeMarketService.canonicalizeSymbol(data.symbol);
+    if (!symbol) return;
     const interval = (data.interval || '15m').toLowerCase();
     const roomName = `chart:${symbol}:${interval}`;
 
@@ -317,7 +248,7 @@ export class ChartStreamService {
     const socketRooms = this.socketSubscriptions.get(socket.id);
     if (!socketRooms || socketRooms.size === 0) return;
 
-    const targetSymbol = data?.symbol ? data.symbol.toUpperCase().trim() : null;
+    const targetSymbol = data?.symbol ? RealtimeMarketService.canonicalizeSymbol(data.symbol) : null;
     const targetInterval = data?.interval ? data.interval.toLowerCase() : null;
 
     const roomsToLeave: string[] = [];

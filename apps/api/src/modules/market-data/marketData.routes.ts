@@ -4,8 +4,11 @@ import { MarketDataService, CandleInterval, HistoryRange, Candle } from './marke
 import { AlphaVantageService } from './alphaVantage.service';
 import { TechnicalIndicatorService, TechnicalIndicators } from './indicators';
 import { RealtimeMarketService } from './realtimeMarket.service';
+import { optionalAuth } from '../../middleware/auth.middleware';
 
 export const marketDataRouter = express.Router();
+
+marketDataRouter.use(optionalAuth);
 
 // GET /api/v1/market/instruments/search or /api/v1/market-data/instruments/search
 marketDataRouter.get('/instruments/search', async (req: Request, res: Response) => {
@@ -227,6 +230,8 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
     });
   }
 
+  const canonicalSymbol = RealtimeMarketService.canonicalizeSymbol(rawSymbol);
+
   const candlesQuerySchema = z.object({
     symbol: z.string().min(1, 'Symbol is required').trim().toUpperCase(),
     interval: z.enum(['1m', '5m', '15m', '1h', '1d', '1w', '1mo']).default('15m'),
@@ -234,7 +239,7 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
   });
 
   const queryValidation = candlesQuerySchema.safeParse({
-    symbol: rawSymbol,
+    symbol: canonicalSymbol,
     interval: req.query.interval,
     limit: req.query.limit,
   });

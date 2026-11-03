@@ -30,3 +30,21 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     });
   }
 }
+
+/**
+ * Optional Authentication Middleware:
+ * If an authorization header with Bearer token is provided, parses and validates it,
+ * populating req.user. If no token or invalid token, continues gracefully for guest access.
+ */
+export function optionalAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      req.user = AuthService.verifyAccessToken(token);
+    } catch {
+      // Continue in guest mode
+    }
+  }
+  return next();
+}

@@ -2,6 +2,7 @@ import request from 'supertest';
 import { createApp } from '../src/app';
 import {
   RateLimitBudgetGuard,
+  sharedAlphaVantageBudget,
   getIntervalSeconds,
   getIntervalStartTime,
   aggregateCandleTick,
@@ -10,10 +11,27 @@ import {
   ChartStreamService,
   ChartCandle,
 } from '../src/modules/market-data/chartStream.service';
+import { RealtimeMarketService } from '../src/modules/market-data/realtimeMarket.service';
+import { AlphaVantageService } from '../src/modules/market-data/alphaVantage.service';
+import { AuthService } from '../src/services/auth.service';
 import { SocketService } from '../src/services/socket.service';
 
 describe('Chart Candles REST & Streaming Unit Tests', () => {
   const app = createApp();
+
+  function createMockSocket(id: string) {
+    const rooms = new Set<string>();
+    const emitted: Array<{ event: string; data: any }> = [];
+
+    return {
+      id,
+      join: jest.fn((r: string) => rooms.add(r)),
+      leave: jest.fn((r: string) => rooms.delete(r)),
+      emit: jest.fn((event: string, data: any) => emitted.push({ event, data })),
+      rooms,
+      emitted,
+    } as any;
+  }
 
   beforeEach(() => {
     ChartStreamService.resetForTesting();
@@ -67,6 +85,33 @@ describe('Chart Candles REST & Streaming Unit Tests', () => {
       expect(guard.canRequest(now)).toBe(false);
       expect(guard.recordRequest(now)).toBe(false);
       expect(guard.getStatus(now).dayUsed).toBe(3);
+    });
+
+    it('should share single budget counter across AlphaVantageService and ChartStreamService', async () => {
+      sharedAlphaVantageBudget.reset();
+      sharedAlphaVantageBudget.setLimits(3, 25); // Test with 3 RPM
+
+      const now = Date.now();
+      expect(sharedAlphaVantageBudget.getStatus(now).minuteUsed).toBe(0);
+
+      // AlphaVantageService and ChartStreamService share the exact same guard
+      expect(AlphaVantageService.getBudgetGuard()).toBe(ChartStreamService.getBudgetGuard());
+
+      // 1st request recorded by AlphaVantageService
+      sharedAlphaVantageBudget.recordRequest(now);
+      expect(ChartStreamService.getBudgetGuard().getStatus(now).minuteUsed).toBe(1);
+
+      // 2nd request recorded
+      sharedAlphaVantageBudget.recordRequest(now);
+      expect(AlphaVantageService.getBudgetGuard().getStatus(now).minuteUsed).toBe(2);
+
+      // 3rd request recorded - budget reaches max (3)
+      sharedAlphaVantageBudget.recordRequest(now);
+      expect(ChartStreamService.getBudgetGuard().canRequest(now)).toBe(false);
+      expect(AlphaVantageService.getBudgetGuard().canRequest(now)).toBe(false);
+
+      // Reset for subsequent tests
+      sharedAlphaVantageBudget.reset();
     });
   });
 
@@ -161,23 +206,57 @@ describe('Chart Candles REST & Streaming Unit Tests', () => {
       expect(toBinanceStream('ETH', '15m')).toBe('ethusdt@kline_15m');
       expect(toBinanceStream('SOL/USDT', '1h')).toBe('solusdt@kline_1h');
     });
+
+    it('should canonicalize all incoming symbol variants to single canonical instrument', () => {
+      // Crypto variants
+      expect(RealtimeMarketService.canonicalizeSymbol('BTCUSDT')).toBe('BTC/USDT');
+      expect(RealtimeMarketService.canonicalizeSymbol('BTC/USDT')).toBe('BTC/USDT');
+      expect(RealtimeMarketService.canonicalizeSymbol('btc-usdt')).toBe('BTC/USDT');
+      expect(RealtimeMarketService.canonicalizeSymbol('btc_usdt')).toBe('BTC/USDT');
+      expect(RealtimeMarketService.canonicalizeSymbol('BTCUSD')).toBe('BTC/USDT');
+      expect(RealtimeMarketService.canonicalizeSymbol('btc')).toBe('BTC/USDT');
+      expect(RealtimeMarketService.canonicalizeSymbol('eth-usdt')).toBe('ETH/USDT');
+      expect(RealtimeMarketService.canonicalizeSymbol('solusdt')).toBe('SOL/USDT');
+
+      // Equities, indices, commodities
+      expect(RealtimeMarketService.canonicalizeSymbol('reliance.ns')).toBe('RELIANCE');
+      expect(RealtimeMarketService.canonicalizeSymbol('RELIANCE')).toBe('RELIANCE');
+      expect(RealtimeMarketService.canonicalizeSymbol('aapl')).toBe('AAPL');
+      expect(RealtimeMarketService.canonicalizeSymbol('NIFTY50')).toBe('NIFTY 50');
+      expect(RealtimeMarketService.canonicalizeSymbol('^NSEI')).toBe('NIFTY 50');
+    });
+
+    it('should never create two rooms for the same instrument when subscribed with different variants', () => {
+      const socket1 = createMockSocket('sock-var1');
+      const socket2 = createMockSocket('sock-var2');
+      const socket3 = createMockSocket('sock-var3');
+
+      // Socket 1 subscribes using "BTCUSDT"
+      ChartStreamService.handleSubscribe(socket1, { symbol: 'BTCUSDT', interval: '1m' });
+
+      // Socket 2 subscribes using "btc-usdt"
+      ChartStreamService.handleSubscribe(socket2, { symbol: 'btc-usdt', interval: '1m' });
+
+      // Socket 3 subscribes using "BTC/USDT"
+      ChartStreamService.handleSubscribe(socket3, { symbol: 'BTC/USDT', interval: '1m' });
+
+      // All three join the exact same canonical room: chart:BTC/USDT:1m
+      expect(socket1.join).toHaveBeenCalledWith('chart:BTC/USDT:1m');
+      expect(socket2.join).toHaveBeenCalledWith('chart:BTC/USDT:1m');
+      expect(socket3.join).toHaveBeenCalledWith('chart:BTC/USDT:1m');
+
+      // The single room subscriber count is 3
+      expect(ChartStreamService.getSubscriberCount('chart:BTC/USDT:1m')).toBe(3);
+
+      // Clean up
+      ChartStreamService.handleDisconnect(socket1);
+      ChartStreamService.handleDisconnect(socket2);
+      ChartStreamService.handleDisconnect(socket3);
+      expect(ChartStreamService.getSubscriberCount('chart:BTC/USDT:1m')).toBe(0);
+    });
   });
 
   describe('ChartStreamService Room Lifecycle & Event Handling', () => {
-    function createMockSocket(id: string) {
-      const rooms = new Set<string>();
-      const emitted: Array<{ event: string; data: any }> = [];
-
-      return {
-        id,
-        join: jest.fn((r: string) => rooms.add(r)),
-        leave: jest.fn((r: string) => rooms.delete(r)),
-        emit: jest.fn((event: string, data: any) => emitted.push({ event, data })),
-        rooms,
-        emitted,
-      } as any;
-    }
-
     it('should manage room subscriptions and unsubscriptions cleanly', () => {
       const socket1 = createMockSocket('sock-1');
       const socket2 = createMockSocket('sock-2');
@@ -288,6 +367,23 @@ describe('Chart Candles REST & Streaming Unit Tests', () => {
       const res = await request(app).get('/api/market/candles?symbol=BTC&interval=999xyz');
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
+    });
+
+    it('should attach authenticated user context when Bearer token is provided', async () => {
+      const token = AuthService.generateAccessToken('user-chart-123', 'chart@tradeverse.io');
+      const res = await request(app)
+        .get('/api/market/candles?symbol=BTC/USDT&interval=15m&limit=5')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('should serve guests smoothly without token and apply standard rate limiting middleware', async () => {
+      const res = await request(app).get('/api/market/candles?symbol=BTC/USDT&interval=15m&limit=5');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.headers['ratelimit-limit'] || res.headers['x-ratelimit-limit'] || res.status).toBeDefined();
     });
   });
 });

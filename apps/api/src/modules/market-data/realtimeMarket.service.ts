@@ -117,6 +117,60 @@ export class RealtimeMarketService {
   private static readonly TTL_CANDLES_DAILY = 5 * 60 * 1000; // 5 minutes
 
   /**
+   * Canonicalize any ticker format (e.g., BTCUSDT, BTC/USDT, btc-usdt, btc_usdt, BTC)
+   * through SYMBOL_MAPPINGS into its canonical instrument symbol representation.
+   */
+  public static canonicalizeSymbol(rawSymbol: string): string {
+    if (!rawSymbol || typeof rawSymbol !== 'string') return '';
+    const upper = rawSymbol.trim().toUpperCase();
+
+    // 1. Direct match in SYMBOL_MAPPINGS
+    const directMeta = SYMBOL_MAPPINGS[upper];
+
+    // Check if it's a crypto symbol
+    const isCrypto =
+      (directMeta && directMeta.category === 'CRYPTO') ||
+      upper.includes('/') ||
+      upper.includes('BTC') ||
+      upper.includes('ETH') ||
+      upper.includes('SOL') ||
+      upper.includes('DOGE') ||
+      upper.includes('BNB') ||
+      upper.includes('XRP');
+
+    if (isCrypto) {
+      // Normalize to standard pair format: {COIN}/USDT
+      let clean = upper.replace(/[\/\-_]/g, '');
+      clean = clean.replace(/USDT$|USD$|BUSD$/, '');
+      if (!clean) clean = 'BTC';
+      return `${clean}/USDT`;
+    }
+
+    // 2. Indian equities with exchange suffixes (e.g. RELIANCE.NS -> RELIANCE)
+    if (upper.endsWith('.NS') || upper.endsWith('.BO')) {
+      const stripped = upper.replace(/\.(NS|BO)$/, '');
+      if (SYMBOL_MAPPINGS[stripped]) return stripped;
+    }
+
+    // 3. Indian Index mappings
+    if (upper === '^NSEI' || upper === 'NIFTY50' || upper === 'NIFTY 50') return 'NIFTY 50';
+    if (upper === '^NSEBANK' || upper === 'BANKNIFTY' || upper === 'BANK NIFTY') return 'BANKNIFTY';
+    if (upper === '^BSESN' || upper === 'SENSEX') return 'SENSEX';
+    if (upper === 'FINNIFTY' || upper === 'FIN NIFTY') return 'FINNIFTY';
+
+    // 4. Commodities
+    if (upper === 'GC=F' || upper === 'GOLD') return 'GOLD 1KG';
+    if (upper === 'SI=F' || upper === 'SILVER') return 'SILVER 30KG';
+    if (upper === 'CL=F' || upper === 'CRUDE') return 'CRUDEOIL';
+    if (upper === 'NG=F' || upper === 'NATURAL GAS') return 'NATURALGAS';
+
+    // 5. If matches any existing mapping key directly
+    if (SYMBOL_MAPPINGS[upper]) return upper;
+
+    return upper;
+  }
+
+  /**
    * Resolve clean symbol mapping
    */
   public static getMapping(symbol: string): SymbolMeta {
