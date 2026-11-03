@@ -683,37 +683,37 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               ),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    instrument.symbol,
-                                    style: AppTypography.headlineSm,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            runSpacing: 2,
+                            children: [
+                              Text(
+                                instrument.symbol,
+                                style: AppTypography.headlineSm,
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceHighest,
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceHighest,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text('${instrument.category} ${instrument.exchange}', style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(instrument.name, style: AppTypography.bodyMd, overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
+                                child: Text('${instrument.category} ${instrument.exchange}', style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(instrument.name, style: AppTypography.bodyMd, overflow: TextOverflow.ellipsis),
+                        ],
                       ),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -721,6 +721,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                           Text('$currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTicker),
                           const SizedBox(height: 2),
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 instrument.isPositive ? Icons.arrow_drop_up : Icons.arrow_drop_down,

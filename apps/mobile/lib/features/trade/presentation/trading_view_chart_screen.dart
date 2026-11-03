@@ -661,150 +661,150 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
 
             // Timeframe & Chart-Type Pro Toolbar
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: const BoxDecoration(
                 color: AppColors.tvCardBg,
                 border: Border(bottom: BorderSide(color: AppColors.tvBorder)),
               ),
-              child: Row(
-                children: [
-                  // Interval selection pills
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: _supportedIntervals.map((i) {
-                          final isSelected = i.toLowerCase() == interval.toLowerCase();
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(6),
-                              onTap: () => _changeInterval(i),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? AppColors.zerodhaBlue : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: isSelected ? AppColors.zerodhaBlue : AppColors.tvBorder,
-                                  ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    // Interval selection pills
+                    Row(
+                      children: _supportedIntervals.map((i) {
+                        final isSelected = i.toLowerCase() == interval.toLowerCase();
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () => _changeInterval(i),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: isSelected ? AppColors.zerodhaBlue : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isSelected ? AppColors.zerodhaBlue : AppColors.tvBorder,
                                 ),
-                                child: Text(
-                                  i.toUpperCase(),
-                                  style: AppTypography.labelSm.copyWith(
-                                    fontSize: 11,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                    color: isSelected ? Colors.white : AppColors.outline,
-                                  ),
+                              ),
+                              child: Text(
+                                i.toUpperCase(),
+                                style: AppTypography.labelSm.copyWith(
+                                  fontSize: 11,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  color: isSelected ? Colors.white : AppColors.outline,
                                 ),
                               ),
                             ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-
-                  // Indicators bottom sheet trigger
-                  InkWell(
-                    key: const ValueKey('chart_indicators_button'),
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: () => _openIndicatorsModal(context),
-                    child: Container(
-                      height: 28,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: _indicators.any((i) => i.isEnabled && i.type != 'VOLUME')
-                            ? AppColors.zerodhaBlue.withOpacity(0.2)
-                            : AppColors.tvDarkBg,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: _indicators.any((i) => i.isEnabled && i.type != 'VOLUME')
-                              ? AppColors.zerodhaBlue
-                              : AppColors.tvBorder,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.functions, size: 14, color: AppColors.zerodhaBlue),
-                          const SizedBox(width: 4),
-                          Text(
-                            'fx (${_indicators.where((i) => i.isEnabled && i.type != 'VOLUME').length})',
-                            style: AppTypography.labelSm.copyWith(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.onSurface,
-                            ),
                           ),
-                        ],
-                      ),
+                        );
+                      }).toList(),
                     ),
-                  ),
-                  const SizedBox(width: 6),
+                    const SizedBox(width: 6),
 
-                  // Draw tools toggle
-                  InkWell(
-                    key: const ValueKey('chart_draw_tools_button'),
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: () => setState(() => _showDrawingTools = !_showDrawingTools),
-                    child: Container(
-                      height: 28,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: _showDrawingTools
-                            ? AppColors.zerodhaBlue.withOpacity(0.2)
-                            : AppColors.tvDarkBg,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: _showDrawingTools
-                              ? AppColors.zerodhaBlue
-                              : AppColors.tvBorder,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.draw_outlined,
-                            size: 14,
-                            color: _showDrawingTools ? AppColors.zerodhaBlue : AppColors.outline,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _drawings.isEmpty ? 'Draw' : 'Draw (${_drawings.length})',
-                            style: AppTypography.labelSm.copyWith(
-                              fontSize: 11,
-                              fontWeight: _showDrawingTools ? FontWeight.bold : FontWeight.w500,
-                              color: _showDrawingTools ? AppColors.zerodhaBlue : AppColors.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-
-                  // Chart type toggle
-                  Container(
-                    height: 28,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.tvDarkBg,
+                    // Indicators bottom sheet trigger
+                    InkWell(
+                      key: const ValueKey('chart_indicators_button'),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.tvBorder),
+                      onTap: () => _openIndicatorsModal(context),
+                      child: Container(
+                        height: 28,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: _indicators.any((i) => i.isEnabled && i.type != 'VOLUME')
+                              ? AppColors.zerodhaBlue.withOpacity(0.2)
+                              : AppColors.tvDarkBg,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: _indicators.any((i) => i.isEnabled && i.type != 'VOLUME')
+                                ? AppColors.zerodhaBlue
+                                : AppColors.tvBorder,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.functions, size: 14, color: AppColors.zerodhaBlue),
+                            const SizedBox(width: 4),
+                            Text(
+                              'fx (${_indicators.where((i) => i.isEnabled && i.type != 'VOLUME').length})',
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildChartTypeIcon('candles', Icons.candlestick_chart, 'Candles'),
-                        _buildChartTypeIcon('line', Icons.show_chart, 'Line'),
-                        _buildChartTypeIcon('area', Icons.area_chart, 'Area'),
-                        _buildChartTypeIcon('bars', Icons.view_column_outlined, 'Bars'),
-                      ],
+                    const SizedBox(width: 6),
+
+                    // Draw tools toggle
+                    InkWell(
+                      key: const ValueKey('chart_draw_tools_button'),
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () => setState(() => _showDrawingTools = !_showDrawingTools),
+                      child: Container(
+                        height: 28,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: _showDrawingTools
+                              ? AppColors.zerodhaBlue.withOpacity(0.2)
+                              : AppColors.tvDarkBg,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: _showDrawingTools
+                                ? AppColors.zerodhaBlue
+                                : AppColors.tvBorder,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.draw_outlined,
+                              size: 14,
+                              color: _showDrawingTools ? AppColors.zerodhaBlue : AppColors.outline,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _drawings.isEmpty ? 'Draw' : 'Draw (${_drawings.length})',
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 11,
+                                fontWeight: _showDrawingTools ? FontWeight.bold : FontWeight.w500,
+                                color: _showDrawingTools ? AppColors.zerodhaBlue : AppColors.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+
+                    // Chart type toggle
+                    Container(
+                      height: 28,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.tvDarkBg,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.tvBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildChartTypeIcon('candles', Icons.candlestick_chart, 'Candles'),
+                          _buildChartTypeIcon('line', Icons.show_chart, 'Line'),
+                          _buildChartTypeIcon('area', Icons.area_chart, 'Area'),
+                          _buildChartTypeIcon('bars', Icons.view_column_outlined, 'Bars'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 

@@ -271,10 +271,13 @@ class HomeDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
                 icon: const Icon(Icons.logout, size: 20, color: AppColors.outline),
                 tooltip: 'Logout',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 onPressed: () async {
                   await ref.read(authProvider.notifier).logout();
                   if (context.mounted) {
@@ -668,39 +671,61 @@ class HomeDashboardScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.borderSubtle),
       ),
-      child: ListTile(
+      child: InkWell(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        title: Row(
-          children: [
-            Text(symbol, style: AppTypography.headlineSm.copyWith(fontSize: 15)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceHighest,
-                borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            symbol,
+                            style: AppTypography.headlineSm.copyWith(fontSize: 15),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceHighest,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(exchange, style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(name, style: AppTypography.bodyMd.copyWith(fontSize: 12), overflow: TextOverflow.ellipsis),
+                  ],
+                ),
               ),
-              child: Text(exchange, style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
-            ),
-          ],
-        ),
-        subtitle: Text(name, style: AppTypography.bodyMd.copyWith(fontSize: 12)),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(displayPrice, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 2),
-            Text(
-              displayChange,
-              style: AppTypography.numericTable.copyWith(
-                color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+              const SizedBox(width: 8),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(displayPrice, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(
+                    displayChange,
+                    style: AppTypography.numericTable.copyWith(
+                      color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -207,31 +207,34 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
     if (_showRsi) chartHeight += 55.0;
     if (_showMacd) chartHeight += 55.0;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainer,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. Header with Stock Symbol, Status Pill, Range & Interval Readout, and LTP
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.borderSubtle),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Header with Stock Symbol, Status Pill, Range & Interval Readout, and LTP
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 2,
                   children: [
-                    Flexible(
-                      child: Text(
-                        widget.symbol,
-                        style: AppTypography.headlineSm.copyWith(fontSize: 14),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Text(
+                      widget.symbol,
+                      style: AppTypography.headlineSm.copyWith(fontSize: 14),
                     ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -256,19 +259,17 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              if (displayPrice != null)
-                Text(
-                  '$currency${displayPrice.toStringAsFixed(2)}',
-                  style: AppTypography.numericTable.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: (activeCandle?.isBullish ?? true) ? AppColors.secondary : AppColors.tertiary,
+                if (displayPrice != null)
+                  Text(
+                    '$currency${displayPrice.toStringAsFixed(2)}',
+                    style: AppTypography.numericTable.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: (activeCandle?.isBullish ?? true) ? AppColors.secondary : AppColors.tertiary,
+                    ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 6),
 
           // 2. Crosshair Inspection / Active Candle OHLCV Readout
@@ -566,9 +567,10 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
             ),
           ],
         ),
-        ],
-      ),
-    );
+      ],
+    ),
+  ),
+);
   }
 
   Widget _buildIndicatorChip(String label, bool active, Color color, VoidCallback onTap) {
