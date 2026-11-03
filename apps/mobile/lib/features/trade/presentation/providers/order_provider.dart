@@ -168,14 +168,13 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
   final apiClient = ref.watch(apiClientProvider);
   final encodedSymbol = Uri.encodeComponent(query.symbol);
 
-  // 1. Primary endpoint: /market/candles or /market-data/candles with interval & range
+  // 1. Primary endpoint: /market/candles (Lightweight Charts canonical API)
   try {
     final response = await apiClient.get<Map<String, dynamic>>(
-      '/market/candles/$encodedSymbol',
+      '/market/candles',
       queryParameters: {
         'symbol': query.symbol,
         'interval': query.interval,
-        'range': query.range,
         'limit': 250,
       },
     );
@@ -188,7 +187,7 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
     }
   } catch (_) {}
 
-  // 2. Legacy fallback endpoint
+  // 2. Fallback endpoint: /market/candles/:symbol
   try {
     final response = await apiClient.get<Map<String, dynamic>>(
       '/market-data/candles/$encodedSymbol',

@@ -1,11 +1,16 @@
+import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/network/live_ticker_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 import '../../markets/domain/market_models.dart';
+import '../../portfolio/domain/portfolio_models.dart';
 import '../../portfolio/presentation/providers/portfolio_provider.dart';
 import 'providers/order_provider.dart';
 import 'widgets/candlestick_chart_view.dart';
@@ -19,21 +24,24 @@ class TradingViewChartScreen extends ConsumerStatefulWidget {
   ConsumerState<TradingViewChartScreen> createState() => _TradingViewChartScreenState();
 }
 
-class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen> with SingleTickerProviderStateMixin {
+class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   double? _lastLtp;
 
+  WebViewController? _webViewController;
+  bool _isWebViewReady = false;
+  bool _hasWebViewError = false;
+  bool _isDelayed = false;
+  String _selectedChartType = 'candles'; // 'candles', 'line', 'area', 'bars'
+
+  static const List<String> _supportedIntervals = ['1m', '5m', '15m', '1h', '1d'];
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final sym = widget.instrument?.symbol ?? ref.read(selectedTradeInstrumentProvider).symbol;
-      if (sym.isNotEmpty) {
-        ref.read(liveQuotesProvider.notifier).trackSymbol(sym);
-      }
-    });
+
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -41,12 +49,211 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    final bool isTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (!isTest) {
+      _initWebViewController();
+    } else {
+      _hasWebViewError = true; // Use canvas chart in widget tests
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final instrument = _getEffectiveInstrument();
+      final interval = ref.read(selectedCandleIntervalProvider);
+
+      ref.read(liveQuotesProvider.notifier).trackSymbol(instrument.symbol);
+      ref.read(liveQuotesProvider.notifier).subscribeChart(
+        symbol: instrument.symbol,
+        interval: interval,
+        onReconnect: _onSocketReconnect,
+      );
+      ref.read(liveQuotesProvider.notifier).addChartTickListener(_onChartTick);
+    });
   }
 
   @override
   void dispose() {
+    final instrument = _getEffectiveInstrument();
+    final interval = ref.read(selectedCandleIntervalProvider);
+    ref.read(liveQuotesProvider.notifier).removeChartTickListener(_onChartTick);
+    ref.read(liveQuotesProvider.notifier).unsubscribeChart(
+      symbol: instrument.symbol,
+      interval: interval,
+    );
     _pulseController.dispose();
     super.dispose();
+  }
+
+  InstrumentModel _getEffectiveInstrument() {
+    return widget.instrument ?? ref.read(selectedTradeInstrumentProvider);
+  }
+
+  void _initWebViewController() {
+    try {
+      final controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(AppColors.tvDarkBg)
+        ..addJavaScriptChannel(
+          'Flutter',
+          onMessageReceived: (JavaScriptMessage msg) {
+            _handleJavaScriptMessage(msg.message);
+          },
+        )
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onPageFinished: (_) {
+              if (!mounted) return;
+              _isWebViewReady = true;
+              _syncCandlesToWebView();
+              _syncPositionLinesToWebView();
+            },
+            onWebResourceError: (_) {
+              if (mounted) {
+                setState(() => _hasWebViewError = true);
+              }
+            },
+          ),
+        )
+        ..loadFlutterAsset('assets/chart/chart.html');
+
+      _webViewController = controller;
+    } catch (_) {
+      _hasWebViewError = true;
+    }
+  }
+
+  void _handleJavaScriptMessage(String message) {
+    try {
+      final data = jsonDecode(message) as Map<String, dynamic>;
+      final type = data['type'] as String?;
+      if (type == 'onChartReady') {
+        _isWebViewReady = true;
+        _syncCandlesToWebView();
+        _syncPositionLinesToWebView();
+      }
+    } catch (_) {}
+  }
+
+  void _onSocketReconnect() {
+    if (!mounted) return;
+    final instrument = _getEffectiveInstrument();
+    final interval = ref.read(selectedCandleIntervalProvider);
+    final range = ref.read(selectedHistoryRangeProvider);
+
+    // Re-fetch latest candles after network reconnect
+    ref.invalidate(candlesProvider(CandleQuery(
+      symbol: instrument.symbol,
+      interval: interval,
+      range: range,
+    )));
+  }
+
+  void _onChartTick(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final instrument = _getEffectiveInstrument();
+    final tickSymbol = data['symbol'] as String?;
+
+    if (tickSymbol != null && !_isMatchingSymbol(tickSymbol, instrument.symbol)) {
+      return;
+    }
+
+    final delayed = data['delayed'] == true;
+    if (_isDelayed != delayed) {
+      setState(() => _isDelayed = delayed);
+      _webViewController?.runJavaScript('window.setDelayedBadge($delayed);');
+    }
+
+    final jsonStr = jsonEncode(data);
+    _webViewController?.runJavaScript('window.updateCandle($jsonStr);');
+
+    final close = (data['close'] as num?)?.toDouble();
+    if (close != null && close > 0) {
+      _triggerPricePulse(close);
+    }
+  }
+
+  bool _isMatchingSymbol(String a, String b) {
+    final cleanA = a.toUpperCase().replaceAll(RegExp(r'[\/\-_]'), '').replaceFirst(RegExp(r'USDT$|USD$'), '');
+    final cleanB = b.toUpperCase().replaceAll(RegExp(r'[\/\-_]'), '').replaceFirst(RegExp(r'USDT$|USD$'), '');
+    return cleanA == cleanB;
+  }
+
+  void _syncCandlesToWebView() {
+    if (!_isWebViewReady || _webViewController == null) return;
+    final instrument = _getEffectiveInstrument();
+    final interval = ref.read(selectedCandleIntervalProvider);
+    final range = ref.read(selectedHistoryRangeProvider);
+
+    final candles = ref.read(candlesProvider(CandleQuery(
+      symbol: instrument.symbol,
+      interval: interval,
+      range: range,
+    ))).valueOrNull;
+
+    if (candles != null && candles.isNotEmpty) {
+      final candlesJson = jsonEncode(candles.map((c) => c.toJson()).toList());
+      _webViewController!.runJavaScript(
+        'window.setCandles($candlesJson); window.setSymbol("${instrument.symbol}"); window.setDelayedBadge($_isDelayed);',
+      );
+    }
+  }
+
+  void _syncPositionLinesToWebView() {
+    if (!_isWebViewReady || _webViewController == null) return;
+    final instrument = _getEffectiveInstrument();
+    final portfolio = ref.read(portfolioProvider).valueOrNull;
+    final isCrypto = instrument.symbol.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => instrument.symbol.contains(c));
+    final currency = (isCrypto || instrument.exchange == 'US') ? '\$' : '₹';
+
+    final activeHolding = portfolio?.holdings
+        .where((h) => _isMatchingSymbol(h.symbol, instrument.symbol))
+        .firstOrNull;
+
+    if (activeHolding != null && activeHolding.quantity > 0) {
+      final posData = {
+        'entryPrice': activeHolding.averageBuyPrice,
+        'quantity': activeHolding.quantity,
+        'isBuy': true,
+        'currency': currency,
+        'slPrice': activeHolding.averageBuyPrice * 0.98,
+        'targetPrice': activeHolding.averageBuyPrice * 1.04,
+      };
+      _webViewController!.runJavaScript('window.setPositionLines(${jsonEncode(posData)});');
+    } else {
+      _webViewController!.runJavaScript('window.clearPositionLines();');
+    }
+  }
+
+  void _changeInterval(String newInterval) {
+    final instrument = _getEffectiveInstrument();
+    final oldInterval = ref.read(selectedCandleIntervalProvider);
+    if (oldInterval == newInterval) return;
+
+    ref.read(liveQuotesProvider.notifier).unsubscribeChart(
+      symbol: instrument.symbol,
+      interval: oldInterval,
+    );
+
+    ref.read(selectedCandleIntervalProvider.notifier).state = newInterval;
+
+    ref.read(liveQuotesProvider.notifier).subscribeChart(
+      symbol: instrument.symbol,
+      interval: newInterval,
+      onReconnect: _onSocketReconnect,
+    );
+
+    // Refresh history
+    ref.invalidate(candlesProvider(CandleQuery(
+      symbol: instrument.symbol,
+      interval: newInterval,
+      range: ref.read(selectedHistoryRangeProvider),
+    )));
+  }
+
+  void _changeChartType(String type) {
+    setState(() => _selectedChartType = type);
+    _webViewController?.runJavaScript('window.setChartType("$type");');
   }
 
   void _triggerPricePulse(double newPrice) {
@@ -72,196 +279,12 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     );
   }
 
-  void _showTradingViewModal(BuildContext context, InstrumentModel instrument) {
-    final tvSymbol = _resolveTvSymbol(instrument.symbol);
-    final externalUrl = 'https://in.tradingview.com/chart/3gcDTCUI/?symbol=$tvSymbol';
-    final localUrl = 'http://localhost:5000/tradingview?symbol=${instrument.symbol}';
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.tvCardBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.show_chart, color: AppColors.zerodhaBlue, size: 22),
-                      const SizedBox(width: 8),
-                      Text(
-                        'TradingView Pro Terminal',
-                        style: AppTypography.headlineSm.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20, color: AppColors.outline),
-                    onPressed: () => Navigator.of(ctx).pop(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.tvDarkBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.tvBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('TradingView Symbol:', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.zerodhaBlue.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            tvSymbol,
-                            style: AppTypography.labelSm.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.zerodhaBlue,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Live Feed Source:', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
-                        Text('Binance 24/7 Spot / NSE Real-Time', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Indicators Active:', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
-                        Text('RSI(14), SMA(20), EMA(20), MACD', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.w600, color: AppColors.secondary)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'TradingView Live Chart Terminal URL',
-                style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 11),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.tvDarkBg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: SelectableText(
-                  externalUrl,
-                  style: AppTypography.numericTable.copyWith(fontSize: 11, color: AppColors.zerodhaBlue),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.tvDarkBg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.borderSubtle),
-                ),
-                child: SelectableText(
-                  localUrl,
-                  style: AppTypography.numericTable.copyWith(fontSize: 11, color: AppColors.kiteGreen),
-                ),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                height: 46,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.zerodhaBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('TradingView Terminal ready for $tvSymbol on http://localhost:5000/tradingview'),
-                        backgroundColor: AppColors.zerodhaBlue,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.check_circle_outline, size: 18),
-                  label: const Text('Confirm & Use TradingView Terminal', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String _resolveTvSymbol(String symbol) {
-    final clean = symbol.trim().toUpperCase();
-    if (clean.contains('BTC')) return 'BINANCE:BTCUSDT';
-    if (clean.contains('ETH')) return 'BINANCE:ETHUSDT';
-    if (clean.contains('SOL')) return 'BINANCE:SOLUSDT';
-    if (clean.contains('DOGE')) return 'BINANCE:DOGEUSDT';
-    if (clean.contains('BNB')) return 'BINANCE:BNBUSDT';
-    if (clean == 'NIFTY 50' || clean == 'NIFTY') return 'NSE:NIFTY';
-    if (clean == 'BANKNIFTY') return 'NSE:BANKNIFTY';
-    if (clean == 'FINNIFTY') return 'NSE:FINNIFTY';
-    if (clean == 'SENSEX') return 'BSE:SENSEX';
-    if (clean.contains('GOLD')) return 'MCX:GOLD1!';
-    if (clean.contains('SILVER')) return 'MCX:SILVER1!';
-    if (clean.contains('CRUDE')) return 'MCX:CRUDEOIL1!';
-    if (clean.contains('NATURALGAS')) return 'MCX:NATURALGAS1!';
-    final usEquities = ['AAPL', 'NVDA', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'AMD', 'COIN', 'SPY'];
-    if (usEquities.contains(clean)) return 'NASDAQ:$clean';
-    return 'NSE:$clean';
-  }
-
   @override
   Widget build(BuildContext context) {
     final instrument = widget.instrument ?? ref.watch(selectedTradeInstrumentProvider);
     final interval = ref.watch(selectedCandleIntervalProvider);
     final range = ref.watch(selectedHistoryRangeProvider);
     final portfolio = ref.watch(portfolioProvider).valueOrNull;
-
-    if (instrument == null) {
-      return Scaffold(
-        backgroundColor: AppColors.tvDarkBg,
-        appBar: AppBar(
-          backgroundColor: AppColors.tvDarkBg,
-          title: const Text('TradingView Pro Chart'),
-        ),
-        body: Center(
-          child: Text('No stock selected. Return to Markets to choose an instrument.', style: AppTypography.bodyMd),
-        ),
-      );
-    }
 
     final liveQuote = ref.watch(liveQuoteForSymbolProvider(instrument.symbol));
     final ltp = (liveQuote != null && liveQuote.price > 0) ? liveQuote.price : instrument.price;
@@ -280,8 +303,18 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
       range: range,
     )));
 
+    // When candles finish loading, sync to webview
+    candlesAsync.whenData((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _syncCandlesToWebView();
+        _syncPositionLinesToWebView();
+      });
+    });
+
     // Active position lookup for this stock
-    final activeHolding = portfolio?.holdings.where((h) => h.symbol.toUpperCase() == instrument.symbol.toUpperCase()).firstOrNull;
+    final activeHolding = portfolio?.holdings
+        .where((h) => _isMatchingSymbol(h.symbol, instrument.symbol))
+        .firstOrNull;
     final hasHolding = activeHolding != null && activeHolding.quantity > 0;
     final holdingInvested = hasHolding ? activeHolding.quantity * activeHolding.averageBuyPrice : 0.0;
     final holdingCurrent = hasHolding ? activeHolding.quantity * ltp : 0.0;
@@ -322,6 +355,21 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                         style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
                       ),
                     ),
+                    if (_isDelayed) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.kiteRed.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.kiteRed.withOpacity(0.4)),
+                        ),
+                        child: Text(
+                          'DELAYED',
+                          style: AppTypography.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.kiteRed),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 Text(
@@ -334,40 +382,16 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
           ],
         ),
         actions: [
-          InkWell(
-            onTap: () => _showTradingViewModal(context, instrument),
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              margin: const EdgeInsets.only(right: 14),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.kiteGreen.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.kiteGreen.withOpacity(0.3)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: AppColors.kiteGreen,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    'TRADINGVIEW PRO ↗',
-                    style: AppTypography.labelSm.copyWith(
-                      color: AppColors.kiteGreen,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
+          IconButton(
+            tooltip: _hasWebViewError ? 'Switch to Lightweight Chart' : 'Switch to Canvas Chart',
+            icon: Icon(
+              _hasWebViewError ? Icons.web : Icons.brush,
+              size: 20,
+              color: AppColors.outline,
             ),
+            onPressed: () {
+              setState(() => _hasWebViewError = !_hasWebViewError);
+            },
           ),
         ],
       ),
@@ -423,7 +447,11 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                       ),
                       Text(
                         interval.toUpperCase(),
-                        style: AppTypography.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.zerodhaBlue),
+                        style: AppTypography.labelSm.copyWith(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.zerodhaBlue,
+                        ),
                       ),
                     ],
                   ),
@@ -500,33 +528,113 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                 ),
               ),
 
-            // Candlestick Chart View
+            // Timeframe & Chart-Type Pro Toolbar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: const BoxDecoration(
+                color: AppColors.tvCardBg,
+                border: Border(bottom: BorderSide(color: AppColors.tvBorder)),
+              ),
+              child: Row(
+                children: [
+                  // Interval selection pills
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _supportedIntervals.map((i) {
+                          final isSelected = i.toLowerCase() == interval.toLowerCase();
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: () => _changeInterval(i),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? AppColors.zerodhaBlue : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: isSelected ? AppColors.zerodhaBlue : AppColors.tvBorder,
+                                  ),
+                                ),
+                                child: Text(
+                                  i.toUpperCase(),
+                                  style: AppTypography.labelSm.copyWith(
+                                    fontSize: 11,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                    color: isSelected ? Colors.white : AppColors.outline,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+
+                  // Chart type toggle
+                  Container(
+                    height: 28,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.tvDarkBg,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.tvBorder),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildChartTypeIcon('candles', Icons.candlestick_chart, 'Candles'),
+                        _buildChartTypeIcon('line', Icons.show_chart, 'Line'),
+                        _buildChartTypeIcon('area', Icons.area_chart, 'Area'),
+                        _buildChartTypeIcon('bars', Icons.view_column_outlined, 'Bars'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Main Chart View: TradingView Lightweight Charts (or Fallback Canvas)
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: CandlestickChartView(
-                  symbol: instrument.symbol,
-                  candles: candlesAsync.valueOrNull ?? [],
-                  currentPrice: ltp,
-                  currencySymbol: currency,
-                  isLoading: candlesAsync.isLoading,
-                  errorMessage: candlesAsync.hasError ? candlesAsync.error.toString() : null,
-                  selectedInterval: interval,
-                  onIntervalChanged: (newInterval) {
-                    ref.read(selectedCandleIntervalProvider.notifier).state = newInterval;
-                  },
-                  selectedRange: range,
-                  onRangeChanged: (newRange) {
-                    ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
-                  },
-                  status: liveQuote?.status == 'LIVE'
-                      ? 'LIVE'
-                      : (liveQuote?.status == 'DELAYED'
-                          ? 'DELAYED'
-                          : ((ref.watch(authProvider).isDemoMode || instrument.isSimulated) ? 'SIMULATED' : 'LIVE')),
-                  onRetry: () => ref.refresh(candlesProvider(CandleQuery(symbol: instrument.symbol, interval: interval, range: range))),
-                  onOpenTradingView: () => _showTradingViewModal(context, instrument),
-                ),
+                child: _hasWebViewError
+                    ? CandlestickChartView(
+                        symbol: instrument.symbol,
+                        candles: candlesAsync.valueOrNull ?? [],
+                        currentPrice: ltp,
+                        currencySymbol: currency,
+                        isLoading: candlesAsync.isLoading,
+                        errorMessage: candlesAsync.hasError ? candlesAsync.error.toString() : null,
+                        selectedInterval: interval,
+                        onIntervalChanged: _changeInterval,
+                        selectedRange: range,
+                        onRangeChanged: (newRange) {
+                          ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
+                        },
+                        status: _isDelayed ? 'DELAYED' : (liveQuote?.status == 'LIVE' ? 'LIVE' : 'SIMULATED'),
+                        onRetry: () => ref.refresh(candlesProvider(CandleQuery(
+                          symbol: instrument.symbol,
+                          interval: interval,
+                          range: range,
+                        ))),
+                      )
+                    : Stack(
+                        children: [
+                          if (_webViewController != null)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: WebViewWidget(controller: _webViewController!),
+                            ),
+                          if (candlesAsync.isLoading)
+                            const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.zerodhaBlue),
+                            ),
+                        ],
+                      ),
               ),
             ),
 
@@ -594,6 +702,29 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartTypeIcon(String type, IconData icon, String tooltip) {
+    final isSelected = _selectedChartType == type;
+    return InkWell(
+      borderRadius: BorderRadius.circular(4),
+      onTap: () => _changeChartType(type),
+      child: Tooltip(
+        message: tooltip,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.tvCardBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: isSelected ? AppColors.zerodhaBlue : AppColors.outline,
+          ),
         ),
       ),
     );
@@ -703,41 +834,48 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Order Booked Successfully! 🎉',
-                      style: AppTypography.bodyLg.copyWith(
+                      '${_isBuy ? 'BUY' : 'SELL'} Booked Successfully!',
+                      style: AppTypography.headlineSm.copyWith(
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: _isBuy ? AppColors.kiteGreen : AppColors.kiteRed,
                       ),
                     ),
                     Text(
-                      '${_isBuy ? 'BOUGHT' : 'SOLD'} $_quantity ${widget.instrument.symbol} @ $currency${(bookedPrice ?? _liveLtp).toStringAsFixed(2)} ($_product)',
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
+                      '${widget.instrument.symbol} • $_quantity Lots @ $currency${(bookedPrice ?? _liveLtp).toStringAsFixed(2)}',
+                      style: AppTypography.bodyMd.copyWith(fontSize: 12),
                     ),
                   ],
                 ),
               ),
             ],
           ),
+          duration: const Duration(seconds: 4),
         ),
       );
     } catch (e) {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: AppColors.errorContainer, content: Text('Order failed: $e')),
-        );
-      }
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.errorContainer,
+          content: Text(
+            e is StateError ? e.message : 'Order execution failed. Please check balance and try again.',
+          ),
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(liveQuoteForSymbolProvider(widget.instrument.symbol));
+    final livePrice = _liveLtp;
     final isCrypto = widget.instrument.symbol.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => widget.instrument.symbol.contains(c));
     final currency = (isCrypto || widget.instrument.exchange == 'US' || widget.instrument.category == 'US') ? '\$' : '₹';
-    final margin = _getRequiredMargin();
+
     final portfolio = ref.watch(portfolioProvider).valueOrNull;
     final available = portfolio?.availableCash ?? 1000000.0;
+    final margin = _getRequiredMargin();
 
     return Padding(
       padding: EdgeInsets.only(
@@ -750,132 +888,188 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Drag Handle
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.outline.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     widget.instrument.symbol,
-                    style: AppTypography.headlineSm.copyWith(fontWeight: FontWeight.bold),
+                    style: AppTypography.headlineSm.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.tvCardBg,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(widget.instrument.exchange, style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                  Text(
+                    '${widget.instrument.exchange} • ${widget.instrument.name}',
+                    style: AppTypography.bodyMd.copyWith(fontSize: 12, color: AppColors.outline),
                   ),
                 ],
               ),
-              Text(
-                '$currency${_liveLtp.toStringAsFixed(2)}',
-                style: AppTypography.numericTicker.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '$currency${livePrice.toStringAsFixed(2)}',
+                    style: AppTypography.numericTicker.copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _isBuy ? AppColors.kiteGreen : AppColors.kiteRed,
+                    ),
+                  ),
+                  Text(
+                    'REAL-TIME PRICE',
+                    style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Buy / Sell Selector Pill
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => setState(() => _isBuy = true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _isBuy ? AppColors.kiteGreen : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'BUY',
+                        style: AppTypography.labelSm.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: _isBuy ? Colors.white : AppColors.outline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => setState(() => _isBuy = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: !_isBuy ? AppColors.kiteRed : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'SELL',
+                        style: AppTypography.labelSm.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: !_isBuy ? Colors.white : AppColors.outline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Product Type: Intraday MIS (5x) vs CNC/Delivery (1x)
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => setState(() => _product = 'MIS'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _product == 'MIS' ? AppColors.zerodhaBlue.withOpacity(0.15) : AppColors.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _product == 'MIS' ? AppColors.zerodhaBlue : Colors.transparent,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      children: [
+                        Text('INTRADAY (MIS)', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.bold)),
+                        Text('5x Leverage', style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.zerodhaBlue)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => setState(() => _product = 'CNC'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _product == 'CNC' ? AppColors.zerodhaBlue.withOpacity(0.15) : AppColors.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _product == 'CNC' ? AppColors.zerodhaBlue : Colors.transparent,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      children: [
+                        Text('DELIVERY (CNC)', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.bold)),
+                        Text('1x Margin', style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.outline)),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
 
-          // Buy / Sell Switcher
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () => setState(() => _isBuy = true),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _isBuy ? AppColors.kiteGreen.withOpacity(0.2) : AppColors.surfaceLowest,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _isBuy ? AppColors.kiteGreen : AppColors.borderSubtle),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'BUY (LONG)',
-                      style: AppTypography.labelSm.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: _isBuy ? AppColors.kiteGreen : AppColors.outline,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: InkWell(
-                  onTap: () => setState(() => _isBuy = false),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: !_isBuy ? AppColors.kiteRed.withOpacity(0.2) : AppColors.surfaceLowest,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: !_isBuy ? AppColors.kiteRed : AppColors.borderSubtle),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'SELL (SHORT)',
-                      style: AppTypography.labelSm.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: !_isBuy ? AppColors.kiteRed : AppColors.outline,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Product Type: MIS vs CNC
-          Row(
-            children: [
-              Expanded(
-                child: ChoiceChip(
-                  label: const Text('Intraday (MIS 5x)'),
-                  selected: _product == 'MIS',
-                  selectedColor: AppColors.zerodhaBlue.withOpacity(0.25),
-                  onSelected: (val) => setState(() => _product = 'MIS'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ChoiceChip(
-                  label: const Text('Delivery (CNC 1x)'),
-                  selected: _product == 'CNC',
-                  selectedColor: AppColors.zerodhaBlue.withOpacity(0.25),
-                  onSelected: (val) => setState(() => _product = 'CNC'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Quantity Counter
+          // Quantity Selector
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Quantity (Lots)', style: AppTypography.labelMd),
+              Text('Quantity (Lots):', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600)),
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: AppColors.onSurface),
-                    onPressed: () {
-                      if (_quantity > 1) setState(() => _quantity -= 1);
-                    },
+                    icon: const Icon(Icons.remove_circle_outline, color: AppColors.outline),
+                    onPressed: _quantity > 1 ? () => setState(() => _quantity -= 1) : null,
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceLowest,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.borderSubtle),
+                    width: 50,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$_quantity',
+                      style: AppTypography.headlineSm.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    child: Text('$_quantity', style: AppTypography.numericTicker.copyWith(fontSize: 16)),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, color: AppColors.onSurface),
+                    icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
                     onPressed: () => setState(() => _quantity += 1),
                   ),
                 ],
@@ -884,13 +1078,13 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
           ),
           const SizedBox(height: 12),
 
-          // Margin Info Card
+          // Margin Required vs Available Info Card
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceLowest,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.borderSubtle),
+              color: AppColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.outlineVariant),
             ),
             child: Column(
               children: [

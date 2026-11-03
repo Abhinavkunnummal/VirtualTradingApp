@@ -45,7 +45,7 @@ class CandleData {
 
   factory CandleData.fromJson(Map<String, dynamic> json) {
     return CandleData(
-      timestamp: (json['timestamp'] as num?)?.toInt() ?? 0,
+      timestamp: (json['time'] as num?)?.toInt() ?? (json['timestamp'] as num?)?.toInt() ?? 0,
       open: (json['open'] as num?)?.toDouble() ?? 0.0,
       high: (json['high'] as num?)?.toDouble() ?? 0.0,
       low: (json['low'] as num?)?.toDouble() ?? 0.0,
@@ -53,6 +53,15 @@ class CandleData {
       volume: (json['volume'] as num?)?.toDouble() ?? 0.0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'time': timestamp,
+    'open': open,
+    'high': high,
+    'low': low,
+    'close': close,
+    'volume': volume,
+  };
 }
 
 class CandlestickChartView extends StatefulWidget {

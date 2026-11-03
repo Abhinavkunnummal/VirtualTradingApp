@@ -64,6 +64,9 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
   io.Socket? _socket;
   Timer? _pollingTimer;
   bool _isFetching = false;
+  Map<String, dynamic>? _activeChartSubscription;
+  void Function()? _onChartReconnect;
+  final List<void Function(Map<String, dynamic>)> _chartTickListeners = [];
 
   static const List<String> _defaultTrackedSymbols = [
     'BTC/USDT',
@@ -108,6 +111,10 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
 
       _socket?.onConnect((_) {
         _socket?.emit('join_ticker', {'symbols': _trackedSymbols.toList()});
+        if (_activeChartSubscription != null) {
+          _socket?.emit('chart:subscribe', _activeChartSubscription);
+          _onChartReconnect?.call();
+        }
       });
 
       _socket?.on('ticker_tick', (data) {
@@ -115,9 +122,57 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
           _updateQuote(LiveQuote.fromJson(data));
         }
       });
+
+      _socket?.on('chart:tick', (data) {
+        if (data is Map<String, dynamic>) {
+          for (final listener in List.of(_chartTickListeners)) {
+            listener(data);
+          }
+        }
+      });
     } catch (_) {
       // Non-fatal, polling fallback will handle ticks
     }
+  }
+
+  /// Subscribe to TradingView-style Lightweight Chart live streaming ticks
+  void subscribeChart({
+    required String symbol,
+    required String interval,
+    void Function()? onReconnect,
+  }) {
+    _activeChartSubscription = {
+      'symbol': symbol,
+      'interval': interval,
+    };
+    _onChartReconnect = onReconnect;
+    final bool isTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (!isTest && _socket?.connected == true) {
+      _socket?.emit('chart:subscribe', _activeChartSubscription);
+    }
+  }
+
+  /// Unsubscribe from TradingView-style Lightweight Chart live streaming ticks
+  void unsubscribeChart({String? symbol, String? interval}) {
+    _activeChartSubscription = null;
+    _onChartReconnect = null;
+    final bool isTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (!isTest && _socket?.connected == true) {
+      _socket?.emit('chart:unsubscribe', {
+        if (symbol != null) 'symbol': symbol,
+        if (interval != null) 'interval': interval,
+      });
+    }
+  }
+
+  /// Add real-time listener for incoming chart forming candle ticks
+  void addChartTickListener(void Function(Map<String, dynamic>) listener) {
+    _chartTickListeners.add(listener);
+  }
+
+  /// Remove chart tick listener
+  void removeChartTickListener(void Function(Map<String, dynamic>) listener) {
+    _chartTickListeners.remove(listener);
   }
 
   /// Subscribe to instruments opened by the user, including searched symbols.
