@@ -481,10 +481,12 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                       const SizedBox(width: 6),
                       Builder(
                         builder: (context) {
-                          final isCrypto = widget.instrument.exchange == 'CRYPTO' ||
-                              widget.instrument.category == 'CRYPTO' ||
-                              widget.instrument.symbol.contains('/') ||
-                              widget.instrument.symbol.toUpperCase().endsWith('USDT');
+                          final inst = widget.instrument;
+                          final isCrypto = inst != null &&
+                              (inst.exchange == 'CRYPTO' ||
+                                  inst.category == 'CRYPTO' ||
+                                  inst.symbol.contains('/') ||
+                                  inst.symbol.toUpperCase().endsWith('USDT'));
                           final showLive = isCrypto && !_isDelayed;
 
                           return Container(

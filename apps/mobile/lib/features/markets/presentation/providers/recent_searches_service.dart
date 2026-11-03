@@ -1,23 +1,29 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class RecentSearchesNotifier extends StateNotifier<List<String>> {
   static const String _storageKey = 'tradeverse_recent_searches';
   static const int _maxRecent = 10;
+  final FlutterSecureStorage _storage;
 
-  RecentSearchesNotifier() : super(const []) {
+  RecentSearchesNotifier([FlutterSecureStorage? storage])
+      : _storage = storage ?? const FlutterSecureStorage(),
+        super(const []) {
     _load();
   }
 
   Future<void> _load() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final list = prefs.getStringList(_storageKey);
-      if (list != null && list.isNotEmpty) {
-        state = list;
+      final raw = await _storage.read(key: _storageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          state = decoded.map((e) => e.toString()).toList();
+        }
       }
     } catch (_) {
-      // In tests or if storage unavailable
+      // In tests or if storage is uninitialized
     }
   }
 
@@ -37,8 +43,7 @@ class RecentSearchesNotifier extends StateNotifier<List<String>> {
     state = updated;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_storageKey, updated);
+      await _storage.write(key: _storageKey, value: jsonEncode(updated));
     } catch (_) {}
   }
 
@@ -46,16 +51,14 @@ class RecentSearchesNotifier extends StateNotifier<List<String>> {
     final updated = state.where((item) => item != query).toList();
     state = updated;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_storageKey, updated);
+      await _storage.write(key: _storageKey, value: jsonEncode(updated));
     } catch (_) {}
   }
 
   Future<void> clearAll() async {
     state = const [];
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_storageKey);
+      await _storage.delete(key: _storageKey);
     } catch (_) {}
   }
 }

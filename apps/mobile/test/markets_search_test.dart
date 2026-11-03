@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tradeverse_mobile/features/auth/domain/auth_models.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
@@ -127,8 +127,8 @@ void main() {
   }
 
   setUp(() {
-    SharedPreferences.setMockInitialValues({
-      'tradeverse_recent_searches': ['RELIANCE', 'NIFTY 50'],
+    FlutterSecureStorage.setMockInitialValues({
+      'tradeverse_recent_searches': '["RELIANCE", "NIFTY 50"]',
     });
   });
 
