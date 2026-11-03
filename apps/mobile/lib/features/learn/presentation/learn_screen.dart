@@ -307,11 +307,11 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
               ],
             ),
           ),
-          ),
-          );
-        },
-      ),
-    );
+        ),
+      );
+    },
+  ),
+);
   }
 
   void _openTutorModal() {
@@ -482,10 +482,10 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
               ),
             ),
           ),
-          );
-        },
-      ),
-    );
+        );
+      },
+    ),
+  );
   }
 
   @override

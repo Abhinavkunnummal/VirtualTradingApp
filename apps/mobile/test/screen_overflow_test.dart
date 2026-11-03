@@ -32,22 +32,6 @@ class _MockPortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> i
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _TestViewPadding implements ViewPadding {
-  @override
-  final double bottom;
-  @override
-  final double left;
-  @override
-  final double right;
-  @override
-  final double top;
-
-  const _TestViewPadding({this.bottom = 0.0, this.left = 0.0, this.right = 0.0, this.top = 0.0});
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
 void main() {
   const Size compactScreenSize = Size(320, 568); // Small screen: iPhone SE / 320x568
 
@@ -78,7 +62,7 @@ void main() {
     authProvider.overrideWith((ref) => _MockAuthNotifier(AuthState.demoMode())),
     portfolioProvider.overrideWith((ref) => _MockPortfolioNotifier(PortfolioModel.demo())),
     selectedTradeInstrumentProvider.overrideWith((ref) => testInstrument),
-    marketOverviewProvider.overrideWith((ref) => AsyncValue.data(MarketOverviewModel.demo().instruments)),
+    marketOverviewProvider.overrideWith((ref) => Future.value([testInstrument])),
   ];
 
   Widget buildTestApp(Widget home, {List<Override>? overrides}) {
@@ -110,7 +94,7 @@ void main() {
       expect(find.byKey(const ValueKey('login_retry_button')), findsOneWidget);
 
       // Simulate keyboard open (260px inset)
-      tester.view.viewInsets = const _TestViewPadding(bottom: 260);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
@@ -133,7 +117,7 @@ void main() {
       expect(find.text('Create Sandbox Account'), findsOneWidget);
 
       // Simulate keyboard open
-      tester.view.viewInsets = const _TestViewPadding(bottom: 260);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
