@@ -15,7 +15,10 @@ describe('Phase 7: Community & Discussion Rooms Integration Tests', () => {
 
   beforeAll(async () => {
     const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/tradeverse_test';
-    if (mongoose.connection.readyState === 0) {
+    if (mongoose.connection.readyState !== 1) {
+      if (mongoose.connection.readyState !== 0) {
+        await mongoose.disconnect();
+      }
       await mongoose.connect(mongoUri);
     }
 

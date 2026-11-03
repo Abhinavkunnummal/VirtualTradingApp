@@ -1,12 +1,14 @@
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { AlphaVantageService } from '../src/modules/market-data/alphaVantage.service';
+import { sharedAlphaVantageBudget } from '../src/modules/market-data/rateLimitBudget';
 
 describe('Alpha Vantage Live Market Data Integration Tests', () => {
   const app = createApp();
 
   beforeEach(() => {
     AlphaVantageService.clearCache();
+    sharedAlphaVantageBudget.reset();
     jest.restoreAllMocks();
   });
 
