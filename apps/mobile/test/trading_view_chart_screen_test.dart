@@ -49,11 +49,11 @@ void main() {
     isSimulated: true,
   );
 
-  Widget createWidget({InstrumentModel? instrument}) {
+  Widget createWidget({InstrumentModel? instrument, PortfolioModel? portfolio}) {
     return ProviderScope(
       overrides: [
         authProvider.overrideWith((ref) => _MockAuthNotifier(AuthState.demoMode())),
-        portfolioProvider.overrideWith((ref) => _MockPortfolioNotifier(PortfolioModel.demo())),
+        portfolioProvider.overrideWith((ref) => _MockPortfolioNotifier(portfolio ?? PortfolioModel.demo())),
         selectedTradeInstrumentProvider.overrideWith((ref) => instrument ?? testInstrument),
       ],
       child: MaterialApp(
@@ -200,6 +200,48 @@ void main() {
 
       // Icon should now be brush (canvas switcher)
       expect(find.byIcon(Icons.brush), findsOneWidget);
+    });
+
+    testWidgets('renders open position with real stopLoss and targetPrice from portfolio model', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      const customHolding = HoldingModel(
+        id: 'hold_sl_tp',
+        symbol: 'RELIANCE',
+        exchange: 'NSE',
+        quantity: 100,
+        averageBuyPrice: 2900.0,
+        ltp: 2945.50,
+        investedValue: 290000.0,
+        currentValue: 294550.0,
+        unrealizedPnl: 4550.0,
+        unrealizedPnlPercent: 1.57,
+        stopLoss: 2820.0,
+        targetPrice: 3100.0,
+      );
+
+      const customPortfolio = PortfolioModel(
+        totalPortfolioValue: 1294550.0,
+        availableCash: 500000.0,
+        investedValue: 290000.0,
+        startingCapital: 1000000.0,
+        totalPnl: 4550.0,
+        totalPnlPercent: 1.57,
+        isSimulated: true,
+        holdings: [customHolding],
+      );
+
+      await tester.pumpWidget(createWidget(
+        instrument: holdingInstrument,
+        portfolio: customPortfolio,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('OPEN POSITION: 100 LOTS'), findsOneWidget);
+      expect(find.textContaining('Avg Entry: ₹2900.00'), findsOneWidget);
+      expect(find.text('LIVE P&L'), findsOneWidget);
     });
   });
 }

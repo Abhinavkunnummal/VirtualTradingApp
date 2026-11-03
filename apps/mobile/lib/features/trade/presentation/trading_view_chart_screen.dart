@@ -8,12 +8,12 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/network/live_ticker_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../auth/presentation/providers/auth_provider.dart';
 import '../../markets/domain/market_models.dart';
 import '../../portfolio/domain/portfolio_models.dart';
 import '../../portfolio/presentation/providers/portfolio_provider.dart';
 import 'providers/order_provider.dart';
 import 'widgets/candlestick_chart_view.dart';
+import 'widgets/chart_js_bridge.dart';
 
 class TradingViewChartScreen extends ConsumerStatefulWidget {
   final InstrumentModel? instrument;
@@ -161,11 +161,10 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     final delayed = data['delayed'] == true;
     if (_isDelayed != delayed) {
       setState(() => _isDelayed = delayed);
-      _webViewController?.runJavaScript('window.setDelayedBadge($delayed);');
+      _webViewController?.runJavaScript(ChartJsBridge.buildSetDelayedBadgeCall(delayed));
     }
 
-    final jsonStr = jsonEncode(data);
-    _webViewController?.runJavaScript('window.updateCandle($jsonStr);');
+    _webViewController?.runJavaScript(ChartJsBridge.buildUpdateCandleCall(data));
 
     final close = (data['close'] as num?)?.toDouble();
     if (close != null && close > 0) {
@@ -192,9 +191,12 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     ))).valueOrNull;
 
     if (candles != null && candles.isNotEmpty) {
-      final candlesJson = jsonEncode(candles.map((c) => c.toJson()).toList());
       _webViewController!.runJavaScript(
-        'window.setCandles($candlesJson); window.setSymbol("${instrument.symbol}"); window.setDelayedBadge($_isDelayed);',
+        ChartJsBridge.buildSetCandlesCall(
+          candles,
+          symbol: instrument.symbol,
+          isDelayed: _isDelayed,
+        ),
       );
     }
   }
@@ -206,22 +208,22 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     final isCrypto = instrument.symbol.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => instrument.symbol.contains(c));
     final currency = (isCrypto || instrument.exchange == 'US') ? '\$' : '₹';
 
-    final activeHolding = portfolio?.holdings
+    final HoldingModel? activeHolding = portfolio?.holdings
         .where((h) => _isMatchingSymbol(h.symbol, instrument.symbol))
         .firstOrNull;
 
     if (activeHolding != null && activeHolding.quantity > 0) {
-      final posData = {
-        'entryPrice': activeHolding.averageBuyPrice,
-        'quantity': activeHolding.quantity,
-        'isBuy': true,
-        'currency': currency,
-        'slPrice': activeHolding.averageBuyPrice * 0.98,
-        'targetPrice': activeHolding.averageBuyPrice * 1.04,
-      };
-      _webViewController!.runJavaScript('window.setPositionLines(${jsonEncode(posData)});');
+      final jsCall = ChartJsBridge.buildSetPositionLinesCall(
+        entryPrice: activeHolding.averageBuyPrice,
+        quantity: activeHolding.quantity,
+        isBuy: true,
+        currency: currency,
+        stopLoss: activeHolding.stopLoss,
+        targetPrice: activeHolding.targetPrice,
+      );
+      _webViewController!.runJavaScript(jsCall);
     } else {
-      _webViewController!.runJavaScript('window.clearPositionLines();');
+      _webViewController!.runJavaScript(ChartJsBridge.buildClearPositionLinesCall());
     }
   }
 
@@ -253,7 +255,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
 
   void _changeChartType(String type) {
     setState(() => _selectedChartType = type);
-    _webViewController?.runJavaScript('window.setChartType("$type");');
+    _webViewController?.runJavaScript(ChartJsBridge.buildSetChartTypeCall(type));
   }
 
   void _triggerPricePulse(double newPrice) {
@@ -281,7 +283,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
 
   @override
   Widget build(BuildContext context) {
-    final instrument = widget.instrument ?? ref.watch(selectedTradeInstrumentProvider);
+    final InstrumentModel instrument = widget.instrument ?? ref.watch(selectedTradeInstrumentProvider);
     final interval = ref.watch(selectedCandleIntervalProvider);
     final range = ref.watch(selectedHistoryRangeProvider);
     final portfolio = ref.watch(portfolioProvider).valueOrNull;
@@ -312,7 +314,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     });
 
     // Active position lookup for this stock
-    final activeHolding = portfolio?.holdings
+    final HoldingModel? activeHolding = portfolio?.holdings
         .where((h) => _isMatchingSymbol(h.symbol, instrument.symbol))
         .firstOrNull;
     final hasHolding = activeHolding != null && activeHolding.quantity > 0;
@@ -943,7 +945,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLowest,
+              color: AppColors.surfaceLowest,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -1005,7 +1007,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: _product == 'MIS' ? AppColors.zerodhaBlue.withOpacity(0.15) : AppColors.surfaceContainerLowest,
+                      color: _product == 'MIS' ? AppColors.zerodhaBlue.withOpacity(0.15) : AppColors.surfaceLowest,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: _product == 'MIS' ? AppColors.zerodhaBlue : Colors.transparent,
@@ -1029,7 +1031,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: _product == 'CNC' ? AppColors.zerodhaBlue.withOpacity(0.15) : AppColors.surfaceContainerLowest,
+                      color: _product == 'CNC' ? AppColors.zerodhaBlue.withOpacity(0.15) : AppColors.surfaceLowest,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: _product == 'CNC' ? AppColors.zerodhaBlue : Colors.transparent,
@@ -1082,7 +1084,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLowest,
+              color: AppColors.surfaceLowest,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppColors.outlineVariant),
             ),

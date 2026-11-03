@@ -44,6 +44,8 @@ class HoldingModel {
   final double currentValue;
   final double unrealizedPnl;
   final double unrealizedPnlPercent;
+  final double? stopLoss;
+  final double? targetPrice;
 
   const HoldingModel({
     required this.id,
@@ -56,6 +58,8 @@ class HoldingModel {
     required this.currentValue,
     required this.unrealizedPnl,
     required this.unrealizedPnlPercent,
+    this.stopLoss,
+    this.targetPrice,
   });
 
   factory HoldingModel.fromJson(Map<String, dynamic> json) {
@@ -70,6 +74,8 @@ class HoldingModel {
       currentValue: (json['currentValue'] as num?)?.toDouble() ?? 0.0,
       unrealizedPnl: (json['unrealizedPnl'] as num?)?.toDouble() ?? 0.0,
       unrealizedPnlPercent: (json['unrealizedPnlPercent'] as num?)?.toDouble() ?? 0.0,
+      stopLoss: (json['stopLoss'] as num?)?.toDouble() ?? (json['stopLossPrice'] as num?)?.toDouble(),
+      targetPrice: (json['targetPrice'] as num?)?.toDouble(),
     );
   }
 }
