@@ -245,5 +245,36 @@ void main() {
       expect(find.textContaining('Avg Entry: ₹2900.00'), findsOneWidget);
       expect(find.text('LIVE P&L'), findsOneWidget);
     });
+
+    testWidgets('allows opening indicators modal and toggling indicators', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(createWidget());
+      await tester.pumpAndSettle();
+
+      // Find the fx indicators button in toolbar
+      final fxButton = find.byKey(const ValueKey('chart_indicators_button'));
+      expect(fxButton, findsOneWidget);
+
+      // Tap to open indicators bottom sheet
+      await tester.tap(fxButton);
+      await tester.pumpAndSettle();
+
+      // Verify modal is open and shows indicators
+      expect(find.text('Indicators & Studies'), findsOneWidget);
+      expect(find.text('EMA (Exponential MA)'), findsOneWidget);
+      expect(find.text('RSI (Relative Strength)'), findsOneWidget);
+      expect(find.text('MACD (Moving Avg Convergence)'), findsOneWidget);
+      expect(find.text('Reset'), findsOneWidget);
+      expect(find.text('Apply & Close'), findsOneWidget);
+
+      // Tap Apply & Close to dismiss
+      await tester.tap(find.text('Apply & Close'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Indicators & Studies'), findsNothing);
+    });
   });
 }

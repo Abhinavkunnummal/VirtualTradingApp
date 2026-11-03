@@ -70,6 +70,11 @@ class ChartJsBridge {
     return 'window.setTheme(\'$theme\');';
   }
 
+  /// Build JS call to set full active indicators list with periods & styles
+  static String buildSetIndicatorsCall(List<Map<String, dynamic>> indicators) {
+    return 'window.setIndicators(${jsonEncode(indicators)});';
+  }
+
   /// Build JS call to add or update an indicator (SMA, EMA, BB, VWAP, RSI, MACD)
   static String buildAddIndicatorCall(Map<String, dynamic> indicator) {
     return 'window.addIndicator(${jsonEncode(indicator)});';
@@ -78,6 +83,11 @@ class ChartJsBridge {
   /// Build JS call to remove an indicator by ID
   static String buildRemoveIndicatorCall(String id) {
     return 'window.removeIndicator(\'$id\');';
+  }
+
+  /// Build JS call to remove all indicators
+  static String buildRemoveAllIndicatorsCall() {
+    return 'window.removeAllIndicators();';
   }
 
   /// Build JS call to set drawing mode ('trend_line', 'horizontal_line', 'rectangle', 'fibonacci', 'text_note', 'cursor')

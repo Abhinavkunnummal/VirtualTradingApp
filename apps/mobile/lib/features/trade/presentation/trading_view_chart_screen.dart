@@ -11,9 +11,11 @@ import '../../../core/theme/app_typography.dart';
 import '../../markets/domain/market_models.dart';
 import '../../portfolio/domain/portfolio_models.dart';
 import '../../portfolio/presentation/providers/portfolio_provider.dart';
+import '../domain/chart_indicator_config.dart';
 import 'providers/order_provider.dart';
 import 'widgets/candlestick_chart_view.dart';
 import 'widgets/chart_js_bridge.dart';
+import 'widgets/indicators_bottom_sheet.dart';
 
 class TradingViewChartScreen extends ConsumerStatefulWidget {
   final InstrumentModel? instrument;
@@ -35,6 +37,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   bool _hasWebViewError = false;
   bool _isDelayed = false;
   String _selectedChartType = 'candles'; // 'candles', 'line', 'area', 'bars'
+  List<ChartIndicatorConfig> _indicators = ChartIndicatorConfig.defaultIndicators();
 
   LiveQuotesNotifier? _liveQuotesNotifier;
   String? _subscribedSymbol;
@@ -115,6 +118,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
               _isWebViewReady = true;
               _syncCandlesToWebView();
               _syncPositionLinesToWebView();
+              _syncIndicatorsToWebView();
             },
             onWebResourceError: (_) {
               if (mounted) {
@@ -139,6 +143,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
         _isWebViewReady = true;
         _syncCandlesToWebView();
         _syncPositionLinesToWebView();
+        _syncIndicatorsToWebView();
       }
     } catch (_) {}
   }
@@ -235,6 +240,33 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     }
   }
 
+  void _syncIndicatorsToWebView() {
+    if (!_isWebViewReady || _webViewController == null) return;
+    final payload = _indicators.map((i) => i.toJson()).toList();
+    _webViewController!.runJavaScript(ChartJsBridge.buildSetIndicatorsCall(payload));
+  }
+
+  void _openIndicatorsModal(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return IndicatorsBottomSheet(
+          indicators: _indicators,
+          onChanged: (updatedList) {
+            setState(() => _indicators = updatedList);
+            _syncIndicatorsToWebView();
+          },
+          onReset: () {
+            setState(() => _indicators = ChartIndicatorConfig.defaultIndicators());
+            _syncIndicatorsToWebView();
+          },
+        );
+      },
+    );
+  }
+
   void _changeInterval(String newInterval) {
     final instrument = _getEffectiveInstrument();
     final oldInterval = ref.read(selectedCandleIntervalProvider);
@@ -318,6 +350,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _syncCandlesToWebView();
         _syncPositionLinesToWebView();
+        _syncIndicatorsToWebView();
       });
     });
 
@@ -583,6 +616,44 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                       ),
                     ),
                   ),
+
+                  // Indicators bottom sheet trigger
+                  InkWell(
+                    key: const ValueKey('chart_indicators_button'),
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => _openIndicatorsModal(context),
+                    child: Container(
+                      height: 28,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: _indicators.any((i) => i.isEnabled && i.type != 'VOLUME')
+                            ? AppColors.zerodhaBlue.withOpacity(0.2)
+                            : AppColors.tvDarkBg,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: _indicators.any((i) => i.isEnabled && i.type != 'VOLUME')
+                              ? AppColors.zerodhaBlue
+                              : AppColors.tvBorder,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.functions, size: 14, color: AppColors.zerodhaBlue),
+                          const SizedBox(width: 4),
+                          Text(
+                            'fx (${_indicators.where((i) => i.isEnabled && i.type != 'VOLUME').length})',
+                            style: AppTypography.labelSm.copyWith(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
 
                   // Chart type toggle
                   Container(

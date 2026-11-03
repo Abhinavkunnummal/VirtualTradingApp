@@ -132,9 +132,24 @@ void main() {
       expect(ChartJsBridge.buildSetDelayedBadgeCall(false), equals('window.setDelayedBadge(false);'));
       expect(ChartJsBridge.buildSetThemeCall('dark'), equals('window.setTheme(\'dark\');'));
       expect(ChartJsBridge.buildRemoveIndicatorCall('rsi_14'), equals('window.removeIndicator(\'rsi_14\');'));
+      expect(ChartJsBridge.buildRemoveAllIndicatorsCall(), equals('window.removeAllIndicators();'));
       expect(ChartJsBridge.buildSetDrawingModeCall('trend_line'), equals('window.setDrawingMode(\'trend_line\');'));
       expect(ChartJsBridge.buildClearDrawingsCall(), equals('window.clearDrawings();'));
       expect(ChartJsBridge.buildUndoDrawingCall(), equals('window.undoDrawing();'));
+    });
+
+    test('buildSetIndicatorsCall and buildAddIndicatorCall serialize config properly', () {
+      final configs = [
+        {'id': 'ema', 'type': 'EMA', 'period': 20, 'visible': true},
+        {'id': 'rsi', 'type': 'RSI', 'period': 14, 'visible': false},
+      ];
+      final setCall = ChartJsBridge.buildSetIndicatorsCall(configs);
+      expect(setCall.startsWith('window.setIndicators('), isTrue);
+      expect(setCall.contains('"id":"ema"'), isTrue);
+      expect(setCall.contains('"period":20'), isTrue);
+
+      final addCall = ChartJsBridge.buildAddIndicatorCall({'id': 'vwap', 'type': 'VWAP'});
+      expect(addCall, equals('window.addIndicator({"id":"vwap","type":"VWAP"});'));
     });
   });
 }

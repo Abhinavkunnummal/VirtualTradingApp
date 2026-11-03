@@ -278,7 +278,334 @@
           volumeSeries.setData(volumeData);
         }
 
+        recomputeAllActiveIndicators();
         chart.timeScale().fitContent();
+      }
+
+      // --- Pure JS Indicator Mathematical Computations ---
+
+      function calculateSMA(candles, period) {
+        const result = [];
+        if (!candles || candles.length < period) return result;
+        let sum = 0;
+        for (let i = 0; i < period; i++) sum += candles[i].close;
+        result.push({ time: candles[period - 1].time, value: sum / period });
+        for (let i = period; i < candles.length; i++) {
+          sum += candles[i].close - candles[i - period].close;
+          result.push({ time: candles[i].time, value: sum / period });
+        }
+        return result;
+      }
+
+      function calculateEMA(candles, period) {
+        const result = [];
+        if (!candles || candles.length < period) return result;
+        const k = 2 / (period + 1);
+        let sum = 0;
+        for (let i = 0; i < period; i++) sum += candles[i].close;
+        let prevEma = sum / period;
+        result.push({ time: candles[period - 1].time, value: prevEma });
+        for (let i = period; i < candles.length; i++) {
+          const cur = (candles[i].close - prevEma) * k + prevEma;
+          result.push({ time: candles[i].time, value: cur });
+          prevEma = cur;
+        }
+        return result;
+      }
+
+      function calculateBollingerBands(candles, period, stdDev) {
+        const upper = [];
+        const middle = [];
+        const lower = [];
+        if (!candles || candles.length < period) return { upper, middle, lower };
+
+        for (let i = period - 1; i < candles.length; i++) {
+          let sum = 0;
+          for (let j = i - period + 1; j <= i; j++) sum += candles[j].close;
+          const mean = sum / period;
+          let sumSq = 0;
+          for (let j = i - period + 1; j <= i; j++) sumSq += Math.pow(candles[j].close - mean, 2);
+          const sigma = Math.sqrt(sumSq / period);
+          const t = candles[i].time;
+          middle.push({ time: t, value: mean });
+          upper.push({ time: t, value: mean + stdDev * sigma });
+          lower.push({ time: t, value: mean - stdDev * sigma });
+        }
+        return { upper, middle, lower };
+      }
+
+      function calculateVWAP(candles) {
+        const result = [];
+        if (!candles || candles.length === 0) return result;
+        let cumVol = 0;
+        let cumTpv = 0;
+        for (let i = 0; i < candles.length; i++) {
+          const c = candles[i];
+          const tp = (c.high + c.low + c.close) / 3;
+          const v = c.volume || 1;
+          cumVol += v;
+          cumTpv += tp * v;
+          result.push({ time: c.time, value: cumVol > 0 ? cumTpv / cumVol : tp });
+        }
+        return result;
+      }
+
+      function calculateRSI(candles, period) {
+        const result = [];
+        if (!candles || candles.length <= period) return result;
+
+        let gains = 0;
+        let losses = 0;
+        for (let i = 1; i <= period; i++) {
+          const diff = candles[i].close - candles[i - 1].close;
+          if (diff > 0) gains += diff;
+          else losses += Math.abs(diff);
+        }
+        let avgGain = gains / period;
+        let avgLoss = losses / period;
+        let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+        let rsi = 100 - (100 / (1 + rs));
+        result.push({ time: candles[period].time, value: rsi });
+
+        for (let i = period + 1; i < candles.length; i++) {
+          const diff = candles[i].close - candles[i - 1].close;
+          const gain = diff > 0 ? diff : 0;
+          const loss = diff < 0 ? Math.abs(diff) : 0;
+          avgGain = (avgGain * (period - 1) + gain) / period;
+          avgLoss = (avgLoss * (period - 1) + loss) / period;
+          rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+          rsi = 100 - (100 / (1 + rs));
+          result.push({ time: candles[i].time, value: rsi });
+        }
+        return result;
+      }
+
+      function calculateMACD(candles, fastP, slowP, sigP) {
+        const macdData = [];
+        const sigData = [];
+        const histData = [];
+        if (!candles || candles.length < slowP) return { macd: macdData, signal: sigData, histogram: histData };
+
+        const kFast = 2 / (fastP + 1);
+        const kSlow = 2 / (slowP + 1);
+        const kSig = 2 / (sigP + 1);
+
+        let sumFast = 0;
+        for (let i = 0; i < fastP; i++) sumFast += candles[i].close;
+        let emaFast = sumFast / fastP;
+        const fastMap = new Map();
+        fastMap.set(candles[fastP - 1].time, emaFast);
+        for (let i = fastP; i < candles.length; i++) {
+          emaFast = (candles[i].close - emaFast) * kFast + emaFast;
+          fastMap.set(candles[i].time, emaFast);
+        }
+
+        let sumSlow = 0;
+        for (let i = 0; i < slowP; i++) sumSlow += candles[i].close;
+        let emaSlow = sumSlow / slowP;
+        const rawMacd = [];
+        for (let i = slowP; i < candles.length; i++) {
+          emaSlow = (candles[i].close - emaSlow) * kSlow + emaSlow;
+          const f = fastMap.get(candles[i].time);
+          if (f !== undefined) rawMacd.push({ time: candles[i].time, value: f - emaSlow });
+        }
+
+        if (rawMacd.length < sigP) return { macd: rawMacd, signal: sigData, histogram: histData };
+
+        let sumSig = 0;
+        for (let i = 0; i < sigP; i++) sumSig += rawMacd[i].value;
+        let emaSig = sumSig / sigP;
+
+        for (let i = 0; i < rawMacd.length; i++) {
+          const t = rawMacd[i].time;
+          const m = rawMacd[i].value;
+          macdData.push({ time: t, value: m });
+          if (i >= sigP - 1) {
+            if (i > sigP - 1) emaSig = (m - emaSig) * kSig + emaSig;
+            sigData.push({ time: t, value: emaSig });
+            const h = m - emaSig;
+            histData.push({
+              time: t,
+              value: h,
+              color: h >= 0 ? 'rgba(8, 153, 129, 0.75)' : 'rgba(242, 54, 69, 0.75)',
+            });
+          }
+        }
+        return { macd: macdData, signal: sigData, histogram: histData };
+      }
+
+      // --- Indicator Series & Multi-Pane Management ---
+      let activeIndicatorConfigs = [];
+      const activeIndicatorSeries = new Map(); // id -> series or { sub-series }
+
+      function rebalancePanes() {
+        if (!chart) return;
+        const hasRsi = activeIndicatorConfigs.some(function (c) { return c.type === 'RSI' && c.visible !== false; });
+        const hasMacd = activeIndicatorConfigs.some(function (c) { return c.type === 'MACD' && c.visible !== false; });
+
+        if (hasRsi && hasMacd) {
+          chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.04, bottom: 0.46 } });
+          if (chart.priceScale('')) chart.priceScale('').applyOptions({ scaleMargins: { top: 0.38, bottom: 0.46 } });
+          if (chart.priceScale('rsi')) chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.56, bottom: 0.24 } });
+          if (chart.priceScale('macd')) chart.priceScale('macd').applyOptions({ scaleMargins: { top: 0.78, bottom: 0.02 } });
+        } else if (hasRsi) {
+          chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.04, bottom: 0.30 } });
+          if (chart.priceScale('')) chart.priceScale('').applyOptions({ scaleMargins: { top: 0.52, bottom: 0.30 } });
+          if (chart.priceScale('rsi')) chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.72, bottom: 0.02 } });
+        } else if (hasMacd) {
+          chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.04, bottom: 0.30 } });
+          if (chart.priceScale('')) chart.priceScale('').applyOptions({ scaleMargins: { top: 0.52, bottom: 0.30 } });
+          if (chart.priceScale('macd')) chart.priceScale('macd').applyOptions({ scaleMargins: { top: 0.72, bottom: 0.02 } });
+        } else {
+          chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.04, bottom: 0.15 } });
+          if (chart.priceScale('')) chart.priceScale('').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+        }
+      }
+
+      function recomputeAllActiveIndicators() {
+        if (!cachedCandles || cachedCandles.length === 0 || !chart) return;
+
+        activeIndicatorConfigs.forEach(function (cfg) {
+          try {
+            const entry = activeIndicatorSeries.get(cfg.id);
+            if (!entry) return;
+
+            if (cfg.type === 'SMA') {
+              const data = calculateSMA(cachedCandles, cfg.period || 20);
+              entry.series.setData(data);
+            } else if (cfg.type === 'EMA') {
+              const data = calculateEMA(cachedCandles, cfg.period || 20);
+              entry.series.setData(data);
+            } else if (cfg.type === 'BOLLINGER') {
+              const bb = calculateBollingerBands(cachedCandles, cfg.period || 20, cfg.stdDev || 2.0);
+              entry.upper.setData(bb.upper);
+              entry.middle.setData(bb.middle);
+              entry.lower.setData(bb.lower);
+            } else if (cfg.type === 'VWAP') {
+              const data = calculateVWAP(cachedCandles);
+              entry.series.setData(data);
+            } else if (cfg.type === 'RSI') {
+              const data = calculateRSI(cachedCandles, cfg.period || 14);
+              entry.series.setData(data);
+            } else if (cfg.type === 'MACD') {
+              const m = calculateMACD(cachedCandles, cfg.fastPeriod || 12, cfg.slowPeriod || 26, cfg.signalPeriod || 9);
+              entry.histogram.setData(m.histogram);
+              entry.macd.setData(m.macd);
+              entry.signal.setData(m.signal);
+            }
+          } catch (e) {
+            console.error('[Indicator] Compute error for ' + cfg.id + ':', e);
+          }
+        });
+      }
+
+      function setupIndicatorSeries(cfg) {
+        if (!chart) return;
+        removeIndicatorSeries(cfg.id);
+        if (cfg.visible === false && cfg.type !== 'VOLUME') return;
+
+        if (cfg.type === 'SMA') {
+          const s = chart.addLineSeries({
+            color: cfg.color || '#ff9800',
+            lineWidth: 2,
+            title: 'SMA(' + (cfg.period || 20) + ')',
+            priceLineVisible: false,
+          });
+          activeIndicatorSeries.set(cfg.id, { series: s });
+        } else if (cfg.type === 'EMA') {
+          const s = chart.addLineSeries({
+            color: cfg.color || '#2196f3',
+            lineWidth: 2,
+            title: 'EMA(' + (cfg.period || 20) + ')',
+            priceLineVisible: false,
+          });
+          activeIndicatorSeries.set(cfg.id, { series: s });
+        } else if (cfg.type === 'BOLLINGER') {
+          const up = chart.addLineSeries({
+            color: '#ab47bc',
+            lineWidth: 1,
+            title: 'BB Upper',
+            priceLineVisible: false,
+          });
+          const mid = chart.addLineSeries({
+            color: '#7e57c2',
+            lineWidth: 1,
+            lineStyle: 2,
+            title: 'BB Middle',
+            priceLineVisible: false,
+          });
+          const low = chart.addLineSeries({
+            color: '#ab47bc',
+            lineWidth: 1,
+            title: 'BB Lower',
+            priceLineVisible: false,
+          });
+          activeIndicatorSeries.set(cfg.id, { upper: up, middle: mid, lower: low });
+        } else if (cfg.type === 'VWAP') {
+          const s = chart.addLineSeries({
+            color: cfg.color || '#00bcd4',
+            lineWidth: 2,
+            title: 'VWAP',
+            priceLineVisible: false,
+          });
+          activeIndicatorSeries.set(cfg.id, { series: s });
+        } else if (cfg.type === 'RSI') {
+          const s = chart.addLineSeries({
+            color: cfg.color || '#ab47bc',
+            lineWidth: 2,
+            title: 'RSI(' + (cfg.period || 14) + ')',
+            priceScaleId: 'rsi',
+            priceLineVisible: false,
+          });
+          // Add 70 and 30 guide lines
+          s.createPriceLine({ price: 70, color: '#f23645', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '70 Overbought' });
+          s.createPriceLine({ price: 30, color: '#089981', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '30 Oversold' });
+          activeIndicatorSeries.set(cfg.id, { series: s });
+        } else if (cfg.type === 'MACD') {
+          const hist = chart.addHistogramSeries({
+            priceScaleId: 'macd',
+            title: 'MACD Hist',
+            priceLineVisible: false,
+          });
+          const macdLine = chart.addLineSeries({
+            color: '#2962ff',
+            lineWidth: 1.5,
+            priceScaleId: 'macd',
+            title: 'MACD',
+            priceLineVisible: false,
+          });
+          const sigLine = chart.addLineSeries({
+            color: '#ff6d00',
+            lineWidth: 1.5,
+            priceScaleId: 'macd',
+            title: 'Signal',
+            priceLineVisible: false,
+          });
+          activeIndicatorSeries.set(cfg.id, { histogram: hist, macd: macdLine, signal: sigLine });
+        } else if (cfg.type === 'VOLUME') {
+          if (volumeSeries) {
+            volumeSeries.applyOptions({ visible: cfg.visible !== false });
+          }
+        }
+      }
+
+      function removeIndicatorSeries(id) {
+        const entry = activeIndicatorSeries.get(id);
+        if (!entry || !chart) return;
+        if (entry.series) {
+          try { chart.removeSeries(entry.series); } catch (_) {}
+        }
+        if (entry.upper) {
+          try { chart.removeSeries(entry.upper); } catch (_) {}
+          try { chart.removeSeries(entry.middle); } catch (_) {}
+          try { chart.removeSeries(entry.lower); } catch (_) {}
+        }
+        if (entry.histogram) {
+          try { chart.removeSeries(entry.histogram); } catch (_) {}
+          try { chart.removeSeries(entry.macd); } catch (_) {}
+          try { chart.removeSeries(entry.signal); } catch (_) {}
+        }
+        activeIndicatorSeries.delete(id);
       }
 
       // --- Exposed Bridge API for Flutter WebViewController ---
@@ -330,6 +657,8 @@
           } else {
             cachedCandles.push(c);
           }
+
+          recomputeAllActiveIndicators();
         } catch (e) {
           console.error('[Bridge] updateCandle error:', e);
         }
@@ -363,36 +692,55 @@
         createMainSeries(type);
       };
 
-      window.addIndicator = function (indicatorJson) {
+      window.setIndicators = function (indicatorsJson) {
         try {
-          const ind = typeof indicatorJson === 'string' ? JSON.parse(indicatorJson) : indicatorJson;
-          if (!ind || !ind.id || !chart) return;
+          const list = typeof indicatorsJson === 'string' ? JSON.parse(indicatorsJson) : indicatorsJson;
+          if (!Array.isArray(list)) return;
 
-          window.removeIndicator(ind.id);
-
-          const lineSeries = chart.addLineSeries({
-            color: ind.color || '#ff9800',
-            lineWidth: ind.lineWidth || 2,
-            title: ind.title || ind.id,
-            priceLineVisible: false,
+          activeIndicatorConfigs.forEach(function (cfg) {
+            removeIndicatorSeries(cfg.id);
           });
 
-          if (Array.isArray(ind.data)) {
-            lineSeries.setData(ind.data);
-          }
-          indicatorSeriesMap.set(ind.id, lineSeries);
+          activeIndicatorConfigs = list;
+          rebalancePanes();
+
+          activeIndicatorConfigs.forEach(function (cfg) {
+            setupIndicatorSeries(cfg);
+          });
+
+          recomputeAllActiveIndicators();
+        } catch (e) {
+          console.error('[Bridge] setIndicators error:', e);
+        }
+      };
+
+      window.addIndicator = function (cfgJson) {
+        try {
+          const cfg = typeof cfgJson === 'string' ? JSON.parse(cfgJson) : cfgJson;
+          if (!cfg || !cfg.id) return;
+          window.removeIndicator(cfg.id);
+          activeIndicatorConfigs.push(cfg);
+          rebalancePanes();
+          setupIndicatorSeries(cfg);
+          recomputeAllActiveIndicators();
         } catch (e) {
           console.error('[Bridge] addIndicator error:', e);
         }
       };
 
       window.removeIndicator = function (id) {
-        if (!chart || !id) return;
-        const series = indicatorSeriesMap.get(id);
-        if (series) {
-          chart.removeSeries(series);
-          indicatorSeriesMap.delete(id);
-        }
+        if (!id) return;
+        removeIndicatorSeries(id);
+        activeIndicatorConfigs = activeIndicatorConfigs.filter(function (c) { return c.id !== id; });
+        rebalancePanes();
+      };
+
+      window.removeAllIndicators = function () {
+        activeIndicatorConfigs.forEach(function (cfg) {
+          removeIndicatorSeries(cfg.id);
+        });
+        activeIndicatorConfigs = [];
+        rebalancePanes();
       };
 
       window.setPositionLines = function (data) {
