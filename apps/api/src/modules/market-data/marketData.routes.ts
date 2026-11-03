@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { z } from 'zod';
 import { MarketDataService, CandleInterval, HistoryRange, Candle } from './marketData.service';
 import { AlphaVantageService } from './alphaVantage.service';
 import { TechnicalIndicatorService, TechnicalIndicators } from './indicators';
@@ -213,34 +214,79 @@ marketDataRouter.get('/quotes', async (req: Request, res: Response) => {
   });
 });
 
-// Handler for candles request
+// Handler for candles request (supporting both query param GET /candles?symbol=... and route param GET /candles/:symbol)
 const handleCandlesRequest = async (req: Request, res: Response) => {
-  const symbol = ((req.query.symbol as string) || req.params.symbol || req.params.id) as string;
-  const interval = (req.query.interval as CandleInterval) || '15m';
+  const paramVal = req.params.symbol || req.params.id;
+  const rawParam = Array.isArray(paramVal) ? paramVal[0] : paramVal;
+  const rawQuery = Array.isArray(req.query.symbol) ? req.query.symbol[0] : req.query.symbol;
+  const rawSymbol = String(rawQuery || rawParam || '').trim();
+  if (!rawSymbol) {
+    return res.status(400).json({
+      success: false,
+      message: 'Parameter "symbol" is required.',
+    });
+  }
+
+  const candlesQuerySchema = z.object({
+    symbol: z.string().min(1, 'Symbol is required').trim().toUpperCase(),
+    interval: z.enum(['1m', '5m', '15m', '1h', '1d', '1w', '1mo']).default('15m'),
+    limit: z.coerce.number().int().min(1).max(1500).default(100),
+  });
+
+  const queryValidation = candlesQuerySchema.safeParse({
+    symbol: rawSymbol,
+    interval: req.query.interval,
+    limit: req.query.limit,
+  });
+
+  if (!queryValidation.success) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid candle query parameters.',
+      errors: queryValidation.error.format(),
+    });
+  }
+
+  const { symbol, interval, limit } = queryValidation.data;
   const range = (req.query.range as HistoryRange) || (req.query.limit ? undefined : '1D');
   const from = req.query.from ? parseInt(req.query.from as string, 10) : undefined;
   const to = req.query.to ? parseInt(req.query.to as string, 10) : undefined;
-  const limit = req.query.limit ? Math.min(Math.max(parseInt(req.query.limit as string, 10), 5), 1500) : undefined;
   const includeIndicators = req.query.indicators === 'true';
 
   const isTest = process.env.NODE_ENV === 'test';
   const forceLive = req.query.source === 'live' || req.query.live === 'true';
   const forceSimulated = req.query.source === 'simulated';
 
-  // 1. Try real-time live candles (Finnhub / Twelve Data / Yahoo Finance) when not in synthetic unit tests
+  const formatCandles = (candles: Candle[]) => {
+    const formatted = candles.map((c) => ({
+      time: c.timestamp,
+      timestamp: c.timestamp,
+      open: Number(c.open.toFixed(2)),
+      high: Number(c.high.toFixed(2)),
+      low: Number(c.low.toFixed(2)),
+      close: Number(c.close.toFixed(2)),
+      volume: Number(c.volume.toFixed(2)),
+    }));
+    formatted.sort((a, b) => a.time - b.time);
+    return formatted;
+  };
+
+  // 1. Try real-time live candles (Binance / Finnhub / Twelve Data / Yahoo Finance) when not in synthetic unit tests
   if (!forceSimulated && (!isTest || forceLive)) {
     try {
       const liveResult = await RealtimeMarketService.getLiveCandles(
         symbol,
-        interval,
+        interval as CandleInterval,
         range,
         limit || 60,
         includeIndicators
       );
       if (liveResult && liveResult.candles && liveResult.candles.length > 0) {
+        const sortedCandles = formatCandles(liveResult.candles);
         return res.status(200).json({
           success: true,
           ...liveResult,
+          candles: sortedCandles,
           latestQuote: liveResult.latestQuote,
         });
       }
@@ -252,7 +298,7 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
   // 2. If in local instrument master, return comprehensive historical data
   const meta = MarketDataService.getInstrument(symbol);
   if (meta) {
-    const result = MarketDataService.getHistoricalData(symbol, interval, {
+    const result = MarketDataService.getHistoricalData(symbol, interval as CandleInterval, {
       limit,
       range,
       from,
@@ -260,15 +306,17 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
       includeIndicators,
     });
     if (result) {
+      const sortedCandles = formatCandles(result.candles);
       return res.status(200).json({
         success: true,
         ...result,
+        candles: sortedCandles,
         latestQuote: result.latestQuote,
       });
     }
   }
 
-  // 2. If not in local master or Alpha Vantage requested, check Alpha Vantage based on interval
+  // 3. If not in local master or Alpha Vantage requested, check Alpha Vantage based on interval
   if (AlphaVantageService.isConfigured()) {
     let liveCandles: Candle[] | null = null;
     let avStatus: 'LIVE' | 'HISTORICAL' = 'LIVE';
@@ -286,7 +334,7 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
           : 'compact';
       liveCandles = await AlphaVantageService.fetchDailyCandles(symbol, limit || 1260, outputsize);
     } else {
-      liveCandles = await AlphaVantageService.fetchIntradayCandles(symbol, interval, limit || 100);
+      liveCandles = await AlphaVantageService.fetchIntradayCandles(symbol, interval as CandleInterval, limit || 100);
     }
 
     if (liveCandles && liveCandles.length > 0) {
@@ -294,6 +342,8 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
       if (includeIndicators) {
         indicators = TechnicalIndicatorService.calculateAll(liveCandles);
       }
+
+      const sortedCandles = formatCandles(liveCandles);
 
       return res.status(200).json({
         success: true,
@@ -303,11 +353,11 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
         currency: 'USD',
         status: avStatus,
         provider: 'Alpha Vantage Global Market Feed',
-        actualRange: `${new Date(liveCandles[0].timestamp * 1000).toISOString().split('T')[0]} to ${new Date(liveCandles[liveCandles.length - 1].timestamp * 1000).toISOString().split('T')[0]}`,
-        count: liveCandles.length,
-        from: liveCandles[0].timestamp,
-        to: liveCandles[liveCandles.length - 1].timestamp,
-        candles: liveCandles,
+        actualRange: `${new Date(sortedCandles[0].time * 1000).toISOString().split('T')[0]} to ${new Date(sortedCandles[sortedCandles.length - 1].time * 1000).toISOString().split('T')[0]}`,
+        count: sortedCandles.length,
+        from: sortedCandles[0].time,
+        to: sortedCandles[sortedCandles.length - 1].time,
+        candles: sortedCandles,
         indicators,
       });
     }
@@ -319,7 +369,10 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
   });
 };
 
-// GET /api/v1/market-data/candles/:symbol
+// GET /api/v1/market-data/candles & GET /api/market/candles
+marketDataRouter.get(['/candles', '/candles/'], handleCandlesRequest);
+
+// GET /api/v1/market-data/candles/:symbol & GET /api/market/candles/:symbol
 marketDataRouter.get(['/candles/:symbol(*)', '/candles/:symbol'], handleCandlesRequest);
 
 // GET /api/v1/market/candles/:id

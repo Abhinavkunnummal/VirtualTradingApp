@@ -91,6 +91,7 @@ export function createApp(): express.Application {
   app.use('/chart', tradingViewRouter);
 
   app.use('/api/v1', apiV1Router);
+  app.use('/api', apiV1Router);
 
   // Centralized Error Handling
   app.use(errorHandler);

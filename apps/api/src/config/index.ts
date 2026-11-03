@@ -14,6 +14,7 @@ const envSchema = z.object({
   ALPHA_VANTAGE_API_KEY: z.string().optional().default(''),
   FINNHUB_API_KEY: z.string().optional().default(''),
   TWELVE_DATA_API_KEY: z.string().optional().default(''),
+  BINANCE_WS_URL: z.string().default('wss://stream.binance.com:9443/ws'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -41,6 +42,8 @@ export const config = {
   alphaVantageApiKey: env.ALPHA_VANTAGE_API_KEY,
   finnhubApiKey: env.FINNHUB_API_KEY,
   twelveDataApiKey: env.TWELVE_DATA_API_KEY,
+  binanceWsUrl: env.BINANCE_WS_URL,
+  binanceWsFallbackUrl: 'wss://data-stream.binance.vision/ws',
   isProduction: env.NODE_ENV === 'production',
   isTest: env.NODE_ENV === 'test',
 };

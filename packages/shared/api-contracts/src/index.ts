@@ -61,6 +61,27 @@ export interface Candle {
   volume: number;
 }
 
+export interface ChartCandle {
+  time: number; // Unix timestamp in seconds (for Lightweight Charts)
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface ChartTickPayload {
+  symbol: string;
+  interval: string;
+  time: number; // Unix timestamp in seconds
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  delayed?: boolean;
+}
+
 export interface MarketStatus {
   exchange: ExchangeType;
   isOpen: boolean;
@@ -208,6 +229,33 @@ export const CandlesQuerySchema = z.object({
   interval: z.enum(['1m', '5m', '15m', '1h', '1d', '1w']).default('15m'),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
+
+export const ChartCandleSchema = z.object({
+  time: z.number().int().describe('Unix timestamp in seconds'),
+  open: z.number(),
+  high: z.number(),
+  low: z.number(),
+  close: z.number(),
+  volume: z.number().default(0),
+});
+
+export const ChartCandlesQuerySchema = z.object({
+  symbol: z.string().min(1, 'Symbol is required').trim().toUpperCase(),
+  interval: z.enum(['1m', '5m', '15m', '1h', '1d']).default('15m'),
+  limit: z.coerce.number().int().min(1).max(1000).default(100),
+});
+
+export type ChartCandlesQuery = z.infer<typeof ChartCandlesQuerySchema>;
+
+export const ChartCandlesResponseSchema = z.object({
+  success: z.boolean(),
+  symbol: z.string(),
+  interval: z.string(),
+  count: z.number(),
+  candles: z.array(ChartCandleSchema),
+});
+
+export type ChartCandlesResponse = z.infer<typeof ChartCandlesResponseSchema>;
 
 export const AiAnalysisRequestSchema = z.object({
   symbol: z.string().min(1),
