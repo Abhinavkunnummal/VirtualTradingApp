@@ -36,6 +36,10 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   bool _isDelayed = false;
   String _selectedChartType = 'candles'; // 'candles', 'line', 'area', 'bars'
 
+  LiveQuotesNotifier? _liveQuotesNotifier;
+  String? _subscribedSymbol;
+  String? _subscribedInterval;
+
   static const List<String> _supportedIntervals = ['1m', '5m', '15m', '1h', '1d'];
 
   @override
@@ -62,25 +66,29 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
       final instrument = _getEffectiveInstrument();
       final interval = ref.read(selectedCandleIntervalProvider);
 
-      ref.read(liveQuotesProvider.notifier).trackSymbol(instrument.symbol);
-      ref.read(liveQuotesProvider.notifier).subscribeChart(
+      _liveQuotesNotifier = ref.read(liveQuotesProvider.notifier);
+      _subscribedSymbol = instrument.symbol;
+      _subscribedInterval = interval;
+
+      _liveQuotesNotifier?.trackSymbol(instrument.symbol);
+      _liveQuotesNotifier?.subscribeChart(
         symbol: instrument.symbol,
         interval: interval,
         onReconnect: _onSocketReconnect,
       );
-      ref.read(liveQuotesProvider.notifier).addChartTickListener(_onChartTick);
+      _liveQuotesNotifier?.addChartTickListener(_onChartTick);
     });
   }
 
   @override
   void dispose() {
-    final instrument = _getEffectiveInstrument();
-    final interval = ref.read(selectedCandleIntervalProvider);
-    ref.read(liveQuotesProvider.notifier).removeChartTickListener(_onChartTick);
-    ref.read(liveQuotesProvider.notifier).unsubscribeChart(
-      symbol: instrument.symbol,
-      interval: interval,
-    );
+    _liveQuotesNotifier?.removeChartTickListener(_onChartTick);
+    if (_subscribedSymbol != null && _subscribedInterval != null) {
+      _liveQuotesNotifier?.unsubscribeChart(
+        symbol: _subscribedSymbol,
+        interval: _subscribedInterval,
+      );
+    }
     _pulseController.dispose();
     super.dispose();
   }
@@ -815,10 +823,12 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
       final currency = (isCrypto || widget.instrument.exchange == 'US' || widget.instrument.category == 'US') ? '\$' : '₹';
 
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
       setState(() => _isSubmitting = false);
-      Navigator.of(context).pop();
+      navigator.pop();
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           backgroundColor: AppColors.surfaceContainer,
           behavior: SnackBarBehavior.floating,
@@ -857,8 +867,9 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
       );
     } catch (e) {
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           backgroundColor: AppColors.errorContainer,
           content: Text(

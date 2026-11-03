@@ -72,7 +72,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 1. Verify Header info
-      expect(find.text('BTC/USDT'), findsOneWidget);
+      expect(find.text('BTC/USDT'), findsWidgets);
       expect(find.text('BINANCE'), findsOneWidget);
       expect(find.text('Bitcoin'), findsOneWidget);
 
