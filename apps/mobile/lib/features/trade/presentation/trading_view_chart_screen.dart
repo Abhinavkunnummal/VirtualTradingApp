@@ -13,6 +13,7 @@ import '../../portfolio/domain/portfolio_models.dart';
 import '../../portfolio/presentation/providers/portfolio_provider.dart';
 import '../domain/chart_indicator_config.dart';
 import 'providers/order_provider.dart';
+import 'services/chart_drawing_storage.dart';
 import 'widgets/candlestick_chart_view.dart';
 import 'widgets/chart_js_bridge.dart';
 import 'widgets/indicators_bottom_sheet.dart';
@@ -39,6 +40,11 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   String _selectedChartType = 'candles'; // 'candles', 'line', 'area', 'bars'
   List<ChartIndicatorConfig> _indicators = ChartIndicatorConfig.defaultIndicators();
 
+  final ChartDrawingStorage _drawingStorage = ChartDrawingStorage();
+  bool _showDrawingTools = true;
+  String _activeDrawingTool = 'cursor';
+  List<Map<String, dynamic>> _drawings = [];
+
   LiveQuotesNotifier? _liveQuotesNotifier;
   String? _subscribedSymbol;
   String? _subscribedInterval;
@@ -48,6 +54,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   @override
   void initState() {
     super.initState();
+    _loadDrawingsForSymbol(widget.instrument?.symbol ?? 'BTC/USDT');
 
     _pulseController = AnimationController(
       vsync: this,
@@ -119,6 +126,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
               _syncCandlesToWebView();
               _syncPositionLinesToWebView();
               _syncIndicatorsToWebView();
+              _loadDrawingsForSymbol(_getEffectiveInstrument().symbol);
             },
             onWebResourceError: (_) {
               if (mounted) {
@@ -144,6 +152,19 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
         _syncCandlesToWebView();
         _syncPositionLinesToWebView();
         _syncIndicatorsToWebView();
+        _loadDrawingsForSymbol(_getEffectiveInstrument().symbol);
+      } else if (type == 'onDrawingsUpdated') {
+        final rawList = data['data'];
+        if (rawList is List) {
+          final list = rawList.cast<Map<String, dynamic>>();
+          _drawings = list;
+          _drawingStorage.saveDrawings(_getEffectiveInstrument().symbol, list);
+        }
+      } else if (type == 'onDrawingModeChanged') {
+        final tool = (data['data'] as Map<String, dynamic>?)?['tool'] as String?;
+        if (tool != null && mounted) {
+          setState(() => _activeDrawingTool = tool);
+        }
       }
     } catch (_) {}
   }
@@ -264,6 +285,61 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
           },
         );
       },
+    );
+  }
+
+  Future<void> _loadDrawingsForSymbol(String symbol) async {
+    final saved = await _drawingStorage.loadDrawings(symbol);
+    if (!mounted) return;
+    setState(() => _drawings = saved);
+    if (_isWebViewReady && _webViewController != null) {
+      _webViewController!.runJavaScript(ChartJsBridge.buildSetDrawingsCall(saved));
+    }
+  }
+
+  void _selectDrawingTool(String tool) {
+    setState(() {
+      _activeDrawingTool = (_activeDrawingTool == tool) ? 'cursor' : tool;
+    });
+    _webViewController?.runJavaScript(ChartJsBridge.buildSetDrawingModeCall(_activeDrawingTool));
+  }
+
+  void _undoDrawing() {
+    _webViewController?.runJavaScript(ChartJsBridge.buildUndoDrawingCall());
+  }
+
+  void _clearAllDrawings() {
+    _webViewController?.runJavaScript(ChartJsBridge.buildClearDrawingsCall());
+    _drawingStorage.clearDrawings(_getEffectiveInstrument().symbol);
+    setState(() => _drawings = []);
+  }
+
+  Widget _buildDrawingToolIcon(String tool, IconData icon, String tooltip) {
+    final isSelected = _activeDrawingTool == tool;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        key: ValueKey('tool_$tool'),
+        borderRadius: BorderRadius.circular(4),
+        onTap: () => _selectDrawingTool(tool),
+        child: Container(
+          width: 32,
+          height: 28,
+          margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.zerodhaBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: isSelected ? AppColors.zerodhaBlue : AppColors.tvBorder.withOpacity(0.4),
+            ),
+          ),
+          child: Icon(
+            icon,
+            size: 15,
+            color: isSelected ? Colors.white : AppColors.outline,
+          ),
+        ),
+      ),
     );
   }
 
@@ -655,6 +731,48 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                   ),
                   const SizedBox(width: 6),
 
+                  // Draw tools toggle
+                  InkWell(
+                    key: const ValueKey('chart_draw_tools_button'),
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => setState(() => _showDrawingTools = !_showDrawingTools),
+                    child: Container(
+                      height: 28,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: _showDrawingTools
+                            ? AppColors.zerodhaBlue.withOpacity(0.2)
+                            : AppColors.tvDarkBg,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: _showDrawingTools
+                              ? AppColors.zerodhaBlue
+                              : AppColors.tvBorder,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.draw_outlined,
+                            size: 14,
+                            color: _showDrawingTools ? AppColors.zerodhaBlue : AppColors.outline,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _drawings.isEmpty ? 'Draw' : 'Draw (${_drawings.length})',
+                            style: AppTypography.labelSm.copyWith(
+                              fontSize: 11,
+                              fontWeight: _showDrawingTools ? FontWeight.bold : FontWeight.w500,
+                              color: _showDrawingTools ? AppColors.zerodhaBlue : AppColors.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+
                   // Chart type toggle
                   Container(
                     height: 28,
@@ -677,6 +795,47 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                 ],
               ),
             ),
+
+            // Interactive Drawing Tools Secondary Toolbar
+            if (_showDrawingTools)
+              Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceLowest,
+                  border: Border(bottom: BorderSide(color: AppColors.tvBorder)),
+                ),
+                child: Row(
+                  children: [
+                    _buildDrawingToolIcon('cursor', Icons.pan_tool_alt, 'Cursor / Pan'),
+                    _buildDrawingToolIcon('trend_line', Icons.timeline, 'Trend Line'),
+                    _buildDrawingToolIcon('horizontal_line', Icons.horizontal_rule, 'Horizontal Line'),
+                    _buildDrawingToolIcon('rectangle', Icons.crop_square, 'Rectangle'),
+                    _buildDrawingToolIcon('fibonacci', Icons.format_line_spacing, 'Fibonacci Retracement'),
+                    _buildDrawingToolIcon('text_note', Icons.sticky_note_2_outlined, 'Text Note'),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.undo, size: 16, color: AppColors.outline),
+                      tooltip: 'Undo',
+                      onPressed: _undoDrawing,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: Icon(
+                        Icons.delete_outline,
+                        size: 16,
+                        color: _drawings.isEmpty ? AppColors.outline : AppColors.kiteRed,
+                      ),
+                      tooltip: 'Clear All',
+                      onPressed: _drawings.isEmpty ? null : _clearAllDrawings,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    ),
+                  ],
+                ),
+              ),
 
             // Main Chart View: TradingView Lightweight Charts (or Fallback Canvas)
             Expanded(

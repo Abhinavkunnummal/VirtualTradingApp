@@ -151,5 +151,22 @@ void main() {
       final addCall = ChartJsBridge.buildAddIndicatorCall({'id': 'vwap', 'type': 'VWAP'});
       expect(addCall, equals('window.addIndicator({"id":"vwap","type":"VWAP"});'));
     });
+
+    test('buildSetDrawingsCall serializes drawings correctly', () {
+      final drawings = [
+        {
+          'id': 'd1',
+          'type': 'trend_line',
+          'points': [
+            {'time': 1700000000, 'price': 100.5},
+            {'time': 1700000060, 'price': 105.0},
+          ],
+        },
+      ];
+      final jsCall = ChartJsBridge.buildSetDrawingsCall(drawings);
+      expect(jsCall.startsWith('window.setDrawings('), isTrue);
+      expect(jsCall.contains('"type":"trend_line"'), isTrue);
+      expect(jsCall.contains('"price":100.5'), isTrue);
+    });
   });
 }

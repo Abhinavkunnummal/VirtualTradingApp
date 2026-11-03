@@ -276,5 +276,44 @@ void main() {
 
       expect(find.text('Indicators & Studies'), findsNothing);
     });
+
+    testWidgets('renders interactive drawing tools toolbar and responds to tool selection, undo, clear', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(createWidget());
+      await tester.pumpAndSettle();
+
+      // Check Drawing toggle button exists
+      final drawButton = find.byKey(const ValueKey('chart_draw_tools_button'));
+      expect(drawButton, findsOneWidget);
+
+      // Drawing tools toolbar is visible by default
+      expect(find.byKey(const ValueKey('tool_cursor')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tool_trend_line')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tool_horizontal_line')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tool_rectangle')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tool_fibonacci')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tool_text_note')), findsOneWidget);
+      expect(find.byIcon(Icons.undo), findsOneWidget);
+      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+
+      // Select trend line tool
+      await tester.tap(find.byKey(const ValueKey('tool_trend_line')));
+      await tester.pumpAndSettle();
+
+      // Select horizontal line tool
+      await tester.tap(find.byKey(const ValueKey('tool_horizontal_line')));
+      await tester.pumpAndSettle();
+
+      // Tap Undo
+      await tester.tap(find.byIcon(Icons.undo));
+      await tester.pumpAndSettle();
+
+      // Tap Clear All
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+    });
   });
 }

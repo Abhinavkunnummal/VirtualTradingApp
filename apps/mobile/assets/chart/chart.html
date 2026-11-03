@@ -62,6 +62,15 @@
       color: #ef5350;
       border: 1px solid rgba(239, 83, 80, 0.4);
     }
+    #drawing-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+    }
   </style>
   <script src="lightweight-charts.standalone.production.js"></script>
 </head>
@@ -72,6 +81,7 @@
   </div>
   <div id="status-badge"></div>
   <div id="chart-container"></div>
+  <canvas id="drawing-canvas"></canvas>
 
   <script>
     (function () {
@@ -83,6 +93,13 @@
       let cachedCandles = [];
       let indicatorSeriesMap = new Map();
       let positionPriceLines = [];
+      let drawingCanvas = null;
+      let drawingCtx = null;
+      let activeDrawingTool = 'cursor';
+      let drawings = [];
+      let drawingsHistory = [];
+      let currentDrawing = null;
+      let isPointerDown = false;
 
       const DARK_THEME = {
         layout: {
@@ -193,6 +210,21 @@
           }
         });
 
+        // Drawing overlay canvas initialization
+        drawingCanvas = document.getElementById('drawing-canvas');
+        if (drawingCanvas) {
+          drawingCtx = drawingCanvas.getContext('2d');
+          resizeDrawingCanvas();
+          initDrawingEvents();
+        }
+
+        chart.timeScale().subscribeVisibleLogicalRangeChange(function () {
+          redrawDrawings();
+        });
+        chart.timeScale().subscribeVisibleTimeRangeChange(function () {
+          redrawDrawings();
+        });
+
         // Resize handler
         window.addEventListener('resize', function () {
           if (chart && container) {
@@ -200,6 +232,7 @@
               width: container.clientWidth || window.innerWidth,
               height: container.clientHeight || window.innerHeight,
             });
+            resizeDrawingCanvas();
           }
         });
 
@@ -280,6 +313,7 @@
 
         recomputeAllActiveIndicators();
         chart.timeScale().fitContent();
+        redrawDrawings();
       }
 
       // --- Pure JS Indicator Mathematical Computations ---
@@ -686,6 +720,7 @@
         const options = currentTheme === 'light' ? LIGHT_THEME : DARK_THEME;
         document.body.style.backgroundColor = options.layout.background.color;
         if (chart) chart.applyOptions(options);
+        redrawDrawings();
       };
 
       window.setChartType = function (type) {
@@ -802,6 +837,316 @@
             mainSeries.removePriceLine(line);
           } catch (_) {}
         }
+      };
+
+      // --- Interactive Drawing Overlay Engine ---
+
+      function resizeDrawingCanvas() {
+        if (!drawingCanvas || !drawingCtx) return;
+        const rect = drawingCanvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        drawingCanvas.width = rect.width * dpr;
+        drawingCanvas.height = rect.height * dpr;
+        if (drawingCtx.resetTransform) drawingCtx.resetTransform();
+        drawingCtx.scale(dpr, dpr);
+        redrawDrawings();
+      }
+
+      function getScreenCoords(pt) {
+        if (!chart || !mainSeries || !pt) return null;
+        try {
+          const x = chart.timeScale().timeToCoordinate(pt.time);
+          const y = mainSeries.priceToCoordinate(pt.price);
+          if (x === null || y === null || isNaN(x) || isNaN(y)) return null;
+          return { x: x, y: y };
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function getLogicalFromScreen(clientX, clientY) {
+        if (!chart || !mainSeries || !drawingCanvas) return null;
+        try {
+          const rect = drawingCanvas.getBoundingClientRect();
+          const x = clientX - rect.left;
+          const y = clientY - rect.top;
+          const time = chart.timeScale().coordinateToTime(x);
+          const price = mainSeries.coordinateToPrice(y);
+          if (time === null || price === null || isNaN(price)) return null;
+          return { time: time, price: price, screenX: x, screenY: y };
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function redrawDrawings() {
+        if (!drawingCtx || !drawingCanvas || !chart || !mainSeries) return;
+        const rect = drawingCanvas.getBoundingClientRect();
+        drawingCtx.clearRect(0, 0, rect.width, rect.height);
+
+        const all = currentDrawing ? drawings.concat([currentDrawing]) : drawings;
+        for (let i = 0; i < all.length; i++) {
+          renderSingleDrawing(all[i], rect.width, rect.height);
+        }
+      }
+
+      function renderSingleDrawing(d, width, height) {
+        if (!d || !d.points || d.points.length === 0) return;
+
+        if (d.type === 'horizontal_line') {
+          const y = mainSeries.priceToCoordinate(d.points[0].price);
+          if (y === null || isNaN(y)) return;
+
+          drawingCtx.save();
+          drawingCtx.strokeStyle = d.color || '#2962ff';
+          drawingCtx.lineWidth = 1.5;
+          drawingCtx.setLineDash([4, 4]);
+          drawingCtx.beginPath();
+          drawingCtx.moveTo(0, y);
+          drawingCtx.lineTo(width, y);
+          drawingCtx.stroke();
+
+          // Price badge on right
+          const label = d.points[0].price.toFixed(2);
+          drawingCtx.fillStyle = d.color || '#2962ff';
+          drawingCtx.fillRect(width - 66, y - 10, 62, 20);
+          drawingCtx.fillStyle = '#ffffff';
+          drawingCtx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+          drawingCtx.textAlign = 'center';
+          drawingCtx.textBaseline = 'middle';
+          drawingCtx.fillText(label, width - 35, y);
+          drawingCtx.restore();
+        } else if (d.type === 'trend_line') {
+          const p1 = getScreenCoords(d.points[0]);
+          const p2 = getScreenCoords(d.points[1] || d.points[0]);
+          if (!p1 || !p2) return;
+
+          drawingCtx.save();
+          drawingCtx.strokeStyle = d.color || '#2962ff';
+          drawingCtx.lineWidth = 2;
+          drawingCtx.beginPath();
+          drawingCtx.moveTo(p1.x, p1.y);
+          drawingCtx.lineTo(p2.x, p2.y);
+          drawingCtx.stroke();
+
+          // Anchor points
+          drawingCtx.fillStyle = '#ffffff';
+          drawingCtx.beginPath();
+          drawingCtx.arc(p1.x, p1.y, 3.5, 0, Math.PI * 2);
+          drawingCtx.arc(p2.x, p2.y, 3.5, 0, Math.PI * 2);
+          drawingCtx.fill();
+          drawingCtx.stroke();
+          drawingCtx.restore();
+        } else if (d.type === 'rectangle') {
+          const p1 = getScreenCoords(d.points[0]);
+          const p2 = getScreenCoords(d.points[1] || d.points[0]);
+          if (!p1 || !p2) return;
+
+          const rx = Math.min(p1.x, p2.x);
+          const ry = Math.min(p1.y, p2.y);
+          const rw = Math.abs(p2.x - p1.x);
+          const rh = Math.abs(p2.y - p1.y);
+
+          drawingCtx.save();
+          drawingCtx.fillStyle = d.fillColor || 'rgba(41, 98, 255, 0.12)';
+          drawingCtx.fillRect(rx, ry, rw, rh);
+          drawingCtx.strokeStyle = d.color || '#2962ff';
+          drawingCtx.lineWidth = 1.5;
+          drawingCtx.strokeRect(rx, ry, rw, rh);
+          drawingCtx.restore();
+        } else if (d.type === 'fibonacci') {
+          const p1 = d.points[0];
+          const p2 = d.points[1] || p1;
+          const s1 = getScreenCoords(p1);
+          const s2 = getScreenCoords(p2);
+          if (!s1 || !s2) return;
+
+          const levels = [
+            { r: 0.0, c: '#787b86' },
+            { r: 0.236, c: '#f23645' },
+            { r: 0.382, c: '#ff9800' },
+            { r: 0.5, c: '#4caf50' },
+            { r: 0.618, c: '#089981' },
+            { r: 0.786, c: '#00bcd4' },
+            { r: 1.0, c: '#787b86' },
+          ];
+          const minX = Math.min(s1.x, s2.x);
+          const maxX = Math.max(s1.x, s2.x, minX + 80);
+
+          levels.forEach(function (lvl) {
+            const price = p1.price + (p2.price - p1.price) * lvl.r;
+            const y = mainSeries.priceToCoordinate(price);
+            if (y === null || isNaN(y)) return;
+
+            drawingCtx.save();
+            drawingCtx.strokeStyle = lvl.c;
+            drawingCtx.lineWidth = 1;
+            drawingCtx.setLineDash([3, 3]);
+            drawingCtx.beginPath();
+            drawingCtx.moveTo(minX, y);
+            drawingCtx.lineTo(maxX, y);
+            drawingCtx.stroke();
+
+            drawingCtx.fillStyle = lvl.c;
+            drawingCtx.font = '9px -apple-system, sans-serif';
+            drawingCtx.textAlign = 'left';
+            drawingCtx.fillText((lvl.r * 100).toFixed(1) + '% (' + price.toFixed(2) + ')', minX + 4, y - 3);
+            drawingCtx.restore();
+          });
+        } else if (d.type === 'text_note') {
+          const p1 = getScreenCoords(d.points[0]);
+          if (!p1) return;
+
+          drawingCtx.save();
+          const text = d.text || 'Note';
+          drawingCtx.font = 'bold 11px -apple-system, sans-serif';
+          const tw = drawingCtx.measureText(text).width;
+          drawingCtx.fillStyle = '#1e222d';
+          drawingCtx.strokeStyle = d.color || '#ff9800';
+          drawingCtx.lineWidth = 1;
+          drawingCtx.fillRect(p1.x, p1.y - 20, tw + 16, 22);
+          drawingCtx.strokeRect(p1.x, p1.y - 20, tw + 16, 22);
+          drawingCtx.fillStyle = '#ffffff';
+          drawingCtx.textAlign = 'left';
+          drawingCtx.textBaseline = 'middle';
+          drawingCtx.fillText(text, p1.x + 8, p1.y - 9);
+          drawingCtx.restore();
+        }
+      }
+
+      function initDrawingEvents() {
+        if (!drawingCanvas) return;
+
+        function getEventCoords(e) {
+          if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }
+          return { x: e.clientX, y: e.clientY };
+        }
+
+        function handlePointerDown(e) {
+          if (activeDrawingTool === 'cursor') return;
+          const pos = getEventCoords(e);
+          const pt = getLogicalFromScreen(pos.x, pos.y);
+          if (!pt) return;
+
+          isPointerDown = true;
+
+          if (activeDrawingTool === 'horizontal_line') {
+            drawingsHistory.push(JSON.parse(JSON.stringify(drawings)));
+            drawings.push({
+              id: 'hl_' + Date.now(),
+              type: 'horizontal_line',
+              points: [{ time: pt.time, price: pt.price }],
+              color: '#2962ff',
+            });
+            isPointerDown = false;
+            redrawDrawings();
+            postToFlutter('onDrawingsUpdated', drawings);
+            window.setDrawingMode('cursor');
+            postToFlutter('onDrawingModeChanged', { tool: 'cursor' });
+            return;
+          }
+
+          if (activeDrawingTool === 'text_note') {
+            drawingsHistory.push(JSON.parse(JSON.stringify(drawings)));
+            drawings.push({
+              id: 'note_' + Date.now(),
+              type: 'text_note',
+              points: [{ time: pt.time, price: pt.price }],
+              text: 'Note @ ' + pt.price.toFixed(2),
+              color: '#ff9800',
+            });
+            isPointerDown = false;
+            redrawDrawings();
+            postToFlutter('onDrawingsUpdated', drawings);
+            window.setDrawingMode('cursor');
+            postToFlutter('onDrawingModeChanged', { tool: 'cursor' });
+            return;
+          }
+
+          currentDrawing = {
+            id: 'd_' + Date.now(),
+            type: activeDrawingTool,
+            points: [
+              { time: pt.time, price: pt.price },
+              { time: pt.time, price: pt.price },
+            ],
+            color: '#2962ff',
+          };
+          redrawDrawings();
+        }
+
+        function handlePointerMove(e) {
+          if (!isPointerDown || !currentDrawing) return;
+          const pos = getEventCoords(e);
+          const pt = getLogicalFromScreen(pos.x, pos.y);
+          if (!pt) return;
+
+          currentDrawing.points[1] = { time: pt.time, price: pt.price };
+          redrawDrawings();
+        }
+
+        function handlePointerUp() {
+          if (!isPointerDown || !currentDrawing) return;
+          isPointerDown = false;
+          drawingsHistory.push(JSON.parse(JSON.stringify(drawings)));
+          drawings.push(currentDrawing);
+          currentDrawing = null;
+          redrawDrawings();
+          postToFlutter('onDrawingsUpdated', drawings);
+          window.setDrawingMode('cursor');
+          postToFlutter('onDrawingModeChanged', { tool: 'cursor' });
+        }
+
+        drawingCanvas.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+
+        drawingCanvas.addEventListener('touchstart', handlePointerDown, { passive: true });
+        window.addEventListener('touchmove', handlePointerMove, { passive: true });
+        window.addEventListener('touchend', handlePointerUp);
+      }
+
+      window.setDrawingMode = function (tool) {
+        activeDrawingTool = tool || 'cursor';
+        if (!drawingCanvas) return;
+        if (activeDrawingTool === 'cursor') {
+          drawingCanvas.style.pointerEvents = 'none';
+        } else {
+          drawingCanvas.style.pointerEvents = 'auto';
+        }
+      };
+
+      window.setDrawings = function (drawingsJson) {
+        try {
+          const list = typeof drawingsJson === 'string' ? JSON.parse(drawingsJson) : drawingsJson;
+          if (Array.isArray(list)) {
+            drawings = list;
+            drawingsHistory = [];
+            currentDrawing = null;
+            redrawDrawings();
+          }
+        } catch (e) {
+          console.error('[Bridge] setDrawings error:', e);
+        }
+      };
+
+      window.clearDrawings = function () {
+        if (drawings.length === 0) return;
+        drawingsHistory.push(JSON.parse(JSON.stringify(drawings)));
+        drawings = [];
+        currentDrawing = null;
+        redrawDrawings();
+        postToFlutter('onDrawingsUpdated', drawings);
+      };
+
+      window.undoDrawing = function () {
+        if (drawingsHistory.length === 0) return;
+        drawings = drawingsHistory.pop();
+        currentDrawing = null;
+        redrawDrawings();
+        postToFlutter('onDrawingsUpdated', drawings);
       };
 
       // Bootstrap
