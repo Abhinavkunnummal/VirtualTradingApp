@@ -87,14 +87,36 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppColors.errorContainer),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.error_outline, size: 18, color: AppColors.error),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            authState.errorMessage!,
-                            style: AppTypography.labelSm.copyWith(color: AppColors.error),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline, size: 18, color: AppColors.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                authState.errorMessage!,
+                                style: AppTypography.labelSm.copyWith(color: AppColors.error),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            key: const ValueKey('register_retry_button'),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              foregroundColor: AppColors.error,
+                            ),
+                            onPressed: authState.isLoading ? null : _handleRegister,
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
@@ -245,10 +267,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           alignment: Alignment.center,
           child: Text(
             label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppTypography.labelSm.copyWith(
               color: isSelected ? AppColors.primary : AppColors.outline,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              fontSize: 11,
+              fontSize: 10.5,
             ),
           ),
         ),

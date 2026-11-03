@@ -62,6 +62,7 @@ final liveQuoteForSymbolProvider =
 class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
   final ApiClient apiClient;
   io.Socket? _socket;
+  String? _authToken;
   Timer? _pollingTimer;
   bool _isFetching = false;
   Map<String, dynamic>? _activeChartSubscription;
@@ -96,17 +97,23 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
     }
   }
 
-  void _initSocket() {
+  void _initSocket({String? token}) {
     try {
+      _authToken = token ?? _authToken;
       final base = ApiConstants.baseUrl.replaceAll('/api/v1', '');
+      final options = io.OptionBuilder()
+          .setTransports(['websocket', 'polling'])
+          .enableAutoConnect()
+          .enableReconnection()
+          .setReconnectionDelay(1000);
+
+      if (_authToken != null && _authToken!.isNotEmpty) {
+        options.setAuth({'token': _authToken});
+      }
+
       _socket = io.io(
         base,
-        io.OptionBuilder()
-            .setTransports(['websocket', 'polling'])
-            .enableAutoConnect()
-            .enableReconnection()
-            .setReconnectionDelay(1000)
-            .build(),
+        options.build(),
       );
 
       _socket?.onConnect((_) {
@@ -173,6 +180,26 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
   /// Remove chart tick listener
   void removeChartTickListener(void Function(Map<String, dynamic>) listener) {
     _chartTickListeners.remove(listener);
+  }
+
+  /// Update socket auth credentials and reconnect to join user channel
+  void updateAuthToken(String? token) {
+    _authToken = token;
+    final bool isTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (isTest) return;
+
+    if (_socket != null) {
+      if (token != null && token.isNotEmpty) {
+        _socket?.io.options?['auth'] = {'token': token};
+      } else {
+        _socket?.io.options?.remove('auth');
+      }
+      if (_socket?.connected == true) {
+        _socket?.disconnect().connect();
+      } else {
+        _socket?.connect();
+      }
+    }
   }
 
   /// Subscribe to instruments opened by the user, including searched symbols.

@@ -303,6 +303,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   void _showOrderHistorySheet() {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -311,24 +312,28 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
         builder: (context, ref, _) {
           final historyAsync = ref.watch(orderHistoryProvider);
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return SafeArea(
+            top: false,
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.75,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Simulated Order Book', style: AppTypography.headlineSm),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(ctx).pop(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Simulated Order Book', style: AppTypography.headlineSm),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: historyAsync.when(
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: historyAsync.when(
                     data: (orders) {
                       if (orders.isEmpty) {
                         return Center(
@@ -471,10 +476,12 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                 ),
               ],
             ),
-          );
-        },
-      ),
-    );
+          ),
+        ),
+      );
+    },
+  ),
+);
   }
 
   void _showInstrumentPickerSheet() {
@@ -492,18 +499,20 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             builder: (context, ref, _) {
               final marketsAsync = ref.watch(marketOverviewProvider);
 
-              return Padding(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top: 16,
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                ),
-                child: SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.7,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+              return SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                  ),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -593,8 +602,9 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                     ],
                   ),
                 ),
-              );
-            },
+              ),
+            );
+          },
           ),
         );
       },

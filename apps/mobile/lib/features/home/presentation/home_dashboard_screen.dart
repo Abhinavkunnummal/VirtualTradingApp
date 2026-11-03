@@ -217,43 +217,49 @@ class HomeDashboardScreen extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              const TradeVerseLogo(size: 36),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    displayName ?? 'TradeVerse AI',
-                    style: AppTypography.headlineSm.copyWith(fontSize: 15),
-                  ),
-                  Row(
+          Expanded(
+            child: Row(
+              children: [
+                const TradeVerseLogo(size: 36),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryBrand.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppColors.primaryBrand.withOpacity(0.3)),
-                        ),
-                        child: Text(
-                          'SIMULATION',
-                          style: AppTypography.labelSm.copyWith(
-                            fontSize: 9,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                      Text(
+                        displayName ?? 'TradeVerse AI',
+                        style: AppTypography.headlineSm.copyWith(fontSize: 15),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 6),
-                      Text('v2.4 Sandbox', style: AppTypography.labelSm),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBrand.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppColors.primaryBrand.withOpacity(0.3)),
+                            ),
+                            child: Text(
+                              'SIMULATION',
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 9,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text('v2.4 Sandbox', style: AppTypography.labelSm),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Row(
             children: [
               IconButton(

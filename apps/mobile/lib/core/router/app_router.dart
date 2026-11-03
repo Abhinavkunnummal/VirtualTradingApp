@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/shell/app_shell.dart';
+import '../../features/shell/splash_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
@@ -21,29 +22,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/',
+    initialLocation: '/splash',
     redirect: (context, state) {
+      final isSplash = state.matchedLocation == '/splash';
       final isLoggingIn = state.matchedLocation == '/login';
       final isRegistering = state.matchedLocation == '/register';
 
-      // While checking auth status at launch, stay put
+      // While checking auth status at launch, stay on splash screen
       if (authState.status == AuthStatus.initial || authState.status == AuthStatus.loading) {
-        return null;
+        return isSplash ? null : '/splash';
       }
 
       final hasAccess = authState.isAuthenticated || authState.isDemoMode;
 
-      if (!hasAccess && !isLoggingIn && !isRegistering) {
-        return '/login';
+      if (!hasAccess) {
+        return (isLoggingIn || isRegistering) ? null : '/login';
       }
 
-      if (hasAccess && (isLoggingIn || isRegistering)) {
+      if (hasAccess && (isLoggingIn || isRegistering || isSplash)) {
         return '/';
       }
 
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        name: 'splash',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: SplashScreen(),
+        ),
+      ),
       GoRoute(
         path: '/login',
         name: 'login',

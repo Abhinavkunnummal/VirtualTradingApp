@@ -1120,17 +1120,19 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
     final available = portfolio?.availableCash ?? 1000000.0;
     final margin = _getRequiredMargin();
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // Drag Handle
           Center(
             child: Container(
@@ -1383,6 +1385,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

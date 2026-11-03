@@ -65,7 +65,117 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
       ),
       builder: (ctx) {
         final amountController = TextEditingController(text: '100000');
-        return Padding(
+        return SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Add Virtual Practice Funds', style: AppTypography.headlineSm),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Top up fictional capital in your paper-trading sandbox. No real fiat deposit.',
+                  style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                ),
+                const SizedBox(height: 16),
+
+                // Quick preset chips
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [50000.0, 100000.0, 500000.0, 1000000.0].map((amt) {
+                    final label = '+₹${(amt / 1000).toStringAsFixed(0)}K';
+                    return ActionChip(
+                      backgroundColor: AppColors.surfaceLowest,
+                      side: const BorderSide(color: AppColors.borderSubtle),
+                      label: Text(label, style: AppTypography.labelSm.copyWith(color: AppColors.primary)),
+                      onPressed: () {
+                        amountController.text = amt.toStringAsFixed(0);
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 14),
+
+                TextField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  style: AppTypography.bodyLg,
+                  decoration: InputDecoration(
+                    labelText: 'Amount (INR)',
+                    prefixText: '₹ ',
+                    prefixStyle: AppTypography.bodyLg.copyWith(color: AppColors.secondary),
+                    filled: true,
+                    fillColor: AppColors.surfaceLowest,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+                    label: const Text('Credit Virtual Funds'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryBrand,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () async {
+                      final entered = double.tryParse(amountController.text) ?? 100000.0;
+                      Navigator.of(ctx).pop();
+                      final success = await ref.read(portfolioProvider.notifier).topUpVirtualFunds(entered);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              success
+                                  ? 'Credited ₹${entered.toStringAsFixed(0)} in virtual sandbox funds.'
+                                  : 'Top-up failed. Check connection.',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showResetCapitalModal() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: SingleChildScrollView(
           padding: EdgeInsets.only(
             left: 20,
             right: 20,
@@ -79,138 +189,40 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Add Virtual Practice Funds', style: AppTypography.headlineSm),
+                  Text('Reset Virtual Sandbox Capital', style: AppTypography.headlineSm),
                   IconButton(
                     icon: const Icon(Icons.close, size: 20),
                     onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
-                'Top up fictional capital in your paper-trading sandbox. No real fiat deposit.',
-                style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                'Select starting virtual balance for your paper-trading account:',
+                style: AppTypography.bodyMd,
               ),
               const SizedBox(height: 16),
-
-              // Quick preset chips
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [50000.0, 100000.0, 500000.0, 1000000.0].map((amt) {
-                  final label = '+₹${(amt / 1000).toStringAsFixed(0)}K';
-                  return ActionChip(
-                    backgroundColor: AppColors.surfaceLowest,
-                    side: const BorderSide(color: AppColors.borderSubtle),
-                    label: Text(label, style: AppTypography.labelSm.copyWith(color: AppColors.primary)),
-                    onPressed: () {
-                      amountController.text = amt.toStringAsFixed(0);
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 14),
-
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                style: AppTypography.bodyLg,
-                decoration: InputDecoration(
-                  labelText: 'Amount (INR)',
-                  prefixText: '₹ ',
-                  prefixStyle: AppTypography.bodyLg.copyWith(color: AppColors.secondary),
-                  filled: true,
-                  fillColor: AppColors.surfaceLowest,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
-                  label: const Text('Credit Virtual Funds'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryBrand,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () async {
-                    final entered = double.tryParse(amountController.text) ?? 100000.0;
+              ...[500000.0, 1000000.0, 2500000.0, 5000000.0].map((amt) {
+                final formatted = '₹${(amt / 100000).toStringAsFixed(0)} Lakh';
+                return ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  tileColor: AppColors.surfaceLowest,
+                  title: Text(formatted, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold)),
+                  subtitle: Text('Virtual Currency • No Real Money', style: AppTypography.labelSm),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.outline),
+                  onTap: () async {
                     Navigator.of(ctx).pop();
-                    final success = await ref.read(portfolioProvider.notifier).topUpVirtualFunds(entered);
+                    final success = await ref.read(portfolioProvider.notifier).resetCapital(amt);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            success
-                                ? 'Credited ₹${entered.toStringAsFixed(0)} in virtual sandbox funds.'
-                                : 'Top-up failed. Check connection.',
-                          ),
-                        ),
+                        SnackBar(content: Text(success ? 'Sandbox balance reset to $formatted' : 'Reset failed. Check connection.')),
                       );
                     }
                   },
-                ),
-              ),
+                );
+              }),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  void _showResetCapitalModal() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.surfaceContainer,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Reset Virtual Sandbox Capital', style: AppTypography.headlineSm),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20),
-                  onPressed: () => Navigator.of(ctx).pop(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Select starting virtual balance for your paper-trading account:',
-              style: AppTypography.bodyMd,
-            ),
-            const SizedBox(height: 16),
-            ...[500000.0, 1000000.0, 2500000.0, 5000000.0].map((amt) {
-              final formatted = '₹${(amt / 100000).toStringAsFixed(0)} Lakh';
-              return ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                tileColor: AppColors.surfaceLowest,
-                title: Text(formatted, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold)),
-                subtitle: Text('Virtual Currency • No Real Money', style: AppTypography.labelSm),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.outline),
-                onTap: () async {
-                  Navigator.of(ctx).pop();
-                  final success = await ref.read(portfolioProvider.notifier).resetCapital(amt);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(success ? 'Sandbox balance reset to $formatted' : 'Reset failed. Check connection.')),
-                    );
-                  }
-                },
-              );
-            }),
-          ],
         ),
       ),
     );
@@ -334,9 +346,11 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMetric('Virtual Cash', '₹${portfolio.availableCash.toStringAsFixed(2)}'),
-              _buildMetric('Invested', '₹${portfolio.investedValue.toStringAsFixed(2)}'),
-              _buildMetric('Starting Capital', '₹${portfolio.startingCapital.toStringAsFixed(2)}'),
+              Expanded(child: _buildMetric('Virtual Cash', '₹${portfolio.availableCash.toStringAsFixed(2)}')),
+              const SizedBox(width: 8),
+              Expanded(child: _buildMetric('Invested', '₹${portfolio.investedValue.toStringAsFixed(2)}')),
+              const SizedBox(width: 8),
+              Expanded(child: _buildMetric('Starting Capital', '₹${portfolio.startingCapital.toStringAsFixed(2)}')),
             ],
           ),
           const SizedBox(height: 12),

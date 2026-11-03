@@ -88,14 +88,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AppColors.errorContainer),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.error_outline, size: 18, color: AppColors.error),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              authState.errorMessage!,
-                              style: AppTypography.labelSm.copyWith(color: AppColors.error),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.error_outline, size: 18, color: AppColors.error),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  authState.errorMessage!,
+                                  style: AppTypography.labelSm.copyWith(color: AppColors.error),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              key: const ValueKey('login_retry_button'),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                foregroundColor: AppColors.error,
+                              ),
+                              onPressed: authState.isLoading ? null : _handleLogin,
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],

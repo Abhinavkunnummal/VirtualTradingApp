@@ -69,7 +69,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(106),
+          preferredSize: const Size.fromHeight(112),
           child: Column(
             children: [
               // Search Input

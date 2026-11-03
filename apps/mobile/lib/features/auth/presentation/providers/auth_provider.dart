@@ -3,6 +3,7 @@ import 'package:tradeverse_mobile/core/network/api_client.dart';
 import 'package:tradeverse_mobile/core/network/token_storage.dart';
 import 'package:tradeverse_mobile/core/network/api_exceptions.dart';
 import 'package:tradeverse_mobile/core/constants/api_constants.dart';
+import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/features/auth/domain/auth_models.dart';
 
 final tokenStorageProvider = Provider<TokenStorage>((ref) {
@@ -19,7 +20,16 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final apiClient = ref.watch(apiClientProvider);
   final tokenStorage = ref.watch(tokenStorageProvider);
-  return AuthNotifier(apiClient: apiClient, tokenStorage: tokenStorage);
+  return AuthNotifier(
+    apiClient: apiClient,
+    tokenStorage: tokenStorage,
+    onAuthSuccess: (token) {
+      ref.read(liveQuotesProvider.notifier).updateAuthToken(token);
+    },
+    onLogout: () {
+      ref.read(liveQuotesProvider.notifier).updateAuthToken(null);
+    },
+  );
 });
 
 final currentUserProvider = Provider<UserModel?>((ref) {
@@ -29,10 +39,14 @@ final currentUserProvider = Provider<UserModel?>((ref) {
 class AuthNotifier extends StateNotifier<AuthState> {
   final ApiClient apiClient;
   final TokenStorage tokenStorage;
+  final void Function(String token)? onAuthSuccess;
+  final void Function()? onLogout;
 
   AuthNotifier({
     required this.apiClient,
     required this.tokenStorage,
+    this.onAuthSuccess,
+    this.onLogout,
   }) : super(AuthState.initial()) {
     apiClient.onSessionExpired = handleSessionExpired;
     checkAuthStatus();
@@ -53,12 +67,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return;
       }
 
+      apiClient.setAuthToken(token);
+      onAuthSuccess?.call(token);
+
       final response = await apiClient.get<Map<String, dynamic>>(ApiConstants.me);
       if (response.statusCode == 200 && response.data?['success'] == true) {
         final user = UserModel.fromJson(response.data!['user'] as Map<String, dynamic>);
         state = AuthState.authenticated(user);
       } else {
         await tokenStorage.clearTokens();
+        apiClient.clearAuthToken();
+        onLogout?.call();
         state = AuthState.unauthenticated();
       }
     } catch (_) {
@@ -85,8 +104,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final refreshToken = response.data!['refreshToken'] as String;
         final user = UserModel.fromJson(response.data!['user'] as Map<String, dynamic>);
 
+        apiClient.setAuthToken(accessToken);
         await tokenStorage.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
         await tokenStorage.setDemoMode(false);
+        onAuthSuccess?.call(accessToken);
+
         state = AuthState.authenticated(user);
         return true;
       } else {
@@ -125,8 +147,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final refreshToken = response.data!['refreshToken'] as String;
         final user = UserModel.fromJson(response.data!['user'] as Map<String, dynamic>);
 
+        apiClient.setAuthToken(accessToken);
         await tokenStorage.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
         await tokenStorage.setDemoMode(false);
+        onAuthSuccess?.call(accessToken);
+
         state = AuthState.authenticated(user);
         return true;
       } else {
@@ -154,12 +179,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await apiClient.post<dynamic>(ApiConstants.logout, data: {'refreshToken': refreshToken});
       }
     } catch (_) {}
+    apiClient.clearAuthToken();
     await tokenStorage.clearTokens();
     await tokenStorage.setDemoMode(false);
+    onLogout?.call();
     state = AuthState.unauthenticated();
   }
 
   void handleSessionExpired() {
+    apiClient.clearAuthToken();
+    onLogout?.call();
     state = AuthState.unauthenticated('Your session has expired. Please log in again.');
   }
 }

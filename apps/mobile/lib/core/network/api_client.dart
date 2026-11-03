@@ -39,12 +39,19 @@ class ApiClient {
           // If 401 Unauthorized, attempt refresh session once
           if (error.response?.statusCode == 401 &&
               !error.requestOptions.path.contains('/auth/')) {
+            // Guard: Do not trigger session-expired logout if the request was never authenticated!
+            final authHeader = error.requestOptions.headers['Authorization'] as String?;
+            if (authHeader == null || !authHeader.startsWith('Bearer ')) {
+              return handler.next(error);
+            }
+
             final refreshToken = await tokenStorage.getRefreshToken();
-            if (refreshToken != null) {
+            if (refreshToken != null && refreshToken.isNotEmpty) {
               try {
                 final refreshResponse = await dio.post<Map<String, dynamic>>(
                   ApiConstants.refresh,
                   data: {'refreshToken': refreshToken},
+                  options: Options(headers: {'Authorization': null}),
                 );
 
                 if (refreshResponse.statusCode == 200 &&
@@ -55,6 +62,7 @@ class ApiClient {
                     accessToken: newAccess,
                     refreshToken: newRefresh,
                   );
+                  setAuthToken(newAccess);
 
                   // Retry the original request
                   final clonedRequest = error.requestOptions;
@@ -65,10 +73,12 @@ class ApiClient {
               } catch (_) {
                 // Refresh failed; clear session and notify
                 await tokenStorage.clearTokens();
+                clearAuthToken();
                 onSessionExpired?.call();
               }
             } else {
               await tokenStorage.clearTokens();
+              clearAuthToken();
               onSessionExpired?.call();
             }
           }
@@ -76,6 +86,14 @@ class ApiClient {
         },
       ),
     );
+  }
+
+  void setAuthToken(String token) {
+    dio.options.headers['Authorization'] = 'Bearer $token';
+  }
+
+  void clearAuthToken() {
+    dio.options.headers.remove('Authorization');
   }
 
   Future<Response<T>> get<T>(

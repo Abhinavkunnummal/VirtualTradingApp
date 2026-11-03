@@ -167,12 +167,14 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
         builder: (context, setModalState) {
           final isCorrect = submitted && selectedOption == quiz.correctIndex;
 
-          return Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          return SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -304,6 +306,8 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
                 ),
               ],
             ),
+          ),
+          ),
           );
         },
       ),
@@ -324,18 +328,20 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            child: SizedBox(
-              height: MediaQuery.of(context).size.height * 0.7,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          return SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.7,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -475,6 +481,7 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
                 ],
               ),
             ),
+          ),
           );
         },
       ),
