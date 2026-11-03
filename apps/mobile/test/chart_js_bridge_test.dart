@@ -8,7 +8,7 @@ void main() {
   group('ChartJsBridge Unit Tests', () {
     test('buildSetCandlesCall formats JSON candles and symbol properly', () {
       final candles = [
-        CandleData(
+        const CandleData(
           timestamp: 1700000000,
           open: 100.0,
           high: 110.0,
