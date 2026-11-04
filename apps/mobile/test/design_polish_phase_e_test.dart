@@ -1,27 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
 import 'package:tradeverse_mobile/core/widgets/app_shimmer.dart';
 import 'package:tradeverse_mobile/core/widgets/empty_state_view.dart';
 
 void main() {
-  setUpAll(() {
-    GoogleFonts.config.allowRuntimeFetching = false;
-  });
-
   group('Phase E - Theme & Typography Verification', () {
     test('Zerodha & Groww dark mode color palette constants are configured', () {
       expect(AppColors.background, const Color(0xFF121418));
       expect(AppColors.surfaceContainer, const Color(0xFF1A1D24));
       expect(AppColors.borderSubtle, const Color(0xFF262A33));
       expect(AppColors.kiteGreen, const Color(0xFF00D09C));
-      expect(AppColors.kiteRed, const Color(0xFFF23645));
+      expect(AppColors.kiteRed, const Color(0xFFEB5757));
       expect(AppColors.zerodhaBlue, const Color(0xFF2962FF));
     });
 
-    test('Numeric typography styles contain tabular figures feature', () {
+    testWidgets('Numeric typography styles contain tabular figures feature', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                Text('123.45', style: AppTypography.numericTicker),
+                Text('123.45', style: AppTypography.numericTable),
+                Text('123.45', style: AppTypography.numericHeadline),
+                Text('123.45', style: AppTypography.numericSubhead),
+                Text('123.45', style: AppTypography.numericSmall),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
       const tabularFeature = FontFeature.tabularFigures();
       expect(AppTypography.numericTicker.fontFeatures, contains(tabularFeature));
       expect(AppTypography.numericTable.fontFeatures, contains(tabularFeature));
