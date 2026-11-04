@@ -38,7 +38,7 @@ jobs:
       JWT_ACCESS_SECRET: tradeverse_test_jwt_access_secret_key_32_chars_minimum!
       JWT_REFRESH_SECRET: tradeverse_test_jwt_refresh_secret_key_32_chars_minimum!
       CORS_ORIGINS: "*"
-      ALPHA_VANTAGE_API_KEY: demo
+      ALPHA_VANTAGE_API_KEY: demo_key_ci
 
     steps:
       - name: Checkout Repository

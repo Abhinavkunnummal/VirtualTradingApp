@@ -39,7 +39,7 @@ export class AlphaVantageService {
   }
 
   public static isConfigured(): boolean {
-    return Boolean(this.apiKey && this.apiKey.length > 5);
+    return Boolean(this.apiKey && this.apiKey.length >= 4);
   }
 
   public static getBudgetGuard(): RateLimitBudgetGuard {
