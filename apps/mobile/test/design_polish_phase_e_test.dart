@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
 import 'package:tradeverse_mobile/core/widgets/app_shimmer.dart';
 import 'package:tradeverse_mobile/core/widgets/empty_state_view.dart';
 
 void main() {
+  setUpAll(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
   group('Phase E - Theme & Typography Verification', () {
     test('Zerodha & Groww dark mode color palette constants are configured', () {
       expect(AppColors.background, const Color(0xFF121418));
       expect(AppColors.surfaceContainer, const Color(0xFF1A1D24));
       expect(AppColors.borderSubtle, const Color(0xFF262A33));
-      expect(AppColors.kiteGreen, const Color(0xFF089981));
+      expect(AppColors.kiteGreen, const Color(0xFF00D09C));
       expect(AppColors.kiteRed, const Color(0xFFF23645));
       expect(AppColors.zerodhaBlue, const Color(0xFF2962FF));
     });
