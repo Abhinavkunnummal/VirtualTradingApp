@@ -182,6 +182,7 @@ void main() {
       // Toggle AI insights banner at 320x568 and verify no overflow
       final aiBtn = find.byKey(const ValueKey('chart_auto_analysis_button'));
       expect(aiBtn, findsOneWidget);
+      await tester.ensureVisible(aiBtn);
       await tester.tap(aiBtn);
       await tester.pumpAndSettle();
       expectNoOverflow(tester);
