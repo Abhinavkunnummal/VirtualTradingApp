@@ -179,6 +179,14 @@ void main() {
       expectNoOverflow(tester);
       expect(find.text('BTC/USDT'), findsWidgets);
 
+      // Toggle AI insights banner at 320x568 and verify no overflow
+      final aiBtn = find.byKey(const ValueKey('chart_auto_analysis_button'));
+      expect(aiBtn, findsOneWidget);
+      await tester.tap(aiBtn);
+      await tester.pumpAndSettle();
+      expectNoOverflow(tester);
+      expect(find.byKey(const ValueKey('chart_ai_insights_banner')), findsOneWidget);
+
       // Open quick order modal and verify no overflow
       await tester.tap(find.textContaining('BUY \$77645.00'));
       await tester.pumpAndSettle();

@@ -37,8 +37,12 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   bool _isWebViewReady = false;
   bool _hasWebViewError = false;
   bool _isDelayed = false;
-  String _selectedChartType = 'candles'; // 'candles', 'line', 'area', 'bars'
+  String _selectedChartType = 'candles'; // 'candles', 'heikin_ashi', 'line', 'area', 'bars'
   List<ChartIndicatorConfig> _indicators = ChartIndicatorConfig.defaultIndicators();
+  bool _isAutoAnalysisEnabled = false;
+  List<String> _detectedPatterns = [];
+  List<double> _supportLevels = [];
+  List<double> _resistanceLevels = [];
 
   final ChartDrawingStorage _drawingStorage = ChartDrawingStorage();
   bool _showDrawingTools = true;
@@ -165,6 +169,18 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
         if (tool != null && mounted) {
           setState(() => _activeDrawingTool = tool);
         }
+      } else if (type == 'onAutoAnalysisResult') {
+        final payload = data['data'] as Map<String, dynamic>?;
+        if (payload != null && mounted) {
+          setState(() {
+            final rawPatterns = payload['patterns'] as List<dynamic>? ?? [];
+            _detectedPatterns = rawPatterns.map((e) => e.toString()).toList();
+            final rawSupport = payload['support'] as List<dynamic>? ?? [];
+            _supportLevels = rawSupport.map((e) => (e as num).toDouble()).toList();
+            final rawResistance = payload['resistance'] as List<dynamic>? ?? [];
+            _resistanceLevels = rawResistance.map((e) => (e as num).toDouble()).toList();
+          });
+        }
       }
     } catch (_) {}
   }
@@ -232,6 +248,21 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
           isDelayed: _isDelayed,
         ),
       );
+      if (_isAutoAnalysisEnabled) {
+        _webViewController!.runJavaScript(ChartJsBridge.buildSetAutoAnalysisCall(true));
+      }
+    }
+  }
+
+  void _toggleAutoAnalysis() {
+    setState(() => _isAutoAnalysisEnabled = !_isAutoAnalysisEnabled);
+    _webViewController?.runJavaScript(ChartJsBridge.buildSetAutoAnalysisCall(_isAutoAnalysisEnabled));
+    if (!_isAutoAnalysisEnabled) {
+      setState(() {
+        _detectedPatterns = [];
+        _supportLevels = [];
+        _resistanceLevels = [];
+      });
     }
   }
 
@@ -769,6 +800,48 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                     ),
                     const SizedBox(width: 6),
 
+                    // Auto AI Analysis toggle
+                    InkWell(
+                      key: const ValueKey('chart_auto_analysis_button'),
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: _toggleAutoAnalysis,
+                      child: Container(
+                        height: 28,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: _isAutoAnalysisEnabled
+                              ? AppColors.zerodhaBlue.withOpacity(0.2)
+                              : AppColors.tvDarkBg,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: _isAutoAnalysisEnabled
+                                ? AppColors.zerodhaBlue
+                                : AppColors.tvBorder,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              size: 14,
+                              color: _isAutoAnalysisEnabled ? AppColors.zerodhaBlue : AppColors.outline,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'AI Insights',
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 11,
+                                fontWeight: _isAutoAnalysisEnabled ? FontWeight.bold : FontWeight.w500,
+                                color: _isAutoAnalysisEnabled ? AppColors.zerodhaBlue : AppColors.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+
                     // Draw tools toggle
                     InkWell(
                       key: const ValueKey('chart_draw_tools_button'),
@@ -824,6 +897,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _buildChartTypeIcon('candles', Icons.candlestick_chart, 'Candles'),
+                          _buildChartTypeIcon('heikin_ashi', Icons.stacked_line_chart, 'Heikin-Ashi'),
                           _buildChartTypeIcon('line', Icons.show_chart, 'Line'),
                           _buildChartTypeIcon('area', Icons.area_chart, 'Area'),
                           _buildChartTypeIcon('bars', Icons.view_column_outlined, 'Bars'),
@@ -834,6 +908,89 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                 ),
               ),
             ),
+
+            // AI Pattern & Support/Resistance Insights Banner
+            if (_isAutoAnalysisEnabled)
+              Container(
+                key: const ValueKey('chart_ai_insights_banner'),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceLowest,
+                  border: Border(bottom: BorderSide(color: AppColors.tvBorder)),
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.zerodhaBlue.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.zerodhaBlue.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.auto_awesome, size: 12, color: AppColors.zerodhaBlue),
+                            const SizedBox(width: 4),
+                            Text(
+                              'AI ANALYSIS',
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.zerodhaBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (_detectedPatterns.isNotEmpty) ...[
+                        Text(
+                          'Patterns: ${_detectedPatterns.join(", ")}',
+                          style: AppTypography.labelSm.copyWith(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.warning,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ] else ...[
+                        Text(
+                          'Scanning patterns...',
+                          style: AppTypography.labelSm.copyWith(
+                            fontSize: 10,
+                            color: AppColors.outline,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      if (_supportLevels.isNotEmpty) ...[
+                        Text(
+                          'S: ${_supportLevels.map((s) => "$currency${s.toStringAsFixed(1)}").join(" | ")}',
+                          style: AppTypography.labelSm.copyWith(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.kiteGreen,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      if (_resistanceLevels.isNotEmpty)
+                        Text(
+                          'R: ${_resistanceLevels.map((r) => "$currency${r.toStringAsFixed(1)}").join(" | ")}',
+                          style: AppTypography.labelSm.copyWith(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.kiteRed,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
 
             // Interactive Drawing Tools Secondary Toolbar
             if (_showDrawingTools)
@@ -895,6 +1052,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                         selectedInterval: interval,
                         onIntervalChanged: _changeInterval,
                         selectedRange: range,
+                        chartType: _selectedChartType,
                         onRangeChanged: (newRange) {
                           ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
                         },

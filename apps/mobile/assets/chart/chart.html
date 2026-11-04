@@ -237,6 +237,41 @@
         });
 
         postToFlutter('onChartReady', { status: 'ready' });
+        startPulseAnimationLoop();
+      }
+
+      function computeHeikinAshi(rawCandles) {
+        if (!rawCandles || rawCandles.length === 0) return [];
+        const ha = [];
+        let prevOpen = (rawCandles[0].open + rawCandles[0].close) / 2;
+        let prevClose = (rawCandles[0].open + rawCandles[0].high + rawCandles[0].low + rawCandles[0].close) / 4;
+        ha.push({
+          time: rawCandles[0].time,
+          open: prevOpen,
+          high: Math.max(rawCandles[0].high, prevOpen, prevClose),
+          low: Math.min(rawCandles[0].low, prevOpen, prevClose),
+          close: prevClose,
+          volume: rawCandles[0].volume,
+        });
+
+        for (let i = 1; i < rawCandles.length; i++) {
+          const c = rawCandles[i];
+          const close = (c.open + c.high + c.low + c.close) / 4;
+          const open = (prevOpen + prevClose) / 2;
+          const high = Math.max(c.high, open, close);
+          const low = Math.min(c.low, open, close);
+          ha.push({
+            time: c.time,
+            open: open,
+            high: high,
+            low: low,
+            close: close,
+            volume: c.volume,
+          });
+          prevOpen = open;
+          prevClose = close;
+        }
+        return ha;
       }
 
       function createMainSeries(type) {
@@ -269,6 +304,7 @@
             priceLineVisible: true,
           });
         } else {
+          // 'candles' or 'heikin_ashi'
           mainSeries = chart.addCandlestickSeries({
             upColor: '#089981',
             downColor: '#f23645',
@@ -295,6 +331,9 @@
             return { time: c.time, value: c.close };
           });
           mainSeries.setData(lineData);
+        } else if (currentChartType === 'heikin_ashi') {
+          const haCandles = computeHeikinAshi(candles);
+          mainSeries.setData(haCandles);
         } else {
           mainSeries.setData(candles);
         }
@@ -312,6 +351,9 @@
         }
 
         recomputeAllActiveIndicators();
+        if (autoAnalysisEnabled) {
+          runAutoAnalysis(cachedCandles);
+        }
         chart.timeScale().fitContent();
         redrawDrawings();
       }
@@ -659,8 +701,25 @@
           const c = typeof data === 'string' ? JSON.parse(data) : data;
           if (!c || !mainSeries) return;
 
+          // Update cached array first
+          if (cachedCandles.length > 0) {
+            const last = cachedCandles[cachedCandles.length - 1];
+            if (last && last.time === c.time) {
+              cachedCandles[cachedCandles.length - 1] = c;
+            } else if (last && c.time > last.time) {
+              cachedCandles.push(c);
+            }
+          } else {
+            cachedCandles.push(c);
+          }
+
           if (currentChartType === 'line' || currentChartType === 'area') {
             mainSeries.update({ time: c.time, value: c.close });
+          } else if (currentChartType === 'heikin_ashi') {
+            const haCandles = computeHeikinAshi(cachedCandles);
+            if (haCandles.length > 0) {
+              mainSeries.update(haCandles[haCandles.length - 1]);
+            }
           } else {
             mainSeries.update({
               time: c.time,
@@ -680,19 +739,10 @@
             });
           }
 
-          // Update cached array
-          if (cachedCandles.length > 0) {
-            const last = cachedCandles[cachedCandles.length - 1];
-            if (last && last.time === c.time) {
-              cachedCandles[cachedCandles.length - 1] = c;
-            } else if (last && c.time > last.time) {
-              cachedCandles.push(c);
-            }
-          } else {
-            cachedCandles.push(c);
-          }
-
           recomputeAllActiveIndicators();
+          if (autoAnalysisEnabled) {
+            runAutoAnalysis(cachedCandles);
+          }
         } catch (e) {
           console.error('[Bridge] updateCandle error:', e);
         }
@@ -839,6 +889,219 @@
         }
       };
 
+      // --- Auto AI Pattern & Support/Resistance Analysis Engine ---
+      let autoAnalysisEnabled = false;
+      let srPriceLines = [];
+
+      function clearAutoAnalysis() {
+        if (mainSeries) {
+          try {
+            mainSeries.setMarkers([]);
+          } catch (_) {}
+          while (srPriceLines.length > 0) {
+            const pl = srPriceLines.pop();
+            try {
+              mainSeries.removePriceLine(pl);
+            } catch (_) {}
+          }
+        }
+      }
+
+      function runAutoAnalysis(candles) {
+        if (!autoAnalysisEnabled || !candles || candles.length < 5 || !mainSeries) return;
+        clearAutoAnalysis();
+
+        const currentPrice = candles[candles.length - 1].close;
+        const markers = [];
+        const detectedPatterns = [];
+        const resistanceCandidates = [];
+        const supportCandidates = [];
+
+        // 1. Detect Pivot Highs & Lows (local extrema over 3 candles)
+        const k = 3;
+        for (let i = k; i < candles.length - k; i++) {
+          const cur = candles[i];
+          let isHigh = true;
+          let isLow = true;
+          for (let j = 1; j <= k; j++) {
+            if (candles[i - j].high >= cur.high || candles[i + j].high > cur.high) isHigh = false;
+            if (candles[i - j].low <= cur.low || candles[i + j].low < cur.low) isLow = false;
+          }
+          if (isHigh) resistanceCandidates.push(cur.high);
+          if (isLow) supportCandidates.push(cur.low);
+        }
+
+        // Fallbacks if not enough pivots
+        if (resistanceCandidates.length === 0) {
+          resistanceCandidates.push(Math.max.apply(null, candles.map(function (c) { return c.high; })));
+        }
+        if (supportCandidates.length === 0) {
+          supportCandidates.push(Math.min.apply(null, candles.map(function (c) { return c.low; })));
+        }
+
+        // Resistance levels above currentPrice (sorted ascending)
+        const validR = resistanceCandidates
+          .filter(function (r) { return r >= currentPrice; })
+          .sort(function (a, b) { return a - b; });
+
+        // Support levels below currentPrice (sorted descending)
+        const validS = supportCandidates
+          .filter(function (s) { return s <= currentPrice; })
+          .sort(function (a, b) { return b - a; });
+
+        // Select top 2 distinct Resistance levels (>0.4% apart)
+        const finalR = [];
+        for (let i = 0; i < validR.length; i++) {
+          const val = validR[i];
+          if (!finalR.some(function (r) { return Math.abs(r - val) / val < 0.004; })) {
+            finalR.push(val);
+            if (finalR.length >= 2) break;
+          }
+        }
+
+        // Select top 2 distinct Support levels (>0.4% apart)
+        const finalS = [];
+        for (let i = 0; i < validS.length; i++) {
+          const val = validS[i];
+          if (!finalS.some(function (s) { return Math.abs(s - val) / val < 0.004; })) {
+            finalS.push(val);
+            if (finalS.length >= 2) break;
+          }
+        }
+
+        // Draw Resistance Price Lines (Crimson Dashed)
+        finalR.forEach(function (r, idx) {
+          try {
+            const pl = mainSeries.createPriceLine({
+              price: r,
+              color: '#f23645',
+              lineWidth: 1.5,
+              lineStyle: 2, // Dashed
+              axisLabelVisible: true,
+              title: 'RESISTANCE (R' + (idx + 1) + ')',
+            });
+            srPriceLines.push(pl);
+          } catch (_) {}
+        });
+
+        // Draw Support Price Lines (Emerald Dashed)
+        finalS.forEach(function (s, idx) {
+          try {
+            const pl = mainSeries.createPriceLine({
+              price: s,
+              color: '#089981',
+              lineWidth: 1.5,
+              lineStyle: 2, // Dashed
+              axisLabelVisible: true,
+              title: 'SUPPORT (S' + (idx + 1) + ')',
+            });
+            srPriceLines.push(pl);
+          } catch (_) {}
+        });
+
+        // 2. Candlestick Patterns Detection
+        const startIdx = Math.max(1, candles.length - 25);
+        for (let i = startIdx; i < candles.length; i++) {
+          const c = candles[i];
+          const prev = candles[i - 1];
+          const range = c.high - c.low;
+          const body = Math.abs(c.close - c.open);
+          const upperShadow = c.high - Math.max(c.open, c.close);
+          const lowerShadow = Math.min(c.open, c.close) - c.low;
+
+          if (range <= 0) continue;
+
+          // Doji
+          if (body <= range * 0.1) {
+            markers.push({
+              time: c.time,
+              position: 'aboveBar',
+              color: '#ff9800',
+              shape: 'circle',
+              text: 'Doji',
+            });
+            if (i >= candles.length - 5) detectedPatterns.push('Doji');
+            continue;
+          }
+
+          // Bullish Engulfing
+          if (prev.close < prev.open && c.close > c.open && c.open <= prev.close && c.close >= prev.open && body > Math.abs(prev.close - prev.open)) {
+            markers.push({
+              time: c.time,
+              position: 'belowBar',
+              color: '#089981',
+              shape: 'arrowUp',
+              text: 'Bullish Engulfing',
+            });
+            if (i >= candles.length - 5) detectedPatterns.push('Bullish Engulfing');
+            continue;
+          }
+
+          // Bearish Engulfing
+          if (prev.close > prev.open && c.close < c.open && c.open >= prev.close && c.close <= prev.open && body > Math.abs(prev.close - prev.open)) {
+            markers.push({
+              time: c.time,
+              position: 'aboveBar',
+              color: '#f23645',
+              shape: 'arrowDown',
+              text: 'Bearish Engulfing',
+            });
+            if (i >= candles.length - 5) detectedPatterns.push('Bearish Engulfing');
+            continue;
+          }
+
+          // Hammer (Bullish Reversal)
+          if (lowerShadow >= 2.0 * body && upperShadow <= body * 0.35) {
+            markers.push({
+              time: c.time,
+              position: 'belowBar',
+              color: '#089981',
+              shape: 'arrowUp',
+              text: 'Hammer',
+            });
+            if (i >= candles.length - 5) detectedPatterns.push('Hammer');
+            continue;
+          }
+
+          // Inverted Hammer / Shooting Star
+          if (upperShadow >= 2.0 * body && lowerShadow <= body * 0.35) {
+            const isShootingStar = prev.close > prev.open;
+            markers.push({
+              time: c.time,
+              position: 'aboveBar',
+              color: isShootingStar ? '#f23645' : '#089981',
+              shape: isShootingStar ? 'arrowDown' : 'arrowUp',
+              text: isShootingStar ? 'Shooting Star' : 'Inverted Hammer',
+            });
+            if (i >= candles.length - 5) detectedPatterns.push(isShootingStar ? 'Shooting Star' : 'Inverted Hammer');
+            continue;
+          }
+        }
+
+        try {
+          mainSeries.setMarkers(markers);
+        } catch (e) {
+          console.warn('[AutoAnalysis] setMarkers warning:', e);
+        }
+
+        // Post detected analysis to Flutter
+        postToFlutter('onAutoAnalysisResult', {
+          patterns: Array.from(new Set(detectedPatterns)),
+          support: finalS,
+          resistance: finalR,
+        });
+      }
+
+      window.setAutoAnalysis = function (enabled) {
+        autoAnalysisEnabled = !!enabled;
+        if (autoAnalysisEnabled) {
+          runAutoAnalysis(cachedCandles);
+        } else {
+          clearAutoAnalysis();
+          postToFlutter('onAutoAnalysisResult', { patterns: [], support: [], resistance: [] });
+        }
+      };
+
       // --- Interactive Drawing Overlay Engine ---
 
       function resizeDrawingCanvas() {
@@ -879,6 +1142,50 @@
         }
       }
 
+      let pulsePhase = 0;
+      let pulseAnimId = null;
+
+      function renderFormingPulse() {
+        if (!drawingCtx || !drawingCanvas || !chart || !mainSeries || !cachedCandles || cachedCandles.length === 0) return;
+        const lastCandle = cachedCandles[cachedCandles.length - 1];
+        const pt = getScreenCoords({ time: lastCandle.time, price: lastCandle.close });
+        if (!pt) return;
+        const rect = drawingCanvas.getBoundingClientRect();
+        if (pt.x < -20 || pt.x > rect.width + 20 || pt.y < -20 || pt.y > rect.height + 20) return;
+
+        const isUp = lastCandle.close >= lastCandle.open;
+        const colorRgb = isUp ? '8, 153, 129' : '242, 54, 69';
+        const pulseFactor = (Math.sin(pulsePhase) + 1) / 2; // 0 to 1
+        const radius = 3.5 + pulseFactor * 9.0; // 3.5 to 12.5 px
+        const alpha = 0.55 * (1 - pulseFactor);
+
+        drawingCtx.save();
+        // Concentric breathing ripple
+        drawingCtx.beginPath();
+        drawingCtx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+        drawingCtx.fillStyle = 'rgba(' + colorRgb + ', ' + alpha + ')';
+        drawingCtx.fill();
+
+        // Solid core glowing dot
+        drawingCtx.beginPath();
+        drawingCtx.arc(pt.x, pt.y, 3.2, 0, Math.PI * 2);
+        drawingCtx.fillStyle = isUp ? '#089981' : '#f23645';
+        drawingCtx.shadowColor = isUp ? '#089981' : '#f23645';
+        drawingCtx.shadowBlur = 6;
+        drawingCtx.fill();
+        drawingCtx.restore();
+      }
+
+      function startPulseAnimationLoop() {
+        if (pulseAnimId) return;
+        function animate() {
+          pulsePhase = (pulsePhase + 0.055) % (Math.PI * 2);
+          redrawDrawings();
+          pulseAnimId = requestAnimationFrame(animate);
+        }
+        pulseAnimId = requestAnimationFrame(animate);
+      }
+
       function redrawDrawings() {
         if (!drawingCtx || !drawingCanvas || !chart || !mainSeries) return;
         const rect = drawingCanvas.getBoundingClientRect();
@@ -888,6 +1195,8 @@
         for (let i = 0; i < all.length; i++) {
           renderSingleDrawing(all[i], rect.width, rect.height);
         }
+
+        renderFormingPulse();
       }
 
       function renderSingleDrawing(d, width, height) {

@@ -118,9 +118,14 @@ void main() {
 
       // Check chart type icons exist
       expect(find.byIcon(Icons.candlestick_chart), findsOneWidget);
+      expect(find.byIcon(Icons.stacked_line_chart), findsOneWidget); // Heikin-Ashi
       expect(find.byIcon(Icons.show_chart), findsOneWidget);
       expect(find.byIcon(Icons.area_chart), findsOneWidget);
       expect(find.byIcon(Icons.view_column_outlined), findsOneWidget);
+
+      // Tap Heikin-Ashi icon
+      await tester.tap(find.byIcon(Icons.stacked_line_chart));
+      await tester.pumpAndSettle();
 
       // Tap line chart icon
       await tester.tap(find.byIcon(Icons.show_chart));
@@ -129,6 +134,37 @@ void main() {
       // Tap area chart icon
       await tester.tap(find.byIcon(Icons.area_chart));
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('allows toggling AI Insights and shows auto analysis banner', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(createWidget());
+      await tester.pumpAndSettle();
+
+      // AI Analysis button exists in toolbar
+      final aiButton = find.byKey(const ValueKey('chart_auto_analysis_button'));
+      expect(aiButton, findsOneWidget);
+
+      // Initially, AI banner is not visible
+      expect(find.byKey(const ValueKey('chart_ai_insights_banner')), findsNothing);
+
+      // Tap AI Insights button
+      await tester.tap(aiButton);
+      await tester.pumpAndSettle();
+
+      // AI banner should now be visible
+      expect(find.byKey(const ValueKey('chart_ai_insights_banner')), findsOneWidget);
+      expect(find.text('AI ANALYSIS'), findsOneWidget);
+      expect(find.text('Scanning patterns...'), findsOneWidget);
+
+      // Tap again to toggle off
+      await tester.tap(aiButton);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('chart_ai_insights_banner')), findsNothing);
     });
 
     testWidgets('tapping BUY opens QuickOrderSheet, allows product and lot adjustments, and executes order', (WidgetTester tester) async {

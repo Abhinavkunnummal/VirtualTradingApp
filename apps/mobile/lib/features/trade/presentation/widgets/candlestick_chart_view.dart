@@ -76,6 +76,7 @@ class CandlestickChartView extends StatefulWidget {
   final String selectedRange;
   final ValueChanged<String>? onRangeChanged;
   final String status;
+  final String chartType;
   final VoidCallback? onRetry;
   final VoidCallback? onOpenTradingView;
 
@@ -92,6 +93,7 @@ class CandlestickChartView extends StatefulWidget {
     this.selectedRange = '1D',
     this.onRangeChanged,
     this.status = 'SIMULATED',
+    this.chartType = 'candles',
     this.onRetry,
     this.onOpenTradingView,
   });
@@ -179,6 +181,40 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
     _macd = ChartIndicatorCalculator.calculateMACD(widget.candles, 12, 26, 9);
   }
 
+  static List<CandleData> _computeHeikinAshi(List<CandleData> rawCandles) {
+    if (rawCandles.isEmpty) return [];
+    final result = <CandleData>[];
+    double prevHaOpen = (rawCandles[0].open + rawCandles[0].close) / 2.0;
+    double prevHaClose = (rawCandles[0].open + rawCandles[0].high + rawCandles[0].low + rawCandles[0].close) / 4.0;
+    result.add(CandleData(
+      time: rawCandles[0].time,
+      open: prevHaOpen,
+      high: math.max(rawCandles[0].high, math.max(prevHaOpen, prevHaClose)),
+      low: math.min(rawCandles[0].low, math.min(prevHaOpen, prevHaClose)),
+      close: prevHaClose,
+      volume: rawCandles[0].volume,
+    ));
+
+    for (int i = 1; i < rawCandles.length; i++) {
+      final c = rawCandles[i];
+      final haClose = (c.open + c.high + c.low + c.close) / 4.0;
+      final haOpen = (prevHaOpen + prevHaClose) / 2.0;
+      final haHigh = math.max(c.high, math.max(haOpen, haClose));
+      final haLow = math.min(c.low, math.min(haOpen, haClose));
+      result.add(CandleData(
+        time: c.time,
+        open: haOpen,
+        high: haHigh,
+        low: haLow,
+        close: haClose,
+        volume: c.volume,
+      ));
+      prevHaOpen = haOpen;
+      prevHaClose = haClose;
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<CandleData> effectiveCandles = List<CandleData>.from(widget.candles);
@@ -191,6 +227,9 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
         low: math.min(lastCandle.low, livePrice),
       );
     }
+    final List<CandleData> displayCandles = widget.chartType == 'heikin_ashi'
+        ? _computeHeikinAshi(effectiveCandles)
+        : effectiveCandles;
     final activeCandle = _inspectedCandle ?? (effectiveCandles.isNotEmpty ? effectiveCandles.last : null);
     final displayPrice = activeCandle?.close ?? widget.currentPrice;
     final currency = widget.currencySymbol ??
@@ -418,7 +457,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                                 child: CustomPaint(
                                   size: Size(constraints.maxWidth, chartHeight),
                                   painter: _CandlestickPainter(
-                                    candles: effectiveCandles,
+                                    candles: displayCandles,
                                     inspectedCandle: _inspectedCandle,
                                     currentPrice: widget.currentPrice,
                                     currencySymbol: currency,

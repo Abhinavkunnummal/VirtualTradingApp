@@ -129,6 +129,9 @@ void main() {
     test('bridge methods produce expected function calls', () {
       expect(ChartJsBridge.buildClearPositionLinesCall(), equals('window.clearPositionLines();'));
       expect(ChartJsBridge.buildSetChartTypeCall('line'), equals('window.setChartType(\'line\');'));
+      expect(ChartJsBridge.buildSetChartTypeCall('heikin_ashi'), equals('window.setChartType(\'heikin_ashi\');'));
+      expect(ChartJsBridge.buildSetAutoAnalysisCall(true), equals('window.setAutoAnalysis(true);'));
+      expect(ChartJsBridge.buildSetAutoAnalysisCall(false), equals('window.setAutoAnalysis(false);'));
       expect(ChartJsBridge.buildSetDelayedBadgeCall(false), equals('window.setDelayedBadge(false);'));
       expect(ChartJsBridge.buildSetThemeCall('dark'), equals('window.setTheme(\'dark\');'));
       expect(ChartJsBridge.buildRemoveIndicatorCall('rsi_14'), equals('window.removeIndicator(\'rsi_14\');'));

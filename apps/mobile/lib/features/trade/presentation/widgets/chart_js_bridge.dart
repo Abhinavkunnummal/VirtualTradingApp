@@ -55,7 +55,12 @@ class ChartJsBridge {
     return 'window.clearPositionLines();';
   }
 
-  /// Build JS call to change chart type ('candles', 'line', 'area', 'bars')
+  /// Build JS call to toggle auto AI analysis (Support/Resistance & Candlestick Patterns)
+  static String buildSetAutoAnalysisCall(bool enabled) {
+    return 'window.setAutoAnalysis($enabled);';
+  }
+
+  /// Build JS call to change chart type ('candles', 'heikin_ashi', 'line', 'area', 'bars')
   static String buildSetChartTypeCall(String type) {
     return 'window.setChartType(\'$type\');';
   }
