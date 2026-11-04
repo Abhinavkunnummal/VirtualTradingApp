@@ -300,7 +300,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                         final res =
                             await ref.read(portfolioProvider.notifier).withdrawVirtualFunds(entered);
                         final isSuccess = res['success'] == true;
-                        if (!mounted) return;
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
