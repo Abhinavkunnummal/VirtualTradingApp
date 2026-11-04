@@ -174,8 +174,13 @@ export class InstrumentMasterService {
   private static lastSyncTimestamp: Date | null = null;
   private static syncIntervalTimer: NodeJS.Timeout | null = null;
 
-  // In-memory lookup map for rapid exact resolution
-  private static memoryCatalog = new Map<string, NormalizedInstrument>();
+  // In-memory lookup map for rapid exact resolution (initialized with curated baseline)
+  private static memoryCatalog = new Map<string, NormalizedInstrument>(
+    CURATED_INSTRUMENTS.flatMap((item) => [
+      [item.symbol.toUpperCase(), item] as [string, NormalizedInstrument],
+      [`${item.exchange}:${item.symbol}`.toUpperCase(), item] as [string, NormalizedInstrument],
+    ])
+  );
 
   /**
    * Initializes the service, populates in-memory catalog and ensures MongoDB contains master instruments.

@@ -7,7 +7,6 @@ import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_prov
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 import 'package:tradeverse_mobile/features/markets/presentation/markets_screen.dart';
 import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
-import 'package:tradeverse_mobile/features/markets/presentation/providers/recent_searches_service.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
 
 class _MockAuthNotifier extends StateNotifier<AuthState> implements AuthNotifier {
