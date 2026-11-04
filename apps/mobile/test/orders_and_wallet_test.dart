@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradeverse_mobile/features/auth/domain/auth_models.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
-import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 import 'package:tradeverse_mobile/features/portfolio/domain/portfolio_models.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/portfolio_screen.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
@@ -31,7 +30,7 @@ class _MockPortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> i
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _MockSubmitOrderNotifier implements SubmitOrderNotifier {
+class _MockSubmitOrderService implements SubmitOrderService {
   @override
   Future<Map<String, dynamic>> submitOrder({
     required String symbol,
@@ -41,7 +40,8 @@ class _MockSubmitOrderNotifier implements SubmitOrderNotifier {
     required String product,
     required int quantity,
     double? limitPrice,
-    String? orderVariety,
+    double? triggerPrice,
+    String orderVariety = 'REGULAR',
     double? targetPrice,
     double? stopLossPrice,
     double? trailingStopLoss,
@@ -82,36 +82,49 @@ class _MockSubmitOrderNotifier implements SubmitOrderNotifier {
       'message': 'Order cancelled',
     };
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
   const testHoldings = [
     HoldingModel(
+      id: 'h_1',
       symbol: 'TCS',
       exchange: 'NSE',
       quantity: 10,
       averageBuyPrice: 3800.0,
       ltp: 3950.0,
+      investedValue: 38000.0,
+      currentValue: 39500.0,
+      unrealizedPnl: 1500.0,
+      unrealizedPnlPercent: 3.95,
       product: 'CNC',
       stopLoss: 3700.0,
       targetPrice: 4100.0,
     ),
     HoldingModel(
+      id: 'h_2',
       symbol: 'INFY',
       exchange: 'NSE',
       quantity: 25,
       averageBuyPrice: 1800.0,
       ltp: 1780.0,
+      investedValue: 45000.0,
+      currentValue: 44500.0,
+      unrealizedPnl: -500.0,
+      unrealizedPnlPercent: -1.11,
       product: 'MIS',
     ),
   ];
 
   final testPortfolio = PortfolioModel(
-    totalPortfolioValue: 82500.0,
+    totalPortfolioValue: 84000.0,
     investedValue: 83000.0,
     availableCash: 17000.0,
-    totalPnl: -500.0,
-    totalPnlPercent: -0.60,
+    totalPnl: 1000.0,
+    totalPnlPercent: 1.20,
     startingCapital: 100000.0,
     holdings: testHoldings,
   );
@@ -119,7 +132,6 @@ void main() {
   final testTradesHistory = [
     TradeHistoryModel(
       id: 'trade_1',
-      orderId: 'ord_1',
       symbol: 'RELIANCE',
       exchange: 'NSE',
       side: 'BUY',
@@ -134,7 +146,6 @@ void main() {
     ),
     TradeHistoryModel(
       id: 'trade_2',
-      orderId: 'ord_2',
       symbol: 'HDFCBANK',
       exchange: 'NSE',
       side: 'BUY',
@@ -149,7 +160,7 @@ void main() {
     ),
   ];
 
-  final testOrders = [
+  final testOrders = <Map<String, dynamic>>[
     {
       'id': 'ord_pending_1',
       'symbol': 'SBIN',
@@ -176,11 +187,12 @@ void main() {
     },
   ];
 
-  final testPnlSummary = const PnlSummaryModel(
+  const testPnlSummary = PnlSummaryModel(
     totalRealizedPnl: 900.0,
+    totalUnrealizedPnl: 1000.0,
+    totalPnl: 1900.0,
     totalTrades: 2,
-    winningTrades: 1,
-    losingTrades: 1,
+    profitableTrades: 1,
     winRate: 50.0,
   );
 
@@ -195,10 +207,10 @@ void main() {
         overrides: [
           authProvider.overrideWith((ref) => _MockAuthNotifier(AuthState.demoMode())),
           portfolioProvider.overrideWith((ref) => _MockPortfolioNotifier(testPortfolio)),
-          pnlSummaryProvider.overrideWith((ref) => AsyncValue.data(testPnlSummary)),
-          orderHistoryProvider.overrideWith((ref) => AsyncValue.data(testOrders)),
-          closedTradesHistoryProvider.overrideWith((ref) => AsyncValue.data(testTradesHistory)),
-          submitOrderProvider.overrideWithValue(_MockSubmitOrderNotifier()),
+          pnlSummaryProvider.overrideWith((ref) => Future.value(testPnlSummary)),
+          orderHistoryProvider.overrideWith((ref) => Future.value(testOrders)),
+          closedTradesHistoryProvider.overrideWith((ref) => Future.value(testTradesHistory)),
+          submitOrderProvider.overrideWithValue(_MockSubmitOrderService()),
         ],
         child: const MaterialApp(
           home: OrdersScreen(),
@@ -240,10 +252,10 @@ void main() {
         overrides: [
           authProvider.overrideWith((ref) => _MockAuthNotifier(AuthState.demoMode())),
           portfolioProvider.overrideWith((ref) => _MockPortfolioNotifier(testPortfolio)),
-          pnlSummaryProvider.overrideWith((ref) => AsyncValue.data(testPnlSummary)),
-          orderHistoryProvider.overrideWith((ref) => AsyncValue.data(testOrders)),
-          closedTradesHistoryProvider.overrideWith((ref) => AsyncValue.data(testTradesHistory)),
-          submitOrderProvider.overrideWithValue(_MockSubmitOrderNotifier()),
+          pnlSummaryProvider.overrideWith((ref) => Future.value(testPnlSummary)),
+          orderHistoryProvider.overrideWith((ref) => Future.value(testOrders)),
+          closedTradesHistoryProvider.overrideWith((ref) => Future.value(testTradesHistory)),
+          submitOrderProvider.overrideWithValue(_MockSubmitOrderService()),
         ],
         child: const MaterialApp(
           home: OrdersScreen(),
@@ -285,10 +297,10 @@ void main() {
         overrides: [
           authProvider.overrideWith((ref) => _MockAuthNotifier(AuthState.demoMode())),
           portfolioProvider.overrideWith((ref) => _MockPortfolioNotifier(testPortfolio)),
-          pnlSummaryProvider.overrideWith((ref) => AsyncValue.data(testPnlSummary)),
-          orderHistoryProvider.overrideWith((ref) => AsyncValue.data(testOrders)),
-          closedTradesHistoryProvider.overrideWith((ref) => AsyncValue.data(testTradesHistory)),
-          submitOrderProvider.overrideWithValue(_MockSubmitOrderNotifier()),
+          pnlSummaryProvider.overrideWith((ref) => Future.value(testPnlSummary)),
+          orderHistoryProvider.overrideWith((ref) => Future.value(testOrders)),
+          closedTradesHistoryProvider.overrideWith((ref) => Future.value(testTradesHistory)),
+          submitOrderProvider.overrideWithValue(_MockSubmitOrderService()),
         ],
         child: const MaterialApp(
           home: OrdersScreen(),
@@ -329,10 +341,10 @@ void main() {
         overrides: [
           authProvider.overrideWith((ref) => _MockAuthNotifier(AuthState.demoMode())),
           portfolioProvider.overrideWith((ref) => _MockPortfolioNotifier(testPortfolio)),
-          pnlSummaryProvider.overrideWith((ref) => AsyncValue.data(testPnlSummary)),
-          orderHistoryProvider.overrideWith((ref) => AsyncValue.data(testOrders)),
-          closedTradesHistoryProvider.overrideWith((ref) => AsyncValue.data(testTradesHistory)),
-          submitOrderProvider.overrideWithValue(_MockSubmitOrderNotifier()),
+          pnlSummaryProvider.overrideWith((ref) => Future.value(testPnlSummary)),
+          orderHistoryProvider.overrideWith((ref) => Future.value(testOrders)),
+          closedTradesHistoryProvider.overrideWith((ref) => Future.value(testTradesHistory)),
+          submitOrderProvider.overrideWithValue(_MockSubmitOrderService()),
         ],
         child: const MaterialApp(
           home: OrdersScreen(),
