@@ -295,8 +295,14 @@ export class InstrumentMasterService {
   private static syncIntervalTimer: NodeJS.Timeout | null = null;
   private static isSyncing = false;
 
-  // In-memory lookup map for instant exact resolution
-  private static memoryCatalog = new Map<string, NormalizedInstrument>();
+  // In-memory lookup map for instant exact resolution (pre-seeded with curated baseline)
+  private static memoryCatalog = new Map<string, NormalizedInstrument>(
+    CURATED_INSTRUMENTS.flatMap((item) => [
+      [item.symbol.toUpperCase(), item] as [string, NormalizedInstrument],
+      [`${item.exchange}:${item.symbol}`.toUpperCase(), item] as [string, NormalizedInstrument],
+      [item.instrumentId.toUpperCase(), item] as [string, NormalizedInstrument],
+    ])
+  );
 
   /**
    * Initializes the service, populates in-memory catalog, and triggers sync if collection has < 1000 items.
