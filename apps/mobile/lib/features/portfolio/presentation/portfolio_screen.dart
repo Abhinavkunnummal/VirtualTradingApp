@@ -7,7 +7,6 @@ import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
 import 'package:tradeverse_mobile/core/widgets/app_shimmer.dart';
 import 'package:tradeverse_mobile/core/widgets/empty_state_view.dart';
-import 'package:tradeverse_mobile/shared/widgets/loading_state_widget.dart';
 import 'package:tradeverse_mobile/shared/widgets/error_state_widget.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/domain/portfolio_models.dart';

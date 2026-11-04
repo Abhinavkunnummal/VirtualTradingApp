@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
@@ -18,7 +17,7 @@ void main() {
     });
 
     test('Numeric typography styles contain tabular figures feature', () {
-      final tabularFeature = FontFeature.tabularFigures();
+      const tabularFeature = FontFeature.tabularFigures();
       expect(AppTypography.numericTicker.fontFeatures, contains(tabularFeature));
       expect(AppTypography.numericTable.fontFeatures, contains(tabularFeature));
       expect(AppTypography.numericHeadline.fontFeatures, contains(tabularFeature));

@@ -4,7 +4,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_shimmer.dart';
 import '../../../../core/widgets/empty_state_view.dart';
-import '../../../../shared/widgets/loading_state_widget.dart';
 import '../../../../shared/widgets/error_state_widget.dart';
 import 'chart_indicators.dart';
 

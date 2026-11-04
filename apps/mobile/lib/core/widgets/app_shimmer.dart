@@ -121,27 +121,27 @@ class WatchlistSkeleton extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.borderSubtle),
             ),
-            child: Row(
+            child: const Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        children: const [
+                        children: [
                           SkeletonBox(width: 80, height: 16),
                           SizedBox(width: 8),
                           SkeletonBox(width: 40, height: 14, borderRadius: 4),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      const SkeletonBox(width: 140, height: 12),
+                      SizedBox(height: 8),
+                      SkeletonBox(width: 140, height: 12),
                     ],
                   ),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
-                  children: const [
+                  children: [
                     SkeletonBox(width: 70, height: 16),
                     SizedBox(height: 6),
                     SkeletonBox(width: 55, height: 16, borderRadius: 4),
@@ -177,30 +177,30 @@ class HoldingsSkeleton extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.borderSubtle),
             ),
-            child: Column(
+            child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
+                  children: [
                     SkeletonBox(width: 90, height: 16),
                     SkeletonBox(width: 80, height: 16),
                   ],
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
+                  children: [
                     SkeletonBox(width: 110, height: 14),
                     SkeletonBox(width: 95, height: 14),
                   ],
                 ),
-                const SizedBox(height: 10),
-                const Divider(color: AppColors.borderSubtle),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
+                Divider(color: AppColors.borderSubtle),
+                SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
+                  children: [
                     SkeletonBox(width: 70, height: 14),
                     SkeletonBox(width: 60, height: 18, borderRadius: 4),
                   ],
@@ -235,14 +235,14 @@ class OrdersSkeleton extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.borderSubtle),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const SkeletonBox(width: 50, height: 22, borderRadius: 6),
-                const SizedBox(width: 12),
+                SkeletonBox(width: 50, height: 22, borderRadius: 6),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       SkeletonBox(width: 85, height: 16),
                       SizedBox(height: 6),
                       SkeletonBox(width: 120, height: 12),
@@ -251,7 +251,7 @@ class OrdersSkeleton extends StatelessWidget {
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
-                  children: const [
+                  children: [
                     SkeletonBox(width: 65, height: 16),
                     SizedBox(height: 6),
                     SkeletonBox(width: 45, height: 12),
@@ -282,9 +282,9 @@ class ChartSkeleton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
                 SkeletonBox(width: 110, height: 24),
                 SkeletonBox(width: 75, height: 20, borderRadius: 4),
               ],
