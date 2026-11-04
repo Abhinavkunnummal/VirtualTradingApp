@@ -216,7 +216,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
           return SafeArea(
             top: false,
             child: SizedBox(
-              height: MediaQuery.of(context).size.height * 0.75,
+              height: (MediaQuery.of(context).size.height * 0.75).clamp(200.0, MediaQuery.of(context).size.height * 0.85),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -400,6 +400,10 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             builder: (context, ref, _) {
               final marketsAsync = ref.watch(marketOverviewProvider);
 
+              final screenHeight = MediaQuery.of(context).size.height;
+              final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+              final maxAllowedHeight = (screenHeight * 0.85 - keyboardInset).clamp(200.0, screenHeight);
+
               return SafeArea(
                 top: false,
                 child: Padding(
@@ -407,10 +411,10 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                     left: 16,
                     right: 16,
                     top: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                    bottom: keyboardInset + 16,
                   ),
                   child: SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.7,
+                    height: (screenHeight * 0.65).clamp(180.0, maxAllowedHeight),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

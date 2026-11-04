@@ -1090,7 +1090,10 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
 
             // Quick Execution Action Bar (Zerodha / Upstox Pro Dock)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: MediaQuery.of(context).size.height < 450 ? 6 : 12,
+              ),
               decoration: const BoxDecoration(
                 color: AppColors.tvCardBg,
                 border: Border(top: BorderSide(color: AppColors.tvBorder)),
@@ -1099,7 +1102,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                 children: [
                   Expanded(
                     child: SizedBox(
-                      height: 48,
+                      height: MediaQuery.of(context).size.height < 450 ? 38 : 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.kiteGreen,
@@ -1128,7 +1131,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: SizedBox(
-                      height: 48,
+                      height: MediaQuery.of(context).size.height < 450 ? 38 : 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.kiteRed,

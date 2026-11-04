@@ -120,7 +120,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(108),
+          preferredSize: const Size.fromHeight(116),
           child: Column(
             children: [
               // 250ms Debounced Search Bar
@@ -163,20 +163,23 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
           ),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // Tab 1: Fast Filtered Search & Discovery
-          _buildDiscoveryTab(
-            context,
-            searchResultsAsync: searchResultsAsync,
-            selectedFilter: selectedFilter,
-            recentSearches: recentSearches,
-            isOffline: isOffline,
-          ),
-          // Tab 2: Market News Feed
-          _buildLiveNewsView(context),
-        ],
+      body: SafeArea(
+        top: false,
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            // Tab 1: Fast Filtered Search & Discovery
+            _buildDiscoveryTab(
+              context,
+              searchResultsAsync: searchResultsAsync,
+              selectedFilter: selectedFilter,
+              recentSearches: recentSearches,
+              isOffline: isOffline,
+            ),
+            // Tab 2: Market News Feed
+            _buildLiveNewsView(context),
+          ],
+        ),
       ),
     );
   }

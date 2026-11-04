@@ -780,10 +780,12 @@ class HomeDashboardScreen extends ConsumerWidget {
         builder: (context, ref, _) {
           final notifsAsync = ref.watch(notificationsProvider);
 
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.75,
-            padding: const EdgeInsets.all(16),
-            child: Column(
+          return SafeArea(
+            top: false,
+            child: Container(
+              height: (MediaQuery.of(context).size.height * 0.75).clamp(240.0, MediaQuery.of(context).size.height * 0.85),
+              padding: const EdgeInsets.all(16),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -910,10 +912,11 @@ class HomeDashboardScreen extends ConsumerWidget {
                 ),
               ],
             ),
-          );
-        },
-      ),
-    );
+          ),
+        );
+      },
+    ),
+  );
   }
 }
 

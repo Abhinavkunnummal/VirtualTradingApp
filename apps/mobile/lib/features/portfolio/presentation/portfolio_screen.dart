@@ -347,7 +347,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
           return SafeArea(
             top: false,
             child: Container(
-              height: MediaQuery.of(context).size.height * 0.7,
+              height: (MediaQuery.of(context).size.height * 0.7).clamp(240.0, MediaQuery.of(context).size.height * 0.85),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,49 +552,52 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
           ),
         ],
       ),
-      body: portfolioAsync.when(
-        data: (portfolio) => NestedScrollView(
-          headerSliverBuilder: (context, _) => [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: _buildPortfolioSummary(portfolio),
-              ),
-            ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverAppBarDelegate(
-                TabBar(
-                  controller: _tabController,
-                  indicatorColor: AppColors.primaryBrand,
-                  indicatorWeight: 2.5,
-                  labelColor: AppColors.primary,
-                  unselectedLabelColor: AppColors.outline,
-                  labelStyle: AppTypography.labelSm.copyWith(fontWeight: FontWeight.w600),
-                  tabs: const [
-                    Tab(text: 'Holdings (Delivery)'),
-                    Tab(text: 'Positions (Intraday)'),
-                  ],
+      body: SafeArea(
+        top: false,
+        child: portfolioAsync.when(
+          data: (portfolio) => NestedScrollView(
+            headerSliverBuilder: (context, _) => [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: _buildPortfolioSummary(portfolio),
                 ),
               ),
-            ),
-          ],
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildHoldingsList(portfolio.holdings, liveQuotes),
-              _buildPositionsList(portfolio.holdings, liveQuotes),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverAppBarDelegate(
+                  TabBar(
+                    controller: _tabController,
+                    indicatorColor: AppColors.primaryBrand,
+                    indicatorWeight: 2.5,
+                    labelColor: AppColors.primary,
+                    unselectedLabelColor: AppColors.outline,
+                    labelStyle: AppTypography.labelSm.copyWith(fontWeight: FontWeight.w600),
+                    tabs: const [
+                      Tab(text: 'Holdings (Delivery)'),
+                      Tab(text: 'Positions (Intraday)'),
+                    ],
+                  ),
+                ),
+              ),
             ],
+            body: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildHoldingsList(portfolio.holdings, liveQuotes),
+                _buildPositionsList(portfolio.holdings, liveQuotes),
+              ],
+            ),
           ),
-        ),
-        loading: () => const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: HoldingsSkeleton(count: 5),
-        ),
-        error: (err, _) => ErrorStateWidget(
-          title: 'Unable to Load Portfolio',
-          message: err.toString(),
-          onRetry: () => ref.refresh(portfolioProvider),
+          loading: () => const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: HoldingsSkeleton(count: 5),
+          ),
+          error: (err, _) => ErrorStateWidget(
+            title: 'Unable to Load Portfolio',
+            message: err.toString(),
+            onRetry: () => ref.refresh(portfolioProvider),
+          ),
         ),
       ),
     );
@@ -673,11 +676,12 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
               Expanded(
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.add_circle_outline, size: 16),
-                  label: const Text('Add Virtual Funds'),
+                  label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Add Funds')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryBrand,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
                   onPressed: () {
                     HapticFeedback.lightImpact();
@@ -689,10 +693,11 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.arrow_circle_down_outlined, size: 16),
-                  label: const Text('Withdraw'),
+                  label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Withdraw')),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.borderSubtle),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
                   onPressed: () {
                     HapticFeedback.lightImpact();

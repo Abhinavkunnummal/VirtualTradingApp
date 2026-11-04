@@ -174,28 +174,31 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // Persistent Top Summary Header
-          _buildSummaryHeader(
-            totalUnrealized: totalUnrealized,
-            totalRealized: totalRealized,
-            netPnl: netPnl,
-            availableCash: portfolio?.availableCash ?? 0.0,
-          ),
-
-          // Tab Content
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildOpenPositionsTab(holdings, liveQuotes),
-                _buildOrdersTab(),
-                _buildHistoryTab(),
-              ],
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            // Persistent Top Summary Header
+            _buildSummaryHeader(
+              totalUnrealized: totalUnrealized,
+              totalRealized: totalRealized,
+              netPnl: netPnl,
+              availableCash: portfolio?.availableCash ?? 0.0,
             ),
-          ),
-        ],
+
+            // Tab Content
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildOpenPositionsTab(holdings, liveQuotes),
+                  _buildOrdersTab(),
+                  _buildHistoryTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -627,42 +630,51 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: (isBuy ? AppColors.secondary : AppColors.tertiary).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    isBuy ? 'BUY' : 'SELL',
-                                    style: AppTypography.labelSm.copyWith(
-                                      color: isBuy ? AppColors.secondary : AppColors.tertiary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 10,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: (isBuy ? AppColors.secondary : AppColors.tertiary).withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      isBuy ? 'BUY' : 'SELL',
+                                      style: AppTypography.labelSm.copyWith(
+                                        color: isBuy ? AppColors.secondary : AppColors.tertiary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(order['symbol'] as String? ?? '', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold)),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '${order['product'] ?? 'CNC'} • ${order['orderType'] ?? 'MARKET'}',
-                                  style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Qty: ${order['quantity']} @ ₹${price.toStringAsFixed(2)}',
-                              style: AppTypography.labelSm.copyWith(color: AppColors.onSurfaceVariant),
-                            ),
-                          ],
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      order['symbol'] as String? ?? '',
+                                      style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${order['product'] ?? 'CNC'} • ${order['orderType'] ?? 'MARKET'}',
+                                    style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Qty: ${order['quantity']} @ ₹${price.toStringAsFixed(2)}',
+                                style: AppTypography.labelSm.copyWith(color: AppColors.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Row(
                           children: [
                             Container(
@@ -752,33 +764,42 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(trade.symbol, style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold)),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceContainer,
-                              borderRadius: BorderRadius.circular(4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                trade.symbol,
+                                style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            child: Text(
-                              '${trade.product} • ${trade.side}',
-                              style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceContainer,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${trade.product} • ${trade.side}',
+                                style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Qty: ${trade.quantity} | Buy: ₹${trade.entryPrice.toStringAsFixed(2)} → Exit: ₹${trade.exitPrice.toStringAsFixed(2)}',
-                        style: AppTypography.labelSm.copyWith(color: AppColors.onSurfaceVariant, fontSize: 11),
-                      ),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Qty: ${trade.quantity} | Buy: ₹${trade.entryPrice.toStringAsFixed(2)} → Exit: ₹${trade.exitPrice.toStringAsFixed(2)}',
+                          style: AppTypography.labelSm.copyWith(color: AppColors.onSurfaceVariant, fontSize: 11),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [

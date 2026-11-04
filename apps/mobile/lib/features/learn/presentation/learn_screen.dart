@@ -23,16 +23,21 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.85,
-          child: ListView(
+      builder: (ctx) {
+        final screenHeight = MediaQuery.of(context).size.height;
+        final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 16,
+              bottom: keyboardInset + 16,
+            ),
+            child: SizedBox(
+              height: (screenHeight * 0.85 - keyboardInset).clamp(240.0, screenHeight),
+              child: ListView(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -327,6 +332,10 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
+          final screenHeight = MediaQuery.of(context).size.height;
+          final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+          final maxAllowedHeight = (screenHeight * 0.85 - keyboardInset).clamp(200.0, screenHeight);
+
           return SafeArea(
             top: false,
             child: Padding(
@@ -334,10 +343,10 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
                 left: 20,
                 right: 20,
                 top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                bottom: keyboardInset + 20,
               ),
               child: SizedBox(
-                height: MediaQuery.of(context).size.height * 0.7,
+                height: (screenHeight * 0.7).clamp(180.0, maxAllowedHeight),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

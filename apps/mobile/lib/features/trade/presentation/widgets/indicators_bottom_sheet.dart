@@ -52,80 +52,86 @@ class _IndicatorsBottomSheetState extends State<IndicatorsBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceContainer,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 14,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header Drag Handle
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.outline.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceContainer,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          const SizedBox(height: 12),
-
-          // Header Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 14,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.functions, size: 20, color: AppColors.zerodhaBlue),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Indicators & Studies',
-                    style: AppTypography.headlineSm.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+              // Header Drag Handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.outline.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                ],
+                ),
               ),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: _resetToDefaults,
-                    child: Text(
-                      'Reset',
-                      style: AppTypography.labelSm.copyWith(
-                        color: AppColors.kiteRed,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20, color: AppColors.outline),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const Divider(color: AppColors.tvBorder),
+              const SizedBox(height: 12),
 
-          // Scrollable List of Indicators
-          Flexible(
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: _currentList.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
+              // Header Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.functions, size: 20, color: AppColors.zerodhaBlue),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Indicators & Studies',
+                        style: AppTypography.headlineSm.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: _resetToDefaults,
+                        child: Text(
+                          'Reset',
+                          style: AppTypography.labelSm.copyWith(
+                            color: AppColors.kiteRed,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20, color: AppColors.outline),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const Divider(color: AppColors.tvBorder),
+
+              // Scrollable List of Indicators
+              Expanded(
+                child: ListView.separated(
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: _currentList.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
                 final ind = _currentList[index];
                 final color = _parseHexColor(ind.color);
 

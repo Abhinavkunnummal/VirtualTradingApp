@@ -94,16 +94,19 @@ class AppShell extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            'Trade',
-                            style: AppTypography.labelSm.copyWith(
-                              fontSize: 10,
-                              color: currentIndex == 2
-                                  ? AppColors.primary
-                                  : AppColors.outline,
-                              fontWeight: currentIndex == 2
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Trade',
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 10,
+                                color: currentIndex == 2
+                                    ? AppColors.primary
+                                    : AppColors.outline,
+                                fontWeight: currentIndex == 2
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
@@ -166,12 +169,15 @@ class _NavBarItem extends StatelessWidget {
               color: isActive ? AppColors.primary : AppColors.outline,
             ),
             const SizedBox(height: 3),
-            Text(
-              label,
-              style: AppTypography.labelSm.copyWith(
-                fontSize: 10,
-                color: isActive ? AppColors.primary : AppColors.outline,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: AppTypography.labelSm.copyWith(
+                  fontSize: 10,
+                  color: isActive ? AppColors.primary : AppColors.outline,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
             ),
           ],

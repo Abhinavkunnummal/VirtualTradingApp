@@ -7,6 +7,15 @@ import 'core/router/app_router.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Global layout overflow assertion guard in debug mode
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    if (details.toString().contains('overflowed by')) {
+      debugPrint('🚨 [LAYOUT OVERFLOW DETECTED]: ${details.summary}');
+      assert(false, 'RenderFlex overflow detected in debug mode: ${details.summary}');
+    }
+  };
+
   // Set system UI overlay style to dark terminal ergonomics
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(

@@ -17,40 +17,50 @@ class ErrorStateWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.errorContainer.withOpacity(0.2),
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.errorContainer),
               ),
-              child: const Icon(Icons.cloud_off_rounded, size: 36, color: AppColors.error),
+              child: const Icon(Icons.cloud_off_rounded, size: 28, color: AppColors.error),
             ),
-            const SizedBox(height: 16),
-            Text(title, style: AppTypography.headlineSm),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: AppTypography.headlineSm.copyWith(fontSize: 15),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+              style: AppTypography.bodyMd.copyWith(color: AppColors.outline, fontSize: 12),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
             if (onRetry != null) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.surfaceContainer,
                   foregroundColor: AppColors.primary,
                   side: const BorderSide(color: AppColors.primaryBrand),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  visualDensity: VisualDensity.compact,
                 ),
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh, size: 18),
-                label: Text('Retry Connection', style: AppTypography.labelMd.copyWith(color: AppColors.primary)),
+                icon: const Icon(Icons.refresh, size: 16),
+                label: Text('Retry Connection', style: AppTypography.labelMd.copyWith(color: AppColors.primary, fontSize: 12)),
               ),
             ],
           ],
