@@ -79,6 +79,7 @@ export function createApp(): express.Application {
   apiV1Router.use('/orders', ordersRouter);
   apiV1Router.use('/market', marketDataRouter);
   apiV1Router.use('/market-data', marketDataRouter);
+  apiV1Router.use('/instruments', marketDataRouter);
   apiV1Router.use('/community', communityRouter);
   apiV1Router.use('/ai', aiRouter);
   apiV1Router.use('/news', newsRouter);

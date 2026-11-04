@@ -161,7 +161,119 @@ describe('Phase B: Instrument Master & Advanced Search Endpoints', () => {
     });
   });
 
-  describe('3. Dynamic Indian & US Stock Candle Resolution', () => {
+  describe('3. Phase F1: Precision Search, Target Scrips, Aliases & Dual Listings', () => {
+    it('should find YES BANK via alias and full name', async () => {
+      const resName = await request(app).get('/api/instruments/search?q=yes%20bank');
+      expect(resName.status).toBe(200);
+      expect(resName.body.success).toBe(true);
+      const symbols = resName.body.instruments.map((i: any) => i.symbol);
+      expect(symbols).toContain('YESBANK');
+
+      const resSym = await request(app).get('/api/instruments/search?q=YESBANK');
+      expect(resSym.status).toBe(200);
+      expect(resSym.body.instruments[0].symbol).toBe('YESBANK');
+    });
+
+    it('should find VODAFONE IDEA via alias "vi" and never rank unrelated companies (AMD, CDSL, TCS) above it', async () => {
+      const resVi = await request(app).get('/api/instruments/search?q=vi');
+      expect(resVi.status).toBe(200);
+      expect(resVi.body.success).toBe(true);
+      expect(resVi.body.instruments.length).toBeGreaterThan(0);
+
+      // Top result MUST be IDEA (Vodafone Idea Limited)
+      const topInstrument = resVi.body.instruments[0];
+      expect(topInstrument.symbol).toBe('IDEA');
+      expect(topInstrument.name).toContain('Vodafone Idea');
+
+      // Unrelated stocks like AMD, CDSL, TCS containing 'vi' in middle of name must NOT be returned or ranked above IDEA
+      const symbols = resVi.body.instruments.map((i: any) => i.symbol);
+      expect(symbols.slice(0, 2)).toContain('IDEA');
+      expect(symbols).not.toContain('AMD');
+      expect(symbols).not.toContain('CDSL');
+      expect(symbols).not.toContain('TCS');
+
+      // Also verify searching full name "vodafone idea"
+      const resFull = await request(app).get('/api/instruments/search?q=vodafone%20idea');
+      expect(resFull.body.instruments[0].symbol).toBe('IDEA');
+    });
+
+    it('should find KNR CONSTRUCTIONS via alias "knr" and full name', async () => {
+      const resKnr = await request(app).get('/api/instruments/search?q=knr');
+      expect(resKnr.status).toBe(200);
+      expect(resKnr.body.success).toBe(true);
+      const symbols = resKnr.body.instruments.map((i: any) => i.symbol);
+      expect(symbols).toContain('KNRCON');
+
+      const resFull = await request(app).get('/api/instruments/search?q=knr%20constructions');
+      expect(resFull.body.instruments[0].symbol).toBe('KNRCON');
+    });
+
+    it('should find JIO FINANCIAL SERVICES on both NSE and BSE with exchange badges', async () => {
+      const resJio = await request(app).get('/api/instruments/search?q=jio');
+      expect(resJio.status).toBe(200);
+      expect(resJio.body.success).toBe(true);
+      const jioEntries = resJio.body.instruments.filter((i: any) => i.symbol === 'JIOFIN');
+      expect(jioEntries.length).toBeGreaterThanOrEqual(2);
+
+      const exchanges = jioEntries.map((i: any) => i.exchange);
+      expect(exchanges).toContain('NSE');
+      expect(exchanges).toContain('BSE');
+    });
+
+    it('should find dual-listed RELIANCE on both NSE and BSE', async () => {
+      const res = await request(app).get('/api/instruments/search?q=RELIANCE');
+      expect(res.status).toBe(200);
+      const relianceEntries = res.body.instruments.filter((i: any) => i.symbol === 'RELIANCE');
+      expect(relianceEntries.length).toBeGreaterThanOrEqual(2);
+      const exchanges = relianceEntries.map((i: any) => i.exchange);
+      expect(exchanges).toContain('NSE');
+      expect(exchanges).toContain('BSE');
+    });
+
+    it('should find TATA MOTORS via alias "tata motors"', async () => {
+      const res = await request(app).get('/api/instruments/search?q=tata%20motors');
+      expect(res.status).toBe(200);
+      const symbols = res.body.instruments.map((i: any) => i.symbol);
+      expect(symbols).toContain('TATAMOTORS');
+    });
+
+    it('should find US stocks (AAPL) and Crypto (BTC)', async () => {
+      const resAapl = await request(app).get('/api/instruments/search?q=AAPL');
+      expect(resAapl.status).toBe(200);
+      expect(resAapl.body.instruments[0].symbol).toBe('AAPL');
+      expect(resAapl.body.instruments[0].exchange).toBe('US');
+
+      const resBtc = await request(app).get('/api/instruments/search?q=BTC');
+      expect(resBtc.status).toBe(200);
+      expect(resBtc.body.instruments.some((i: any) => i.symbol === 'BTC/USDT')).toBe(true);
+    });
+
+    it('should find Mutual Funds by name and filter by type=Mutual Fund with NAV and fund house', async () => {
+      const resName = await request(app).get('/api/instruments/search?q=Axis%20Bluechip');
+      expect(resName.status).toBe(200);
+      expect(resName.body.success).toBe(true);
+      expect(resName.body.instruments.length).toBeGreaterThan(0);
+      expect(resName.body.instruments[0].name).toContain('Axis Bluechip');
+      expect(resName.body.instruments[0].category).toBe('MUTUAL_FUND');
+      expect(resName.body.instruments[0].nav).toBeDefined();
+
+      const resFilter = await request(app).get('/api/instruments/search?type=Mutual%20Fund');
+      expect(resFilter.status).toBe(200);
+      expect(resFilter.body.instruments.length).toBeGreaterThan(0);
+      expect(resFilter.body.instruments.every((i: any) => i.category === 'MUTUAL_FUND')).toBe(true);
+    });
+
+    it('should support pagination with cursor and limit', async () => {
+      const res = await request(app).get('/api/instruments/search?limit=5&cursor=1');
+      expect(res.status).toBe(200);
+      expect(res.body.instruments.length).toBeLessThanOrEqual(5);
+      expect(res.body.page).toBe(1);
+      expect(res.body.limit).toBe(5);
+      expect(res.body.totalPages).toBeGreaterThan(1);
+    });
+  });
+
+  describe('4. Dynamic Indian & US Stock Candle Resolution', () => {
     it('should dynamically resolve newly added Indian stock mappings to Yahoo Finance .NS', () => {
       const mapping = RealtimeMarketService.getMapping('BEL');
       expect(mapping).toBeDefined();

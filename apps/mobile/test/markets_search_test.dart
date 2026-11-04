@@ -251,5 +251,31 @@ void main() {
       expect(selected?.symbol, 'RELIANCE');
       expect(find.text('Trade Screen'), findsOneWidget);
     });
+
+    testWidgets('Phase F1: offline fallback catalog includes JIOFIN, YESBANK, IDEA, KNRCON and displays offline banner', (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final fallbackInstruments = await container.read(marketOverviewProvider.future);
+      final symbols = fallbackInstruments.map((i) => i.symbol).toList();
+
+      expect(symbols, contains('JIOFIN'));
+      expect(symbols, contains('YESBANK'));
+      expect(symbols, contains('IDEA'));
+      expect(symbols, contains('KNRCON'));
+
+      // Now verify offline banner is displayed when isOfflineFallbackActiveProvider is true
+      await tester.pumpWidget(
+        buildTestApp(
+          overrides: [
+            isOfflineFallbackActiveProvider.overrideWith((ref) => true),
+            instrumentSearchResultsProvider.overrideWith((ref) => testInstruments),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Offline, limited list'), findsOneWidget);
+    });
   });
 }

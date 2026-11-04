@@ -5,6 +5,8 @@ import 'package:tradeverse_mobile/core/constants/api_constants.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 
+final isOfflineFallbackActiveProvider = StateProvider<bool>((ref) => false);
+
 final marketOverviewProvider = FutureProvider<List<InstrumentModel>>((ref) async {
   final bool isTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
 
@@ -15,16 +17,62 @@ final marketOverviewProvider = FutureProvider<List<InstrumentModel>>((ref) async
       if (response.statusCode == 200 && response.data?['success'] == true) {
         final list = response.data!['quotes'] as List<dynamic>? ?? [];
         if (list.isNotEmpty) {
+          ref.read(isOfflineFallbackActiveProvider.notifier).state = false;
           return list.map((q) => InstrumentModel.fromJson(q as Map<String, dynamic>)).toList();
         }
       }
     } catch (_) {
       // Fallback to baseline demo instruments if backend unreachable
+      ref.read(isOfflineFallbackActiveProvider.notifier).state = true;
     }
   }
 
   // Demo baseline instruments (explicitly labelled)
   return const [
+    InstrumentModel(
+      symbol: 'JIOFIN',
+      name: 'Jio Financial Services Ltd.',
+      exchange: 'NSE',
+      category: 'EQUITY',
+      price: 320.00,
+      change: 3.50,
+      changePercent: 1.11,
+      isPositive: true,
+      isSimulated: true,
+    ),
+    InstrumentModel(
+      symbol: 'YESBANK',
+      name: 'Yes Bank Limited',
+      exchange: 'NSE',
+      category: 'EQUITY',
+      price: 20.45,
+      change: 0.35,
+      changePercent: 1.74,
+      isPositive: true,
+      isSimulated: true,
+    ),
+    InstrumentModel(
+      symbol: 'IDEA',
+      name: 'Vodafone Idea Limited (Vi)',
+      exchange: 'NSE',
+      category: 'EQUITY',
+      price: 8.45,
+      change: 0.15,
+      changePercent: 1.81,
+      isPositive: true,
+      isSimulated: true,
+    ),
+    InstrumentModel(
+      symbol: 'KNRCON',
+      name: 'KNR Constructions Limited',
+      exchange: 'NSE',
+      category: 'EQUITY',
+      price: 335.20,
+      change: 5.60,
+      changePercent: 1.70,
+      isPositive: true,
+      isSimulated: true,
+    ),
     InstrumentModel(
       symbol: 'NIFTY 50',
       name: 'Nifty 50 Index',
@@ -455,23 +503,34 @@ final instrumentSearchResultsProvider = FutureProvider<List<InstrumentModel>>((r
       final response = await apiClient.get<Map<String, dynamic>>(endpoint);
       if (response.statusCode == 200 && response.data?['success'] == true) {
         final list = response.data!['instruments'] as List<dynamic>? ?? [];
+        ref.read(isOfflineFallbackActiveProvider.notifier).state = false;
         return list.map((item) => InstrumentModel.fromJson(item as Map<String, dynamic>)).toList();
       }
     } catch (_) {
       // Fallback
+      ref.read(isOfflineFallbackActiveProvider.notifier).state = true;
     }
   }
 
   // Fallback in-memory filter
   final overview = await ref.watch(marketOverviewProvider.future);
+  final q = query.toLowerCase();
+  final nq = q.replaceAll('adhani', 'adani');
+
   return overview.where((item) {
     if (exchangeParam != 'ALL' && item.exchange.toUpperCase() != exchangeParam) return false;
     if (categoryParam != 'ALL' && item.category.toUpperCase() != categoryParam) return false;
     if (query.isEmpty) return true;
+
     final sym = item.symbol.toLowerCase();
     final name = item.name.toLowerCase();
-    final q = query.toLowerCase();
-    final nq = q.replaceAll('adhani', 'adani');
+
+    // Check aliases
+    if ((q == 'vi' || q == 'vodafone' || q == 'idea') && sym == 'idea') return true;
+    if (q == 'knr' && sym == 'knrcon') return true;
+    if ((q == 'yes' || q == 'yes bank') && sym == 'yesbank') return true;
+    if ((q == 'jio' || q == 'jio financial') && sym == 'jiofin') return true;
+
     return sym.contains(q) || name.contains(q) || sym.contains(nq) || name.contains(nq);
   }).toList();
 });

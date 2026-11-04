@@ -11,30 +11,19 @@ export const marketDataRouter = express.Router();
 
 marketDataRouter.use(optionalAuth);
 
-// GET /api/v1/market/instruments/search or /api/v1/market-data/instruments/search
-marketDataRouter.get('/instruments/search', async (req: Request, res: Response) => {
+const handleInstrumentSearch = async (req: Request, res: Response) => {
   const query = (((req.query.q || req.query.query || req.query.keywords) as string) || '').trim();
   const exchange = ((req.query.exchange as string) || 'ALL').trim().toUpperCase();
-  const category = ((req.query.category as string) || 'ALL').trim().toUpperCase();
-  const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+  const categoryOrType = (((req.query.type || req.query.category) as string) || 'ALL').trim();
+  const page = Math.max(1, parseInt((req.query.page || req.query.cursor) as string, 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 30));
 
-  const validation = InstrumentSearchQuerySchema.safeParse({
-    q: query,
-    exchange: ['ALL', 'NSE', 'BSE', 'MCX', 'US', 'CRYPTO'].includes(exchange) ? exchange : 'ALL',
-    category: ['ALL', 'EQUITY', 'INDEX', 'ETF', 'COMMODITY', 'CRYPTO', 'US'].includes(category) ? category : 'ALL',
+  const searchResult = await InstrumentMasterService.searchInstruments({
+    query,
+    exchange,
+    category: categoryOrType,
     page,
     limit,
-  });
-
-  const validQuery = validation.success ? validation.data : { q: query, exchange: 'ALL', category: 'ALL', page, limit };
-
-  const searchResult = await InstrumentMasterService.searchInstruments({
-    query: validQuery.q,
-    exchange: validQuery.exchange,
-    category: validQuery.category,
-    page: validQuery.page,
-    limit: validQuery.limit,
   });
 
   return res.status(200).json({
@@ -46,10 +35,12 @@ marketDataRouter.get('/instruments/search', async (req: Request, res: Response) 
     totalPages: searchResult.totalPages,
     instruments: searchResult.instruments,
   });
-});
+};
 
-// POST /api/v1/market-data/instruments/sync
-marketDataRouter.post('/instruments/sync', async (_req: Request, res: Response) => {
+marketDataRouter.get('/instruments/search', handleInstrumentSearch);
+marketDataRouter.get('/search', handleInstrumentSearch);
+
+const handleInstrumentSync = async (_req: Request, res: Response) => {
   try {
     const result = await InstrumentMasterService.syncFromUpstream();
     return res.status(200).json({
@@ -63,12 +54,14 @@ marketDataRouter.post('/instruments/sync', async (_req: Request, res: Response) 
       message: err.message || 'Failed to synchronize instruments.',
     });
   }
-});
+};
 
-// GET /api/v1/market-data/instruments
-marketDataRouter.get('/instruments', async (req: Request, res: Response) => {
+marketDataRouter.post('/instruments/sync', handleInstrumentSync);
+marketDataRouter.post('/sync', handleInstrumentSync);
+
+const handleInstrumentList = async (req: Request, res: Response) => {
   const exchange = ((req.query.exchange as string) || 'ALL').trim().toUpperCase();
-  const category = ((req.query.category as string) || 'ALL').trim().toUpperCase();
+  const category = (((req.query.category || req.query.type) as string) || 'ALL').trim().toUpperCase();
   const query = (((req.query.query || req.query.q) as string) || '').trim();
 
   const searchResult = await InstrumentMasterService.searchInstruments({
@@ -85,7 +78,9 @@ marketDataRouter.get('/instruments', async (req: Request, res: Response) => {
     count: searchResult.instruments.length,
     instruments: searchResult.instruments,
   });
-});
+};
+
+marketDataRouter.get('/instruments', handleInstrumentList);
 
 // GET /api/v1/market/instruments/:id
 marketDataRouter.get('/instruments/:id', (req: Request, res: Response) => {

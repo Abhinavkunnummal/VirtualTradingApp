@@ -1,7 +1,16 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type AssetClass = 'EQUITY' | 'INDEX' | 'COMMODITY' | 'CRYPTO' | 'DERIVATIVE' | 'ETF';
-export type Exchange = 'NSE' | 'BSE' | 'MCX' | 'US' | 'CRYPTO';
+export type AssetClass =
+  | 'EQUITY'
+  | 'INDEX'
+  | 'COMMODITY'
+  | 'CRYPTO'
+  | 'DERIVATIVE'
+  | 'ETF'
+  | 'MUTUAL_FUND'
+  | 'IPO';
+
+export type Exchange = 'NSE' | 'BSE' | 'MCX' | 'US' | 'CRYPTO' | 'AMFI' | 'GLOBAL';
 export type TradingStatus = 'ACTIVE' | 'HALTED' | 'CLOSED';
 
 export interface IInstrument extends Document {
@@ -17,6 +26,11 @@ export interface IInstrument extends Document {
   isin?: string;
   segment?: string;
   tradingStatus: TradingStatus;
+  aliases?: string[];
+  popularity?: number;
+  nav?: number;
+  fundHouse?: string;
+  schemeCode?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,16 +54,17 @@ const InstrumentSchema = new Schema<IInstrument>(
       type: String,
       required: true,
       trim: true,
+      index: true,
     },
     assetClass: {
       type: String,
-      enum: ['EQUITY', 'INDEX', 'COMMODITY', 'CRYPTO', 'DERIVATIVE', 'ETF'],
+      enum: ['EQUITY', 'INDEX', 'COMMODITY', 'CRYPTO', 'DERIVATIVE', 'ETF', 'MUTUAL_FUND', 'IPO'],
       required: true,
       index: true,
     },
     exchange: {
       type: String,
-      enum: ['NSE', 'BSE', 'MCX', 'US', 'CRYPTO'],
+      enum: ['NSE', 'BSE', 'MCX', 'US', 'CRYPTO', 'AMFI', 'GLOBAL'],
       required: true,
       index: true,
     },
@@ -85,6 +100,27 @@ const InstrumentSchema = new Schema<IInstrument>(
       type: String,
       enum: ['ACTIVE', 'HALTED', 'CLOSED'],
       default: 'ACTIVE',
+    },
+    aliases: {
+      type: [String],
+      default: [],
+      index: true,
+    },
+    popularity: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
+    nav: {
+      type: Number,
+    },
+    fundHouse: {
+      type: String,
+      trim: true,
+    },
+    schemeCode: {
+      type: String,
+      trim: true,
     },
   },
   {

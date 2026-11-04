@@ -80,6 +80,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
     final searchResultsAsync = ref.watch(instrumentSearchResultsProvider);
     final selectedFilter = ref.watch(searchFilterProvider);
     final recentSearches = ref.watch(recentSearchesProvider);
+    final isOffline = ref.watch(isOfflineFallbackActiveProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -171,6 +172,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
             searchResultsAsync: searchResultsAsync,
             selectedFilter: selectedFilter,
             recentSearches: recentSearches,
+            isOffline: isOffline,
           ),
           // Tab 2: Market News Feed
           _buildLiveNewsView(context),
@@ -184,9 +186,36 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
     required AsyncValue<List<InstrumentModel>> searchResultsAsync,
     required String selectedFilter,
     required List<String> recentSearches,
+    required bool isOffline,
   }) {
     return Column(
       children: [
+        if (isOffline)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withOpacity(0.12),
+              border: const Border(
+                bottom: BorderSide(color: AppColors.warning, width: 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.cloud_off_rounded, size: 16, color: AppColors.warning),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Offline, limited list — Showing cached instruments. Connect to backend for full catalog.',
+                    style: AppTypography.labelSm.copyWith(
+                      color: AppColors.warning,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         // Horizontal Filter Chips Bar (All Assets, NSE, BSE, Crypto, US, Indices, ETFs)
         Container(
           height: 48,

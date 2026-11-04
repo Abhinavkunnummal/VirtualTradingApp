@@ -22,7 +22,5 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: "*"
-      - key: STARTING_CAPITAL
-        value: "1000000"
       - key: ALPHA_VANTAGE_API_KEY
-        value: "QOQBUF2ZJIZX8EJ3"
+        sync: false
