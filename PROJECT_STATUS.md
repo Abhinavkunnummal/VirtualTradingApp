@@ -17,6 +17,7 @@
 | **Phase B** | Complete NSE/BSE Instrument Master & Fuzzy Search | **Completed** | Daily instrument master ingestion, MongoDB text index, fuzzy prefix search, dynamic candle routing (`50a4833`) |
 | **Phase C** | Realistic Wallet & Order Management | **Completed** | Zero starting balance, 3-tab orders/positions screen, square-off engine booking realized P&L, confirmation sheets (`4be43d8`) |
 | **Phase D** | Chart Intelligence & Live Pro Visuals | **Completed** | Auto AI analysis (S/R and patterns), Heikin-Ashi candles, live forming pulse, multi-chart types, persistent drawings (`329fe98`) |
+| **Phase E** | Design Polish & Pro Visual Refresh | **Completed** | Zerodha Kite & Groww dark theme, tabular figures, 60fps shimmer loaders, polished empty states, haptic feedback, green CI (`e676112`) |
 
 ---
 
