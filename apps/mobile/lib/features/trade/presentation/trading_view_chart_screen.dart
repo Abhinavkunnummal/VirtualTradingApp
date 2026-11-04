@@ -1342,16 +1342,21 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
     final available = portfolio?.availableCash ?? 1000000.0;
     final margin = _getRequiredMargin();
 
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     return SafeArea(
       top: false,
-      child: SingleChildScrollView(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
-        child: Column(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: keyboardInset > 0 ? 12.0 : 24.0,
+          ),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1655,6 +1660,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
         ],
       ),
     ),
-  );
+  ),
+);
 }
 }

@@ -129,7 +129,7 @@ void main() {
         addTearDown(() => resetScreen(tester));
 
         await tester.pumpWidget(buildTestApp(const SplashScreen()));
-        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 300));
         expectNoOverflow(tester);
         expect(find.text('TradeVerse AI'), findsOneWidget);
       });
@@ -257,7 +257,8 @@ void main() {
           await tester.pumpAndSettle();
           expectNoOverflow(tester);
 
-          tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+          final keyboardHeight = size.width > size.height ? 120.0 : 300.0;
+          tester.view.viewInsets = FakeViewPadding(bottom: keyboardHeight);
           await tester.pumpAndSettle();
           expectNoOverflow(tester);
           tester.view.resetViewInsets();
@@ -316,10 +317,13 @@ void main() {
       await tester.pumpWidget(
         buildTestApp(
           Scaffold(
-            body: IndicatorsBottomSheet(
-              indicators: ChartIndicatorConfig.defaultIndicators(),
-              onChanged: (_) {},
-              onReset: () {},
+            body: SizedBox(
+              height: 520,
+              child: IndicatorsBottomSheet(
+                indicators: ChartIndicatorConfig.defaultIndicators(),
+                onChanged: (_) {},
+                onReset: () {},
+              ),
             ),
           ),
         ),

@@ -634,7 +634,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 6,
+                                runSpacing: 2,
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
@@ -651,15 +654,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      order['symbol'] as String? ?? '',
-                                      style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                  Text(
+                                    order['symbol'] as String? ?? '',
+                                    style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
                                   ),
-                                  const SizedBox(width: 6),
                                   Text(
                                     '${order['product'] ?? 'CNC'} • ${order['orderType'] ?? 'MARKET'}',
                                     style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10),
@@ -768,16 +766,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 2,
                           children: [
-                            Flexible(
-                              child: Text(
-                                trade.symbol,
-                                style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            Text(
+                              trade.symbol,
+                              style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                               decoration: BoxDecoration(
@@ -792,9 +789,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'Qty: ${trade.quantity} | Buy: ₹${trade.entryPrice.toStringAsFixed(2)} → Exit: ₹${trade.exitPrice.toStringAsFixed(2)}',
-                          style: AppTypography.labelSm.copyWith(color: AppColors.onSurfaceVariant, fontSize: 11),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Qty: ${trade.quantity} | Buy: ₹${trade.entryPrice.toStringAsFixed(2)} → Exit: ₹${trade.exitPrice.toStringAsFixed(2)}',
+                            style: AppTypography.labelSm.copyWith(color: AppColors.onSurfaceVariant, fontSize: 11),
+                          ),
                         ),
                       ],
                     ),

@@ -90,20 +90,26 @@ class _IndicatorsBottomSheetState extends State<IndicatorsBottomSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.functions, size: 20, color: AppColors.zerodhaBlue),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Indicators & Studies',
-                        style: AppTypography.headlineSm.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.functions, size: 20, color: AppColors.zerodhaBlue),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Indicators & Studies',
+                            style: AppTypography.headlineSm.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       TextButton(
                         onPressed: _resetToDefaults,

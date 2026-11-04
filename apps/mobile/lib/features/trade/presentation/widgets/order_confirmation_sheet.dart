@@ -180,21 +180,32 @@ class OrderConfirmationSheet extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Realized Profit / Loss', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${isProfit ? '+' : ''}$currency${pnl.toStringAsFixed(2)}',
-                            style: AppTypography.headlineSm.copyWith(
-                              color: isProfit ? AppColors.secondary : AppColors.tertiary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 22,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Realized Profit / Loss',
+                              style: AppTypography.labelSm.copyWith(color: AppColors.outline),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '${isProfit ? '+' : ''}$currency${pnl.toStringAsFixed(2)}',
+                                style: AppTypography.headlineSm.copyWith(
+                                  color: isProfit ? AppColors.secondary : AppColors.tertiary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 22,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       if (realizedPnlPercent != null)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -255,13 +266,16 @@ class OrderConfirmationSheet extends StatelessWidget {
                         foregroundColor: AppColors.onSurface,
                         side: const BorderSide(color: AppColors.borderSubtle),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
                       ),
                       onPressed: () {
                         Navigator.of(context).pop();
                         context.push('/orders');
                       },
-                      child: const Text('View in Orders'),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('View in Orders'),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -271,10 +285,13 @@ class OrderConfirmationSheet extends StatelessWidget {
                         backgroundColor: AppColors.primaryBrand,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
                       ),
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Done'),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Done'),
+                      ),
                     ),
                   ),
                 ],
@@ -290,7 +307,14 @@ class OrderConfirmationSheet extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
+        Expanded(
+          child: Text(
+            label,
+            style: AppTypography.labelSm.copyWith(color: AppColors.outline),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
         Text(
           value,
           style: AppTypography.labelSm.copyWith(

@@ -676,7 +676,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
               Expanded(
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.add_circle_outline, size: 16),
-                  label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Add Funds')),
+                  label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Add Virtual Funds')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryBrand,
                     foregroundColor: Colors.white,
