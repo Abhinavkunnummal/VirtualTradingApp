@@ -234,6 +234,8 @@ class WalletTransactionModel {
     required this.timestamp,
   });
 
+  DateTime get createdAt => timestamp;
+
   factory WalletTransactionModel.fromJson(Map<String, dynamic> json) {
     return WalletTransactionModel(
       id: json['id'] as String? ?? '',

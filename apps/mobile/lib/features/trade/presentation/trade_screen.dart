@@ -78,8 +78,6 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
 
   Future<void> _executeOrder(String symbol, String exchange, double currentLtp) async {
     final effectivePrice = _orderType == 'MARKET' ? currentLtp : (_customPrice ?? currentLtp);
-    final isCrypto = symbol.contains('/') || ['BTC', 'ETH', 'SOL'].any((c) => symbol.contains(c));
-    final currency = (isCrypto || exchange == 'US') ? '\$' : '₹';
 
     // Client-side validations for Cover and Bracket orders
     if (_orderVariety == 'COVER') {
@@ -565,7 +563,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
           IconButton(
             icon: const Icon(Icons.receipt_long_outlined),
             tooltip: 'Orders & Positions',
-            onPressed: () => context.push('/orders'),
+            onPressed: _showOrderHistorySheet,
           ),
         ],
       ),

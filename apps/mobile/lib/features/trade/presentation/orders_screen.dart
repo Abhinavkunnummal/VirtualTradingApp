@@ -146,8 +146,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
-            decoration: const Border(
-              bottom: BorderSide(color: AppColors.borderSubtle, width: 1.0),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppColors.borderSubtle, width: 1.0),
+              ),
             ),
             child: TabBar(
               controller: _tabController,
@@ -623,11 +625,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                                 tooltip: 'Cancel Order',
                                 onPressed: () async {
                                   final ok = await ref.read(submitOrderProvider).cancelOrder(orderId);
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(ok ? 'Order cancelled successfully.' : 'Failed to cancel.')),
-                                    );
-                                  }
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(ok ? 'Order cancelled successfully.' : 'Failed to cancel.')),
+                                  );
                                 },
                               ),
                             ],
@@ -747,7 +748,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 class _SquareOffModal extends StatefulWidget {
   final HoldingModel holding;
   final double currentLtp;
-  final Function(int? qty, String orderType, double? limitPrice) onSquareOff;
+  final void Function(int? qty, String orderType, double? limitPrice) onSquareOff;
 
   const _SquareOffModal({
     required this.holding,

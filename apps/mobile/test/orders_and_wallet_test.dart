@@ -24,7 +24,7 @@ class _MockPortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> i
   Future<bool> topUpVirtualFunds(double amount) async => true;
 
   @override
-  Future<bool> withdrawVirtualFunds(double amount) async => true;
+  Future<Map<String, dynamic>> withdrawVirtualFunds(double amount) async => {'success': true};
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -76,12 +76,7 @@ class _MockSubmitOrderService implements SubmitOrderService {
   }
 
   @override
-  Future<Map<String, dynamic>> cancelOrder(String orderId) async {
-    return {
-      'success': true,
-      'message': 'Order cancelled',
-    };
-  }
+  Future<bool> cancelOrder(String orderId) async => true;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -119,7 +114,7 @@ void main() {
     ),
   ];
 
-  final testPortfolio = PortfolioModel(
+  const testPortfolio = PortfolioModel(
     totalPortfolioValue: 84000.0,
     investedValue: 83000.0,
     availableCash: 17000.0,

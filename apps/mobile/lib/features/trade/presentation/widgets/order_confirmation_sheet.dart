@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
-import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 
 class OrderConfirmationSheet extends StatelessWidget {
   final String symbol;

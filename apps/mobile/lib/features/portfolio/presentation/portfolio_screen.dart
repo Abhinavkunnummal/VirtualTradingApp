@@ -227,12 +227,12 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [
+                    children: <double>{
                       if (currentCash >= 10000) 10000.0,
                       if (currentCash >= 50000) 50000.0,
                       if (currentCash >= 100000) 100000.0,
                       currentCash,
-                    ].toSet().map((amt) {
+                    }.map((amt) {
                       final label = amt == currentCash
                           ? 'Max (₹${amt.toStringAsFixed(0)})'
                           : '₹${(amt / 1000).toStringAsFixed(0)}K';
@@ -297,19 +297,19 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                           return;
                         }
                         Navigator.of(ctx).pop();
-                        final success =
+                        final res =
                             await ref.read(portfolioProvider.notifier).withdrawVirtualFunds(entered);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                success
-                                    ? 'Withdrawn ₹${entered.toStringAsFixed(2)} from virtual sandbox funds.'
-                                    : 'Withdrawal failed. Check balance or connection.',
-                              ),
+                        final isSuccess = res['success'] == true;
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              isSuccess
+                                  ? 'Withdrawn ₹${entered.toStringAsFixed(2)} from virtual sandbox funds.'
+                                  : (res['message'] as String? ?? 'Withdrawal failed. Check balance or connection.'),
                             ),
-                          );
-                        }
+                          ),
+                        );
                       },
                     ),
                   ),

@@ -6,6 +6,7 @@ import 'package:tradeverse_mobile/core/network/api_client.dart';
 import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
+import 'package:tradeverse_mobile/features/portfolio/domain/portfolio_models.dart';
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestick_chart_view.dart';
 
@@ -554,7 +555,7 @@ class SubmitOrderService {
     }
 
     try {
-      final response = await apiClient.post<Map<String, dynamic>>('/orders/$orderId/cancel', data: {});
+      final response = await apiClient.post<Map<String, dynamic>>('/orders/$orderId/cancel', data: <String, dynamic>{});
       if (response.statusCode == 200 && response.data?['success'] == true) {
         ref.invalidate(orderHistoryProvider);
         ref.invalidate(portfolioProvider);
