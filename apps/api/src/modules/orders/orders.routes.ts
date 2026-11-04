@@ -2,9 +2,17 @@ import express, { Response } from 'express';
 import { z } from 'zod';
 import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { PaperTradingEngine } from './paperEngine.service';
-import { Order, Execution, LedgerEntry } from '../../models';
+import { Order, Execution, LedgerEntry, Holding, TradeHistory } from '../../models';
+import { RealtimeMarketService } from '../market-data/realtimeMarket.service';
+import { MarketDataService } from '../market-data/marketData.service';
 
 export const ordersRouter = express.Router();
+
+const SquareOffSchema = z.object({
+  quantity: z.number().int().positive().optional(),
+  orderType: z.enum(['MARKET', 'LIMIT']).default('MARKET'),
+  limitPrice: z.number().positive().optional(),
+});
 
 const SubmitOrderSchema = z.object({
   symbol: z.string().min(1, 'Symbol is required').trim().toUpperCase(),
@@ -302,6 +310,157 @@ ordersRouter.get('/:id/audit-trail', requireAuth, async (req: AuthenticatedReque
           description: l.description,
           timestamp: l.createdAt,
         })),
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// POST /api/v1/orders/positions/:symbol/square-off
+ordersRouter.post('/positions/:symbol/square-off', requireAuth, async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const validated = SquareOffSchema.parse(req.body);
+    const result = await PaperTradingEngine.squareOffPosition({
+      userId: req.user!.userId,
+      symbol: req.params.symbol as string,
+      quantity: validated.quantity,
+      orderType: validated.orderType,
+      limitPrice: validated.limitPrice,
+    });
+    return res.status(200).json(result);
+  } catch (err: any) {
+    if (err.message?.includes('not found') || err.message?.includes('No open position')) {
+      return res.status(404).json({ success: false, message: err.message });
+    }
+    return next(err);
+  }
+});
+
+// GET /api/v1/orders/positions & /positions/list
+const getPositionsHandler = async (req: AuthenticatedRequest, res: Response, next: any) => {
+  try {
+    const holdings = await Holding.find({ userId: req.user!.userId, quantity: { $gt: 0 } });
+    const positions = await Promise.all(
+      holdings.map(async (h) => {
+        let ltp = h.averageCost;
+        if (process.env.NODE_ENV !== 'test') {
+          const live = await RealtimeMarketService.getLiveQuote(h.symbol).catch(() => null);
+          if (live && live.price > 0) ltp = live.price;
+          else {
+            const symQuote = MarketDataService.getQuote(h.symbol);
+            if (symQuote && symQuote.price > 0) ltp = symQuote.price;
+          }
+        }
+        const invested = parseFloat((h.quantity * h.averageCost).toFixed(2));
+        const current = parseFloat((h.quantity * ltp).toFixed(2));
+        const pnl = parseFloat((current - invested).toFixed(2));
+        const pnlPercent = invested > 0 ? parseFloat(((pnl / invested) * 100).toFixed(2)) : 0;
+
+        return {
+          id: h._id.toString(),
+          symbol: h.symbol,
+          exchange: h.exchange,
+          product: h.product || 'CNC',
+          side: 'BUY',
+          quantity: h.quantity,
+          averagePrice: h.averageCost,
+          ltp,
+          investedValue: invested,
+          currentValue: current,
+          unrealizedPnl: pnl,
+          unrealizedPnlPercent: pnlPercent,
+          stopLoss: h.stopLossPrice || null,
+          targetPrice: h.targetPrice || null,
+          createdAt: h.createdAt,
+        };
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: positions.length,
+      positions,
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+ordersRouter.get('/positions', requireAuth, getPositionsHandler);
+ordersRouter.get('/positions/list', requireAuth, getPositionsHandler);
+
+// GET /api/v1/orders/history & /history/closed-trades
+const getHistoryHandler = async (req: AuthenticatedRequest, res: Response, next: any) => {
+  try {
+    const page = parseInt(req.query.page as string || '1', 10);
+    const limit = Math.min(parseInt(req.query.limit as string || '50', 10), 100);
+    const skip = (page - 1) * limit;
+
+    const total = await TradeHistory.countDocuments({ userId: req.user!.userId });
+    const trades = await TradeHistory.find({ userId: req.user!.userId })
+      .sort({ closedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    return res.status(200).json({
+      success: true,
+      total,
+      page,
+      limit,
+      trades: trades.map((t) => ({
+        id: t._id.toString(),
+        symbol: t.symbol,
+        exchange: t.exchange,
+        product: t.product,
+        side: t.side,
+        quantity: t.quantity,
+        entryPrice: t.entryPrice,
+        exitPrice: t.exitPrice,
+        realizedPnl: t.realizedPnl,
+        realizedPnlPercent: t.realizedPnlPercent,
+        fees: t.fees,
+        closedAt: t.closedAt,
+      })),
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+ordersRouter.get('/history', requireAuth, getHistoryHandler);
+ordersRouter.get('/history/closed-trades', requireAuth, getHistoryHandler);
+
+// GET /api/v1/orders/summary/pnl
+ordersRouter.get('/summary/pnl', requireAuth, async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const trades = await TradeHistory.find({ userId: req.user!.userId });
+    let totalRealizedPnl = 0;
+    let profitableTrades = 0;
+    trades.forEach((t) => {
+      totalRealizedPnl += t.realizedPnl;
+      if (t.realizedPnl > 0) profitableTrades++;
+    });
+
+    const holdings = await Holding.find({ userId: req.user!.userId, quantity: { $gt: 0 } });
+    let totalUnrealizedPnl = 0;
+    for (const h of holdings) {
+      let ltp = h.averageCost;
+      const symQuote = MarketDataService.getQuote(h.symbol);
+      if (symQuote && symQuote.price > 0) ltp = symQuote.price;
+      totalUnrealizedPnl += (ltp - h.averageCost) * h.quantity;
+    }
+
+    const totalTrades = trades.length;
+    const winRate = totalTrades > 0 ? parseFloat(((profitableTrades / totalTrades) * 100).toFixed(1)) : 0;
+
+    return res.status(200).json({
+      success: true,
+      summary: {
+        totalRealizedPnl: parseFloat(totalRealizedPnl.toFixed(2)),
+        totalUnrealizedPnl: parseFloat(totalUnrealizedPnl.toFixed(2)),
+        totalPnl: parseFloat((totalRealizedPnl + totalUnrealizedPnl).toFixed(2)),
+        totalTrades,
+        profitableTrades,
+        winRate,
       },
     });
   } catch (err) {

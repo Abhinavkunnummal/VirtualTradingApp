@@ -438,6 +438,7 @@ class SubmitOrderService {
       if (response.statusCode == 201 && response.data?['success'] == true) {
         ref.invalidate(portfolioProvider);
         ref.invalidate(orderHistoryProvider);
+        ref.invalidate(openPositionsListProvider);
         final execPrice = (response.data!['execution']?['executionPrice'] as num?)?.toDouble() ?? fillPrice;
         final successMsg =
             'You booked successfully with the order: $side $quantity lot(s) of $symbol at $currencySymbol${execPrice.toStringAsFixed(2)}';
@@ -458,4 +459,191 @@ class SubmitOrderService {
       };
     }
   }
+
+  Future<Map<String, dynamic>> squareOffPosition({
+    required String symbol,
+    int? quantity,
+    String orderType = 'MARKET',
+    double? limitPrice,
+  }) async {
+    final liveQuote = ref.read(liveQuotesProvider)[symbol.toUpperCase()];
+    final ltp = liveQuote?.price ?? _getDefaultPrice(symbol);
+    final exitPrice = limitPrice ?? ltp;
+
+    if (isDemo) {
+      final portfolio = ref.read(portfolioProvider).valueOrNull;
+      final holding = portfolio?.holdings.where((h) => h.symbol.toUpperCase() == symbol.toUpperCase()).firstOrNull;
+      final avgBuy = holding?.averageBuyPrice ?? ltp;
+      final qtyToClose = quantity != null && quantity > 0 ? math.min(quantity, holding?.quantity ?? quantity) : (holding?.quantity ?? 10);
+      final gross = qtyToClose * exitPrice;
+      final fees = 20.0 + (gross * 0.001);
+      final realizedPnl = (exitPrice - avgBuy) * qtyToClose - fees;
+      final realizedPct = avgBuy > 0 ? (realizedPnl / (avgBuy * qtyToClose)) * 100 : 0.0;
+
+      // Update demo portfolio
+      ref.read(portfolioProvider.notifier).squareOffHolding(
+        symbol: symbol,
+        quantity: qtyToClose,
+        exitPrice: exitPrice,
+      );
+
+      final newTrade = {
+        'id': 'trade_demo_${DateTime.now().millisecondsSinceEpoch}',
+        'symbol': symbol,
+        'exchange': holding?.exchange ?? 'NSE',
+        'product': holding?.product ?? 'CNC',
+        'side': 'SELL',
+        'quantity': qtyToClose,
+        'entryPrice': avgBuy,
+        'exitPrice': exitPrice,
+        'realizedPnl': realizedPnl,
+        'realizedPnlPercent': realizedPct,
+        'fees': fees,
+        'closedAt': DateTime.now().toIso8601String(),
+      };
+      ref.read(demoClosedTradesStateProvider.notifier).update((trades) => [newTrade, ...trades]);
+
+      return {
+        'success': true,
+        'symbol': symbol,
+        'closedQuantity': qtyToClose,
+        'averageBuyPrice': avgBuy,
+        'exitPrice': exitPrice,
+        'realizedPnl': realizedPnl,
+        'realizedPnlPercent': realizedPct,
+        'fees': fees,
+        'message': 'Position squared off successfully.',
+      };
+    }
+
+    try {
+      final response = await apiClient.post<Map<String, dynamic>>(
+        '/orders/positions/$symbol/square-off',
+        data: {
+          if (quantity != null) 'quantity': quantity,
+          'orderType': orderType,
+          if (limitPrice != null) 'limitPrice': limitPrice,
+        },
+      );
+
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        ref.invalidate(portfolioProvider);
+        ref.invalidate(openPositionsListProvider);
+        ref.invalidate(closedTradesHistoryProvider);
+        ref.invalidate(pnlSummaryProvider);
+        return response.data!;
+      }
+      return {
+        'success': false,
+        'message': response.data?['message'] as String? ?? 'Square off failed.',
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<bool> cancelOrder(String orderId) async {
+    if (isDemo) {
+      ref.read(demoOrdersStateProvider.notifier).update((orders) => orders.map((o) {
+        if (o['id'] == orderId) {
+          return {...o, 'status': 'CANCELLED'};
+        }
+        return o;
+      }).toList());
+      return true;
+    }
+
+    try {
+      final response = await apiClient.post<Map<String, dynamic>>('/orders/$orderId/cancel', data: {});
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        ref.invalidate(orderHistoryProvider);
+        ref.invalidate(portfolioProvider);
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
 }
+
+final demoClosedTradesStateProvider = StateProvider<List<Map<String, dynamic>>>((ref) => [
+  {
+    'id': 'trade_demo_1',
+    'symbol': 'INFY',
+    'exchange': 'NSE',
+    'product': 'MIS',
+    'side': 'SELL',
+    'quantity': 50,
+    'entryPrice': 1850.00,
+    'exitPrice': 1885.20,
+    'realizedPnl': 1735.00,
+    'realizedPnlPercent': 1.88,
+    'fees': 25.00,
+    'closedAt': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+  },
+]);
+
+final openPositionsListProvider = FutureProvider<List<HoldingModel>>((ref) async {
+  final authState = ref.watch(authProvider);
+  if (authState.isDemoMode) {
+    final portfolio = ref.watch(portfolioProvider).valueOrNull ?? PortfolioModel.demo();
+    return portfolio.holdings;
+  }
+
+  final apiClient = ref.watch(apiClientProvider);
+  try {
+    final response = await apiClient.get<Map<String, dynamic>>('/orders/positions');
+    if (response.statusCode == 200 && response.data?['success'] == true) {
+      final raw = response.data!['positions'] as List<dynamic>? ?? [];
+      return raw.map((p) => HoldingModel.fromJson(p as Map<String, dynamic>)).toList();
+    }
+  } catch (_) {}
+
+  // Fallback to portfolio holdings
+  final portfolio = ref.watch(portfolioProvider).valueOrNull;
+  return portfolio?.holdings ?? const [];
+});
+
+final closedTradesHistoryProvider = FutureProvider<List<TradeHistoryModel>>((ref) async {
+  final authState = ref.watch(authProvider);
+  if (authState.isDemoMode) {
+    final raw = ref.watch(demoClosedTradesStateProvider);
+    return raw.map((t) => TradeHistoryModel.fromJson(t)).toList();
+  }
+
+  final apiClient = ref.watch(apiClientProvider);
+  try {
+    final response = await apiClient.get<Map<String, dynamic>>('/orders/history');
+    if (response.statusCode == 200 && response.data?['success'] == true) {
+      final raw = response.data!['trades'] as List<dynamic>? ?? [];
+      return raw.map((t) => TradeHistoryModel.fromJson(t as Map<String, dynamic>)).toList();
+    }
+  } catch (_) {}
+  return const [];
+});
+
+final pnlSummaryProvider = FutureProvider<PnlSummaryModel>((ref) async {
+  final authState = ref.watch(authProvider);
+  if (authState.isDemoMode) {
+    final portfolio = ref.watch(portfolioProvider).valueOrNull ?? PortfolioModel.demo();
+    return PnlSummaryModel(
+      totalRealizedPnl: 1735.00,
+      totalUnrealizedPnl: portfolio.totalPnl,
+      totalPnl: 1735.00 + portfolio.totalPnl,
+      totalTrades: 1,
+      profitableTrades: 1,
+      winRate: 100.0,
+    );
+  }
+
+  final apiClient = ref.watch(apiClientProvider);
+  try {
+    final response = await apiClient.get<Map<String, dynamic>>('/orders/summary/pnl');
+    if (response.statusCode == 200 && response.data?['success'] == true) {
+      return PnlSummaryModel.fromJson(response.data!['summary'] as Map<String, dynamic>);
+    }
+  } catch (_) {}
+
+  return PnlSummaryModel.zero();
+});

@@ -14,10 +14,13 @@ export type CandleInterval = '1m' | '5m' | '15m' | '1h' | '1d' | '1w';
 export type LedgerEntryType =
   | 'CAPITAL_INIT'
   | 'CAPITAL_RESET'
+  | 'CAPITAL_TOPUP'
+  | 'CAPITAL_WITHDRAW'
   | 'MARGIN_RESERVE'
   | 'MARGIN_RELEASE'
   | 'TRADE_FILL'
-  | 'FEE_DEDUCTION';
+  | 'FEE_DEDUCTION'
+  | 'SQUARE_OFF';
 
 // ==========================================
 // Instrument & Market Data Models
@@ -197,14 +200,53 @@ export interface LedgerEntry {
   timestamp: string;
 }
 
+export interface TradeHistoryItem {
+  id: string;
+  userId: string;
+  symbol: string;
+  exchange: ExchangeType;
+  product: ProductType;
+  side: OrderSide;
+  quantity: number;
+  entryPrice: number;
+  exitPrice: number;
+  realizedPnl: number;
+  realizedPnlPercent: number;
+  fees: number;
+  closedAt: string;
+}
+
+export interface PnlSummary {
+  totalRealizedPnl: number;
+  totalUnrealizedPnl: number;
+  totalTrades: number;
+  profitableTrades: number;
+  winRate: number;
+}
+
 // ==========================================
 // Zod Validation Schemas
 // ==========================================
+export const AddFundsSchema = z.object({
+  amount: z.number().positive('Top-up amount must be positive').min(100, 'Minimum amount is INR 100').max(100000000, 'Maximum amount is INR 10,00,00,000'),
+  idempotencyKey: z.string().optional(),
+});
+
+export const WithdrawFundsSchema = z.object({
+  amount: z.number().positive('Withdrawal amount must be positive').min(100, 'Minimum withdrawal is INR 100'),
+});
+
+export const SquareOffOrderSchema = z.object({
+  quantity: z.number().int().positive('Quantity must be greater than zero').optional(),
+  orderType: z.enum(['MARKET', 'LIMIT']).default('MARKET'),
+  limitPrice: z.number().positive().optional(),
+});
+
 export const RegisterSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   displayName: z.string().min(2),
-  startingCapital: z.number().min(10000).max(100000000).default(1000000),
+  startingCapital: z.number().min(0).max(100000000).default(0),
 });
 
 export const LoginSchema = z.object({

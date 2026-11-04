@@ -525,6 +525,12 @@ class HomeDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
           _QuickActionButton(
+            icon: Icons.receipt_long_outlined,
+            label: 'Orders',
+            onTap: () => context.push('/orders'),
+          ),
+          const SizedBox(width: 12),
+          _QuickActionButton(
             icon: Icons.swap_horiz,
             label: 'Sim Trade',
             onTap: () => context.go('/trade'),

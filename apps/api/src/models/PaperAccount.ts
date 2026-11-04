@@ -35,12 +35,12 @@ const PaperAccountSchema = new Schema<IPaperAccount>(
     startingCapital: {
       type: Number,
       required: true,
-      default: 1000000,
+      default: 0,
     },
     availableCash: {
       type: Number,
       required: true,
-      default: 1000000,
+      default: 0,
     },
     reservedMargin: {
       type: Number,

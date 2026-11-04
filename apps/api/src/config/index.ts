@@ -10,7 +10,7 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters long').default('tradeverse_dev_jwt_access_secret_key_32_chars_minimum!'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters long').default('tradeverse_dev_jwt_refresh_secret_key_32_chars_minimum!'),
   CORS_ORIGINS: z.string().default('*'),
-  STARTING_CAPITAL: z.string().default('1000000').transform((v) => parseFloat(v)),
+  STARTING_CAPITAL: z.string().default('0').transform((v) => parseFloat(v)),
   ALPHA_VANTAGE_API_KEY: z.string().optional().default(''),
   ALPHA_VANTAGE_RPM: z.coerce.number().int().min(1).default(5),
   ALPHA_VANTAGE_RPD: z.coerce.number().int().min(1).default(25),

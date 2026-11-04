@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
@@ -172,6 +173,286 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
     );
   }
 
+  void _showWithdrawModal(double currentCash) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final amountController = TextEditingController(
+          text: currentCash > 50000 ? '50000' : currentCash.toStringAsFixed(0),
+        );
+        String? errorMessage;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) => SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Withdraw Virtual Funds',
+                          style: AppTypography.headlineSm.copyWith(fontSize: 16),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Available Cash: ₹${currentCash.toStringAsFixed(2)}. Virtual withdrawal for realism.',
+                    style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (currentCash >= 10000) 10000.0,
+                      if (currentCash >= 50000) 50000.0,
+                      if (currentCash >= 100000) 100000.0,
+                      currentCash,
+                    ].toSet().map((amt) {
+                      final label = amt == currentCash
+                          ? 'Max (₹${amt.toStringAsFixed(0)})'
+                          : '₹${(amt / 1000).toStringAsFixed(0)}K';
+                      return ActionChip(
+                        backgroundColor: AppColors.surfaceLowest,
+                        side: const BorderSide(color: AppColors.borderSubtle),
+                        label: Text(label, style: AppTypography.labelSm.copyWith(color: AppColors.primary)),
+                        onPressed: () {
+                          setModalState(() {
+                            amountController.text = amt.toStringAsFixed(0);
+                            errorMessage = null;
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    style: AppTypography.bodyLg,
+                    onChanged: (val) {
+                      final entered = double.tryParse(val);
+                      if (entered != null && entered > currentCash) {
+                        setModalState(() => errorMessage =
+                            'Amount exceeds available cash (₹${currentCash.toStringAsFixed(2)})');
+                      } else if (errorMessage != null) {
+                        setModalState(() => errorMessage = null);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Withdraw Amount (INR)',
+                      prefixText: '₹ ',
+                      prefixStyle: AppTypography.bodyLg.copyWith(color: AppColors.tertiary),
+                      errorText: errorMessage,
+                      filled: true,
+                      fillColor: AppColors.surfaceLowest,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.arrow_circle_down_outlined, size: 18),
+                      label: const Text('Withdraw Virtual Funds'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.tertiary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () async {
+                        final entered = double.tryParse(amountController.text) ?? 0.0;
+                        if (entered <= 0) {
+                          setModalState(() => errorMessage = 'Enter a valid amount greater than 0');
+                          return;
+                        }
+                        if (entered > currentCash) {
+                          setModalState(() => errorMessage =
+                              'Amount exceeds available cash (₹${currentCash.toStringAsFixed(2)})');
+                          return;
+                        }
+                        Navigator.of(ctx).pop();
+                        final success =
+                            await ref.read(portfolioProvider.notifier).withdrawVirtualFunds(entered);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                success
+                                    ? 'Withdrawn ₹${entered.toStringAsFixed(2)} from virtual sandbox funds.'
+                                    : 'Withdrawal failed. Check balance or connection.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showTransactionsSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final txAsync = ref.watch(walletTransactionsProvider);
+          return SafeArea(
+            top: false,
+            child: Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Wallet Transaction History', style: AppTypography.headlineSm),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: txAsync.when(
+                      data: (txList) {
+                        if (txList.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.history_outlined, size: 48, color: AppColors.outline),
+                                const SizedBox(height: 12),
+                                Text('No wallet transactions yet', style: AppTypography.bodyMd),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Add or withdraw funds to see records here.',
+                                  style: AppTypography.labelSm.copyWith(color: AppColors.outline),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return ListView.separated(
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: txList.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final tx = txList[index];
+                            final isCredit =
+                                tx.type == 'CAPITAL_TOPUP' || (tx.type == 'SQUARE_OFF' && tx.amount >= 0);
+                            final color = isCredit ? AppColors.secondary : AppColors.tertiary;
+
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceLowest,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.borderSubtle),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: color.withOpacity(0.12),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      isCredit ? Icons.arrow_downward : Icons.arrow_upward,
+                                      size: 18,
+                                      color: color,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          tx.description.isNotEmpty ? tx.description : tx.type,
+                                          style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${tx.createdAt.day}/${tx.createdAt.month}/${tx.createdAt.year} ${tx.createdAt.hour.toString().padLeft(2, '0')}:${tx.createdAt.minute.toString().padLeft(2, '0')} • Bal: ₹${tx.balanceAfter.toStringAsFixed(2)}',
+                                          style: AppTypography.labelSm.copyWith(
+                                            color: AppColors.outline,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${isCredit ? '+' : '-'}₹${tx.amount.abs().toStringAsFixed(2)}',
+                                    style: AppTypography.numericTable.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: color,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (err, _) => Center(child: Text(err.toString(), style: AppTypography.bodyMd)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _showResetCapitalModal() {
     showModalBottomSheet<void>(
       context: context,
@@ -256,6 +537,11 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
             icon: const Icon(Icons.add_circle_outline),
             tooltip: 'Add Virtual Funds',
             onPressed: _showTopUpModal,
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Transaction History',
+            onPressed: _showTransactionsSheet,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -377,16 +663,61 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
             ],
           ),
           const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.add_circle_outline, size: 16),
+                  label: const Text('Add Funds'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryBrand,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: _showTopUpModal,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.arrow_circle_down_outlined, size: 16),
+                  label: const Text('Withdraw'),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.borderSubtle),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () => _showWithdrawModal(portfolio.availableCash),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.receipt_long_outlined, size: 20),
+                tooltip: 'Transaction History',
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.surfaceLowest,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: const BorderSide(color: AppColors.borderSubtle),
+                  ),
+                ),
+                onPressed: _showTransactionsSheet,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              icon: const Icon(Icons.add_card, size: 16),
-              label: const Text('Add Virtual Funds'),
+              icon: const Icon(Icons.list_alt, size: 16, color: AppColors.primary),
+              label: Text(
+                'View Orders & Positions',
+                style: AppTypography.labelMd.copyWith(color: AppColors.primary),
+              ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.borderSubtle),
+                side: const BorderSide(color: AppColors.primaryBrand),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              onPressed: _showTopUpModal,
+              onPressed: () => context.push('/orders'),
             ),
           ),
         ],

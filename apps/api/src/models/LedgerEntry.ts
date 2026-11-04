@@ -4,10 +4,12 @@ export type LedgerType =
   | 'CAPITAL_INIT'
   | 'CAPITAL_RESET'
   | 'CAPITAL_TOPUP'
+  | 'CAPITAL_WITHDRAW'
   | 'MARGIN_RESERVE'
   | 'MARGIN_RELEASE'
   | 'TRADE_FILL'
-  | 'FEE_DEDUCTION';
+  | 'FEE_DEDUCTION'
+  | 'SQUARE_OFF';
 
 export interface ILedgerEntry extends Document {
   userId: mongoose.Types.ObjectId;
@@ -47,10 +49,12 @@ const LedgerEntrySchema = new Schema<ILedgerEntry>(
         'CAPITAL_INIT',
         'CAPITAL_RESET',
         'CAPITAL_TOPUP',
+        'CAPITAL_WITHDRAW',
         'MARGIN_RESERVE',
         'MARGIN_RELEASE',
         'TRADE_FILL',
         'FEE_DEDUCTION',
+        'SQUARE_OFF',
       ],
       required: true,
       index: true,

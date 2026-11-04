@@ -6,8 +6,11 @@ export interface IHolding extends Document {
   instrumentId: string;
   symbol: string;
   exchange: string;
+  product: 'CNC' | 'MIS';
   quantity: number;
   averageCost: number;
+  stopLossPrice?: number | null;
+  targetPrice?: number | null;
   reservedMargin: number;
   createdAt: Date;
   updatedAt: Date;
@@ -40,6 +43,11 @@ const HoldingSchema = new Schema<IHolding>(
       type: String,
       required: true,
     },
+    product: {
+      type: String,
+      enum: ['CNC', 'MIS'],
+      default: 'CNC',
+    },
     quantity: {
       type: Number,
       required: true,
@@ -49,6 +57,14 @@ const HoldingSchema = new Schema<IHolding>(
       type: Number,
       required: true,
       min: 0,
+    },
+    stopLossPrice: {
+      type: Number,
+      default: null,
+    },
+    targetPrice: {
+      type: Number,
+      default: null,
     },
     reservedMargin: {
       type: Number,

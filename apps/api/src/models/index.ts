@@ -11,3 +11,4 @@ export * from './CommunityMessage';
 export * from './CommunityRoom';
 export * from './Notification';
 export * from './HistoricalCandle';
+export * from './TradeHistory';

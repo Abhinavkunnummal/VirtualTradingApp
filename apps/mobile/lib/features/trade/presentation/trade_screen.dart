@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
@@ -8,6 +9,7 @@ import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_prov
 import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestick_chart_view.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
+import 'package:tradeverse_mobile/features/trade/presentation/widgets/order_confirmation_sheet.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
 
 class TradeScreen extends ConsumerStatefulWidget {
@@ -144,152 +146,52 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
       final isSuccess = result['success'] == true;
       final message = result['message'] as String? ?? 'Execution status';
       final execution = result['execution'] as Map<String, dynamic>?;
-      final conciseNotification = result['conciseNotification'] as String? ??
-          '${_isBuy ? 'BUY' : 'SELL'} $_quantity $symbol — Paper order filled';
 
       if (isSuccess) {
+        OrderConfirmationSheet.show(
+          context,
+          symbol: symbol,
+          exchange: exchange,
+          side: _isBuy ? 'BUY' : 'SELL',
+          orderType: _orderType,
+          product: _product,
+          quantity: _quantity,
+          price: (execution?['executionPrice'] as num?)?.toDouble() ?? effectivePrice,
+          marginUsed: _getRequiredMargin(currentLtp),
+          fees: (execution?['fees'] as num?)?.toDouble() ?? _brokerage,
+          isPending: _orderType != 'MARKET',
+          isExit: false,
+        );
+      } else {
+        HapticFeedback.heavyImpact();
+        final isInsufficient = message.toLowerCase().contains('insufficient');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: AppColors.surfaceContainer,
+            backgroundColor: AppColors.errorContainer,
             behavior: SnackBarBehavior.floating,
-            elevation: 8,
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: _isBuy ? AppColors.secondary : AppColors.tertiary,
-                width: 1.5,
-              ),
-            ),
-            duration: const Duration(seconds: 4),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             content: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: (_isBuy ? AppColors.secondary : AppColors.tertiary).withOpacity(0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.check_circle,
-                    color: _isBuy ? AppColors.secondary : AppColors.tertiary,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
+                const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Order Booked Successfully! 🎉',
-                        style: AppTypography.bodyLg.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: _isBuy ? AppColors.secondary : AppColors.tertiary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        conciseNotification,
-                        style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                  child: Text(
+                    message,
+                    style: AppTypography.bodyMd.copyWith(color: AppColors.onError),
                   ),
                 ),
               ],
             ),
-            action: SnackBarAction(
-              label: 'VIEW',
-              textColor: AppColors.primary,
-              onPressed: _showOrderHistorySheet,
-            ),
+            action: isInsufficient
+                ? SnackBarAction(
+                    label: 'ADD FUNDS',
+                    textColor: Colors.amber,
+                    onPressed: () => context.go('/portfolio'),
+                  )
+                : null,
           ),
         );
       }
-
-      showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.surfaceContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppColors.borderSubtle),
-          ),
-          title: Row(
-            children: [
-              Icon(
-                isSuccess ? Icons.check_circle : Icons.error,
-                color: isSuccess ? (_isBuy ? AppColors.secondary : AppColors.tertiary) : AppColors.error,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                isSuccess ? 'Simulated Order Filled' : 'Order Rejected',
-                style: AppTypography.headlineSm.copyWith(
-                  color: isSuccess ? AppColors.secondary : AppColors.error,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${_isBuy ? 'BUY' : 'SELL'} $_quantity ${isCrypto ? 'Lot(s)' : 'Shares'} of $symbol ($_product)',
-                style: AppTypography.bodyLg.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              if (isSuccess) ...[
-                Text(
-                  'You booked successfully with the order!',
-                  style: AppTypography.bodyLg.copyWith(
-                    color: AppColors.secondary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-              ],
-              if (execution != null) ...[
-                Text(
-                  'Fill Price: $currency${execution['executionPrice']}',
-                  style: AppTypography.numericTable.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: AppColors.primary,
-                  ),
-                ),
-                Text('Slippage: $currency${execution['slippage']}', style: AppTypography.bodyMd),
-                Text('Brokerage & Fees: $currency${execution['fees']}', style: AppTypography.bodyMd),
-              ],
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceLowest,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  message,
-                  style: AppTypography.labelSm.copyWith(
-                    color: isSuccess ? AppColors.onSurface : AppColors.error,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text('Done', style: AppTypography.labelMd.copyWith(color: AppColors.primary)),
-            ),
-          ],
-        ),
-      );
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -662,8 +564,8 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.receipt_long_outlined),
-            tooltip: 'Order History',
-            onPressed: _showOrderHistorySheet,
+            tooltip: 'Orders & Positions',
+            onPressed: () => context.push('/orders'),
           ),
         ],
       ),

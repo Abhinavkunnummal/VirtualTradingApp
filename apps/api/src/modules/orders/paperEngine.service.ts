@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { PaperAccount, Order, Execution, Holding, LedgerEntry, IOrder } from '../../models';
+import { PaperAccount, Order, Execution, Holding, LedgerEntry, IOrder, TradeHistory } from '../../models';
 import { MarketDataService, MarketQuote } from '../market-data/marketData.service';
 import { RealtimeMarketService } from '../market-data/realtimeMarket.service';
 import { SocketService } from '../../services/socket.service';
@@ -355,42 +355,45 @@ export class PaperTradingEngine {
         description: `Executed BUY ${order.quantity} ${order.symbol} @ ₹${feeInfo.executionPrice} (Fees: ₹${feeInfo.totalFeesAndTaxes})`,
       });
 
-      // Update Delivery Holding if CNC
-      if (order.product === 'CNC') {
-        let retries = 5;
-        while (retries > 0) {
-          try {
-            const existingHolding = await Holding.findOne({
-              userId: order.userId,
-              symbol: order.symbol,
-            });
+      // Update Portfolio Holding (CNC Delivery or MIS Intraday position)
+      let retries = 5;
+      while (retries > 0) {
+        try {
+          const existingHolding = await Holding.findOne({
+            userId: order.userId,
+            symbol: order.symbol,
+          });
 
-            if (existingHolding) {
-              const totalNewQty = existingHolding.quantity + order.quantity;
-              const totalNewCost = existingHolding.quantity * existingHolding.averageCost + actualTurnover;
-              existingHolding.averageCost = parseFloat((totalNewCost / totalNewQty).toFixed(2));
-              existingHolding.quantity = totalNewQty;
-              await existingHolding.save();
-            } else {
-              await Holding.create({
-                userId: order.userId,
-                paperAccountId: account._id,
-                instrumentId: order.instrumentId,
-                symbol: order.symbol,
-                exchange: order.exchange,
-                quantity: order.quantity,
-                averageCost: feeInfo.executionPrice,
-              });
-            }
-            break;
-          } catch (err: any) {
-            if ((err.code === 11000 || err.message?.includes('E11000')) && retries > 1) {
-              retries--;
-              await new Promise((res) => setTimeout(res, 25));
-              continue;
-            }
-            throw err;
+          if (existingHolding) {
+            const totalNewQty = existingHolding.quantity + order.quantity;
+            const totalNewCost = existingHolding.quantity * existingHolding.averageCost + actualTurnover;
+            existingHolding.averageCost = parseFloat((totalNewCost / totalNewQty).toFixed(2));
+            existingHolding.quantity = totalNewQty;
+            if (order.stopLossPrice) existingHolding.stopLossPrice = order.stopLossPrice;
+            if (order.targetPrice) existingHolding.targetPrice = order.targetPrice;
+            await existingHolding.save();
+          } else {
+            await Holding.create({
+              userId: order.userId,
+              paperAccountId: account._id,
+              instrumentId: order.instrumentId,
+              symbol: order.symbol,
+              exchange: order.exchange,
+              product: order.product || 'CNC',
+              quantity: order.quantity,
+              averageCost: feeInfo.executionPrice,
+              stopLossPrice: order.stopLossPrice || null,
+              targetPrice: order.targetPrice || null,
+            });
           }
+          break;
+        } catch (err: any) {
+          if ((err.code === 11000 || err.message?.includes('E11000')) && retries > 1) {
+            retries--;
+            await new Promise((res) => setTimeout(res, 25));
+            continue;
+          }
+          throw err;
         }
       }
     } else {
@@ -765,6 +768,189 @@ export class PaperTradingEngine {
       success: true,
       order,
       message: 'Simulated order cancelled and reserved margin released.',
+    };
+  }
+
+  /**
+   * Squares off an open position (full or partial quantity, market or limit).
+   * Books realized P&L directly into the wallet and records closed trade in TradeHistory.
+   */
+  static async squareOffPosition(params: {
+    userId: string;
+    symbol: string;
+    quantity?: number;
+    orderType?: 'MARKET' | 'LIMIT';
+    limitPrice?: number;
+  }) {
+    const cleanSymbol = params.symbol.toUpperCase().trim();
+    const holding = await Holding.findOne({
+      userId: params.userId,
+      symbol: cleanSymbol,
+    });
+
+    if (!holding || holding.quantity <= 0) {
+      throw new Error(`No open position found for ${cleanSymbol}`);
+    }
+
+    const qtyToClose = params.quantity && params.quantity > 0
+      ? Math.min(params.quantity, holding.quantity)
+      : holding.quantity;
+
+    // Get live quote or custom limit price
+    let quote: MarketQuote | null = null;
+    if (process.env.NODE_ENV !== 'test') {
+      quote = await RealtimeMarketService.getLiveQuote(cleanSymbol).catch(() => null);
+    }
+    if (!quote) {
+      quote = MarketDataService.getQuote(cleanSymbol);
+    }
+    const effectiveQuote: MarketQuote = quote || {
+      symbol: cleanSymbol,
+      name: cleanSymbol,
+      exchange: (holding.exchange as any) || 'NSE',
+      category: 'EQUITY',
+      price: holding.averageCost,
+      bid: holding.averageCost * 0.999,
+      ask: holding.averageCost * 1.001,
+      change: 0,
+      changePercent: 0,
+      open: holding.averageCost,
+      high: holding.averageCost,
+      low: holding.averageCost,
+      close: holding.averageCost,
+      volume: 0,
+      status: 'SIMULATED',
+      currency: 'INR',
+      timestamp: new Date().toISOString(),
+    };
+
+    const orderType = params.orderType || 'MARKET';
+    let baseExitPrice = effectiveQuote.bid || effectiveQuote.price;
+    if (orderType === 'LIMIT' && params.limitPrice) {
+      baseExitPrice = params.limitPrice;
+    }
+
+    // Calculate realistic slippage & Zerodha-style fees on exit
+    const feeInfo = this.calculateFeesAndSlippage(
+      effectiveQuote,
+      'SELL',
+      holding.product || 'CNC',
+      qtyToClose,
+      baseExitPrice
+    );
+
+    const grossExitProceeds = parseFloat((feeInfo.executionPrice * qtyToClose).toFixed(2));
+    const netProceeds = parseFloat((grossExitProceeds - feeInfo.totalFeesAndTaxes).toFixed(2));
+    const costBasis = parseFloat((holding.averageCost * qtyToClose).toFixed(2));
+    const realizedPnl = parseFloat((grossExitProceeds - costBasis - feeInfo.totalFeesAndTaxes).toFixed(2));
+    const realizedPnlPercent = costBasis > 0 ? parseFloat(((realizedPnl / costBasis) * 100).toFixed(2)) : 0;
+
+    // Fetch user paper account
+    const account = await PaperAccount.findOne({ userId: params.userId });
+    if (!account) {
+      throw new Error('User paper account not found');
+    }
+
+    // Credit net proceeds to availableCash
+    account.availableCash = parseFloat((account.availableCash + netProceeds).toFixed(2));
+    await account.save();
+
+    // Deduct holding quantity
+    const remainingQty = holding.quantity - qtyToClose;
+    if (remainingQty <= 0) {
+      await Holding.deleteOne({ _id: holding._id });
+    } else {
+      holding.quantity = remainingQty;
+      await holding.save();
+    }
+
+    // Record auditable ledger entry
+    await LedgerEntry.create({
+      userId: params.userId,
+      paperAccountId: account._id,
+      type: 'SQUARE_OFF',
+      amount: netProceeds,
+      balanceAfter: account.availableCash,
+      description: `Squared off ${qtyToClose} ${cleanSymbol} @ ₹${feeInfo.executionPrice} (Realized P&L: ₹${realizedPnl >= 0 ? '+' : ''}${realizedPnl})`,
+    });
+
+    // Record closed trade in TradeHistory
+    const trade = await TradeHistory.create({
+      userId: params.userId,
+      paperAccountId: account._id,
+      symbol: cleanSymbol,
+      exchange: holding.exchange,
+      product: holding.product || 'CNC',
+      side: 'SELL',
+      quantity: qtyToClose,
+      entryPrice: holding.averageCost,
+      exitPrice: feeInfo.executionPrice,
+      realizedPnl,
+      realizedPnlPercent,
+      fees: feeInfo.totalFeesAndTaxes,
+      closedAt: new Date(),
+    });
+
+    // Cancel any orphaned Bracket or Cover child legs for this symbol
+    await Order.updateMany(
+      {
+        userId: params.userId,
+        symbol: cleanSymbol,
+        status: 'PENDING',
+        orderVariety: { $in: ['BRACKET', 'COVER'] },
+      },
+      {
+        status: 'CANCELLED',
+        rejectionReason: 'Position squared off by user',
+      }
+    );
+
+    // Socket updates
+    SocketService.emitToUser(params.userId.toString(), 'portfolio_update', {
+      availableCash: account.availableCash,
+      reservedMargin: account.reservedMargin,
+      timestamp: new Date().toISOString(),
+    });
+
+    SocketService.emitToUser(params.userId.toString(), 'order_update', {
+      symbol: cleanSymbol,
+      status: 'FILLED',
+      action: 'SQUARE_OFF',
+      closedQuantity: qtyToClose,
+      remainingQuantity: remainingQty,
+      realizedPnl,
+      exitPrice: feeInfo.executionPrice,
+      timestamp: new Date().toISOString(),
+    });
+
+    await NotificationService.send({
+      userId: params.userId,
+      title: `Position Squared Off: ${cleanSymbol}`,
+      message: `Sold ${qtyToClose} @ ₹${feeInfo.executionPrice}. Realized P&L: ₹${realizedPnl >= 0 ? '+' : ''}${realizedPnl} (${realizedPnlPercent}%)`,
+      type: 'ORDER_FILL',
+      data: {
+        symbol: cleanSymbol,
+        closedQuantity: qtyToClose,
+        realizedPnl,
+        exitPrice: feeInfo.executionPrice,
+      },
+    });
+
+    return {
+      success: true,
+      tradeId: trade._id.toString(),
+      symbol: cleanSymbol,
+      closedQuantity: qtyToClose,
+      remainingQuantity: remainingQty,
+      averageBuyPrice: holding.averageCost,
+      exitPrice: feeInfo.executionPrice,
+      grossProceeds: grossExitProceeds,
+      fees: feeInfo.totalFeesAndTaxes,
+      netProceeds,
+      realizedPnl,
+      realizedPnlPercent,
+      availableCash: account.availableCash,
+      message: `Squared off ${qtyToClose} ${cleanSymbol} with Realized P&L of ₹${realizedPnl >= 0 ? '+' : ''}${realizedPnl}`,
     };
   }
 }

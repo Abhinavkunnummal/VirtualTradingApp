@@ -24,8 +24,8 @@ class PaperAccountModel {
       id: json['id'] as String? ?? '',
       accountName: json['accountName'] as String? ?? 'Sandbox v2.4 (Default)',
       baseCurrency: json['baseCurrency'] as String? ?? 'INR',
-      startingCapital: (json['startingCapital'] as num?)?.toDouble() ?? 1000000.0,
-      availableCash: (json['availableCash'] as num?)?.toDouble() ?? 1000000.0,
+      startingCapital: (json['startingCapital'] as num?)?.toDouble() ?? 0.0,
+      availableCash: (json['availableCash'] as num?)?.toDouble() ?? 0.0,
       reservedMargin: (json['reservedMargin'] as num?)?.toDouble() ?? 0.0,
       isSimulated: json['isSimulated'] as bool? ?? true,
       disclaimer: json['disclaimer'] as String?,
@@ -37,6 +37,7 @@ class HoldingModel {
   final String id;
   final String symbol;
   final String exchange;
+  final String product;
   final int quantity;
   final double averageBuyPrice;
   final double ltp;
@@ -51,6 +52,7 @@ class HoldingModel {
     required this.id,
     required this.symbol,
     required this.exchange,
+    this.product = 'CNC',
     required this.quantity,
     required this.averageBuyPrice,
     required this.ltp,
@@ -67,8 +69,9 @@ class HoldingModel {
       id: json['id'] as String? ?? '',
       symbol: json['symbol'] as String? ?? '',
       exchange: json['exchange'] as String? ?? 'NSE',
+      product: json['product'] as String? ?? 'CNC',
       quantity: (json['quantity'] as num?)?.toInt() ?? 0,
-      averageBuyPrice: (json['averageBuyPrice'] as num?)?.toDouble() ?? 0.0,
+      averageBuyPrice: (json['averageBuyPrice'] as num?)?.toDouble() ?? (json['averagePrice'] as num?)?.toDouble() ?? 0.0,
       ltp: (json['ltp'] as num?)?.toDouble() ?? 0.0,
       investedValue: (json['investedValue'] as num?)?.toDouble() ?? 0.0,
       currentValue: (json['currentValue'] as num?)?.toDouble() ?? 0.0,
@@ -104,10 +107,10 @@ class PortfolioModel {
   factory PortfolioModel.fromJson(Map<String, dynamic> json) {
     final rawHoldings = json['holdings'] as List<dynamic>? ?? [];
     return PortfolioModel(
-      totalPortfolioValue: (json['totalPortfolioValue'] as num?)?.toDouble() ?? 1000000.0,
-      availableCash: (json['availableCash'] as num?)?.toDouble() ?? 1000000.0,
+      totalPortfolioValue: (json['totalPortfolioValue'] as num?)?.toDouble() ?? 0.0,
+      availableCash: (json['availableCash'] as num?)?.toDouble() ?? 0.0,
       investedValue: (json['investedValue'] as num?)?.toDouble() ?? 0.0,
-      startingCapital: (json['startingCapital'] as num?)?.toDouble() ?? 1000000.0,
+      startingCapital: (json['startingCapital'] as num?)?.toDouble() ?? 0.0,
       totalPnl: (json['totalPnl'] as num?)?.toDouble() ?? 0.0,
       totalPnlPercent: (json['totalPnlPercent'] as num?)?.toDouble() ?? 0.0,
       isSimulated: json['isSimulated'] as bool? ?? true,
@@ -163,6 +166,122 @@ class PortfolioModel {
           unrealizedPnlPercent: -1.44,
         ),
       ],
+    );
+  }
+}
+
+class TradeHistoryModel {
+  final String id;
+  final String symbol;
+  final String exchange;
+  final String product;
+  final String side;
+  final int quantity;
+  final double entryPrice;
+  final double exitPrice;
+  final double realizedPnl;
+  final double realizedPnlPercent;
+  final double fees;
+  final DateTime closedAt;
+
+  const TradeHistoryModel({
+    required this.id,
+    required this.symbol,
+    required this.exchange,
+    required this.product,
+    required this.side,
+    required this.quantity,
+    required this.entryPrice,
+    required this.exitPrice,
+    required this.realizedPnl,
+    required this.realizedPnlPercent,
+    required this.fees,
+    required this.closedAt,
+  });
+
+  factory TradeHistoryModel.fromJson(Map<String, dynamic> json) {
+    return TradeHistoryModel(
+      id: json['id'] as String? ?? '',
+      symbol: json['symbol'] as String? ?? '',
+      exchange: json['exchange'] as String? ?? 'NSE',
+      product: json['product'] as String? ?? 'CNC',
+      side: json['side'] as String? ?? 'SELL',
+      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      entryPrice: (json['entryPrice'] as num?)?.toDouble() ?? 0.0,
+      exitPrice: (json['exitPrice'] as num?)?.toDouble() ?? 0.0,
+      realizedPnl: (json['realizedPnl'] as num?)?.toDouble() ?? 0.0,
+      realizedPnlPercent: (json['realizedPnlPercent'] as num?)?.toDouble() ?? 0.0,
+      fees: (json['fees'] as num?)?.toDouble() ?? 0.0,
+      closedAt: DateTime.tryParse(json['closedAt'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
+class WalletTransactionModel {
+  final String id;
+  final String type;
+  final double amount;
+  final double balanceAfter;
+  final String description;
+  final DateTime timestamp;
+
+  const WalletTransactionModel({
+    required this.id,
+    required this.type,
+    required this.amount,
+    required this.balanceAfter,
+    required this.description,
+    required this.timestamp,
+  });
+
+  factory WalletTransactionModel.fromJson(Map<String, dynamic> json) {
+    return WalletTransactionModel(
+      id: json['id'] as String? ?? '',
+      type: json['type'] as String? ?? 'TRANSACTION',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      balanceAfter: (json['balanceAfter'] as num?)?.toDouble() ?? 0.0,
+      description: json['description'] as String? ?? '',
+      timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
+class PnlSummaryModel {
+  final double totalRealizedPnl;
+  final double totalUnrealizedPnl;
+  final double totalPnl;
+  final int totalTrades;
+  final int profitableTrades;
+  final double winRate;
+
+  const PnlSummaryModel({
+    required this.totalRealizedPnl,
+    required this.totalUnrealizedPnl,
+    required this.totalPnl,
+    required this.totalTrades,
+    required this.profitableTrades,
+    required this.winRate,
+  });
+
+  factory PnlSummaryModel.fromJson(Map<String, dynamic> json) {
+    return PnlSummaryModel(
+      totalRealizedPnl: (json['totalRealizedPnl'] as num?)?.toDouble() ?? 0.0,
+      totalUnrealizedPnl: (json['totalUnrealizedPnl'] as num?)?.toDouble() ?? 0.0,
+      totalPnl: (json['totalPnl'] as num?)?.toDouble() ?? 0.0,
+      totalTrades: (json['totalTrades'] as num?)?.toInt() ?? 0,
+      profitableTrades: (json['profitableTrades'] as num?)?.toInt() ?? 0,
+      winRate: (json['winRate'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  factory PnlSummaryModel.zero() {
+    return const PnlSummaryModel(
+      totalRealizedPnl: 0.0,
+      totalUnrealizedPnl: 0.0,
+      totalPnl: 0.0,
+      totalTrades: 0,
+      profitableTrades: 0,
+      winRate: 0.0,
     );
   }
 }
