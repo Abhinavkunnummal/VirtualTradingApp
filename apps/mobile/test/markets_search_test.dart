@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tradeverse_mobile/features/auth/domain/auth_models.dart';
 import 'package:tradeverse_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
@@ -96,7 +97,25 @@ void main() {
     ),
   ];
 
-  Widget buildTestApp({List<Override>? overrides}) {
+  Widget buildTestApp({List<Override>? overrides, Widget? home}) {
+    final router = GoRouter(
+      initialLocation: '/markets',
+      routes: [
+        GoRoute(
+          path: '/markets',
+          builder: (context, state) => home ?? const MarketsScreen(),
+        ),
+        GoRoute(
+          path: '/trade',
+          builder: (context, state) => const Scaffold(body: Text('Trade Screen')),
+        ),
+        GoRoute(
+          path: '/tradingview-pro',
+          builder: (context, state) => const Scaffold(body: Text('TradingView Pro Screen')),
+        ),
+      ],
+    );
+
     return ProviderScope(
       overrides: [
         authProvider.overrideWith((ref) => _MockAuthNotifier(AuthState.demoMode())),
@@ -119,16 +138,14 @@ void main() {
         }),
         ...?overrides,
       ],
-      child: const MaterialApp(
-        home: MarketsScreen(),
+      child: MaterialApp.router(
+        routerConfig: router,
       ),
     );
   }
 
   setUp(() {
-    FlutterSecureStorage.setMockInitialValues({
-      'tradeverse_recent_searches': '["RELIANCE", "NIFTY 50"]',
-    });
+    FlutterSecureStorage.setMockInitialValues({});
   });
 
   group('Markets & Discovery Modern Search Tests', () {
@@ -137,13 +154,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(TextField), findsOneWidget);
-      expect(find.text('All Assets'), findsWidgets);
-      expect(find.text('NSE'), findsOneWidget);
-      expect(find.text('BSE'), findsOneWidget);
-      expect(find.text('Crypto'), findsOneWidget);
-      expect(find.text('US'), findsOneWidget);
-      expect(find.text('Indices'), findsOneWidget);
-      expect(find.text('ETFs'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'All Assets'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'NSE'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'BSE'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Crypto'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'US'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Indices'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'ETFs'), findsOneWidget);
     });
 
     testWidgets('shows lot size and tick size in instrument tiles', (tester) async {
@@ -178,14 +195,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap Crypto filter
-      await tester.tap(find.text('Crypto'));
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Crypto'));
       await tester.pumpAndSettle();
 
       expect(find.text('BTC/USDT'), findsOneWidget);
       expect(find.text('RELIANCE'), findsNothing);
 
       // Tap ETFs filter
-      await tester.tap(find.text('ETFs'));
+      await tester.tap(find.widgetWithText(ChoiceChip, 'ETFs'));
       await tester.pumpAndSettle();
 
       expect(find.text('NIFTYBEES'), findsOneWidget);
@@ -193,6 +210,9 @@ void main() {
     });
 
     testWidgets('shows recent searches and clear all works', (tester) async {
+      FlutterSecureStorage.setMockInitialValues({
+        'tradeverse_recent_searches': '["RELIANCE", "NIFTY 50"]',
+      });
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
@@ -208,16 +228,14 @@ void main() {
     testWidgets('tapping TRADE updates selected instrument', (tester) async {
       InstrumentModel? selected;
       await tester.pumpWidget(
-        ProviderScope(
+        buildTestApp(
           overrides: [
-            authProvider.overrideWith((ref) => _MockAuthNotifier(AuthState.demoMode())),
-            marketOverviewProvider.overrideWith((ref) => Future.value(testInstruments)),
             instrumentSearchResultsProvider.overrideWith((ref) => testInstruments),
           ],
-          child: Consumer(
+          home: Consumer(
             builder: (context, ref, _) {
               selected = ref.watch(selectedTradeInstrumentProvider);
-              return const MaterialApp(home: MarketsScreen());
+              return const MarketsScreen();
             },
           ),
         ),
@@ -231,6 +249,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(selected?.symbol, 'RELIANCE');
+      expect(find.text('Trade Screen'), findsOneWidget);
     });
   });
 }
