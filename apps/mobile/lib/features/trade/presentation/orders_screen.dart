@@ -214,54 +214,71 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Unrealized P&L', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${unrlPos ? '+' : ''}₹${totalUnrealized.toStringAsFixed(2)}',
-                    style: AppTypography.numericTable.copyWith(
-                      color: unrlPos ? AppColors.secondary : AppColors.tertiary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Unrealized P&L', style: AppTypography.labelSm.copyWith(color: AppColors.outline), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '${unrlPos ? '+' : ''}₹${totalUnrealized.toStringAsFixed(2)}',
+                        style: AppTypography.numericTable.copyWith(
+                          color: unrlPos ? AppColors.secondary : AppColors.tertiary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              Container(width: 1, height: 30, color: AppColors.borderSubtle),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Realized P&L', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${rlPos ? '+' : ''}₹${totalRealized.toStringAsFixed(2)}',
-                    style: AppTypography.numericTable.copyWith(
-                      color: rlPos ? AppColors.secondary : AppColors.tertiary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+              Container(width: 1, height: 30, color: AppColors.borderSubtle, margin: const EdgeInsets.symmetric(horizontal: 6)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text('Realized P&L', style: AppTypography.labelSm.copyWith(color: AppColors.outline), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${rlPos ? '+' : ''}₹${totalRealized.toStringAsFixed(2)}',
+                        style: AppTypography.numericTable.copyWith(
+                          color: rlPos ? AppColors.secondary : AppColors.tertiary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              Container(width: 1, height: 30, color: AppColors.borderSubtle),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('Net P&L', style: AppTypography.labelSm.copyWith(color: AppColors.outline)),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${netPos ? '+' : ''}₹${netPnl.toStringAsFixed(2)}',
-                    style: AppTypography.numericTable.copyWith(
-                      color: netPos ? AppColors.secondary : AppColors.tertiary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+              Container(width: 1, height: 30, color: AppColors.borderSubtle, margin: const EdgeInsets.symmetric(horizontal: 6)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('Net P&L', style: AppTypography.labelSm.copyWith(color: AppColors.outline), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '${netPos ? '+' : ''}₹${netPnl.toStringAsFixed(2)}',
+                        style: AppTypography.numericTable.copyWith(
+                          color: netPos ? AppColors.secondary : AppColors.tertiary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -269,10 +286,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Available Wallet Cash: ₹${availableCash.toStringAsFixed(2)}',
-                style: AppTypography.labelSm.copyWith(color: AppColors.onSurfaceVariant, fontSize: 11),
+              Expanded(
+                child: Text(
+                  'Available Wallet Cash: ₹${availableCash.toStringAsFixed(2)}',
+                  style: AppTypography.labelSm.copyWith(color: AppColors.onSurfaceVariant, fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 6),
               GestureDetector(
                 onTap: () => context.go('/portfolio'),
                 child: Text(
@@ -396,35 +418,61 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
               // Metrics Row: Qty, Avg Buy, LTP
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Quantity', style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 11)),
-                      Text('${holding.quantity}', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Quantity', style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 11), maxLines: 1),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text('${holding.quantity}', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Avg Buy', style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 11)),
-                      Text('$currency${holding.averageBuyPrice.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
-                    ],
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Avg Buy', style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 11), maxLines: 1),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text('$currency${holding.averageBuyPrice.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Live LTP', style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 11)),
-                      Text('$currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
-                    ],
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Live LTP', style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 11), maxLines: 1),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text('$currency${ltp.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('Current Value', style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 11)),
-                      Text('$currency${currentVal.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
-                    ],
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('Current Value', style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 11), maxLines: 1),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text('$currency${currentVal.toStringAsFixed(2)}', style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -452,8 +500,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               const SizedBox(height: 8),
 
               // Action Buttons: Square Off & View Chart
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 6,
                 children: [
                   OutlinedButton.icon(
                     key: ValueKey('view_chart_${holding.symbol}'),
@@ -467,7 +517,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                     ),
                     onPressed: () => _navigateToChartWithHolding(holding),
                   ),
-                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     key: ValueKey('square_off_${holding.symbol}'),
                     icon: const Icon(Icons.close, size: 14),

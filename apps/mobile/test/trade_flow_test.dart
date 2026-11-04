@@ -9,6 +9,7 @@ import 'package:tradeverse_mobile/features/portfolio/presentation/providers/port
 import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/trade_screen.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestick_chart_view.dart';
+import 'package:tradeverse_mobile/features/trade/presentation/widgets/order_confirmation_sheet.dart';
 
 void main() {
   testWidgets('TradeScreen renders candlestick chart, responds to product & order types, and executes order',
@@ -75,11 +76,11 @@ void main() {
     await tester.tap(buyButton);
     await tester.pumpAndSettle();
 
-    // Verify confirmation dialog
-    expect(find.text('Simulated Order Filled'), findsOneWidget);
-    expect(find.text('BUY 10 Shares of RELIANCE (MIS)'), findsOneWidget);
+    // Verify confirmation sheet
+    expect(find.byType(OrderConfirmationSheet), findsOneWidget);
+    expect(find.text('Order Executed Successfully'), findsOneWidget);
 
-    // Close Dialog
+    // Close Dialog / Sheet
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
 

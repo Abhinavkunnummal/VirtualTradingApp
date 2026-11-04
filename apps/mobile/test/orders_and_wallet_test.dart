@@ -269,10 +269,10 @@ void main() {
     expect(find.text('Square Off: TCS'), findsOneWidget);
     expect(find.text('Market Exit'), findsOneWidget);
     expect(find.text('Limit Exit'), findsOneWidget);
-    expect(find.text('Confirm Square Off'), findsOneWidget);
+    expect(find.byKey(const ValueKey('confirm_square_off_btn')), findsOneWidget);
 
     // Confirm Square Off
-    await tester.tap(find.text('Confirm Square Off'));
+    await tester.tap(find.byKey(const ValueKey('confirm_square_off_btn')));
     await tester.pumpAndSettle();
 
     // Verify OrderConfirmationSheet opens with Exit & Booked P&L
@@ -313,7 +313,7 @@ void main() {
     expect(find.text('All'), findsOneWidget);
     expect(find.text('Pending'), findsOneWidget);
     expect(find.text('SBIN'), findsOneWidget);
-    expect(find.text('Cancel Order'), findsOneWidget);
+    expect(find.byTooltip('Cancel Order'), findsOneWidget);
 
     // Tap History tab
     await tester.tap(find.text('History'));
@@ -374,7 +374,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify Action Buttons
-    expect(find.text('Add Funds'), findsOneWidget);
+    expect(find.text('Add Virtual Funds'), findsOneWidget);
     expect(find.text('Withdraw'), findsOneWidget);
     expect(find.text('View Orders & Positions'), findsOneWidget);
 
