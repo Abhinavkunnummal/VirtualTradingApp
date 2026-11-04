@@ -289,7 +289,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                         ),
                       ),
                       child: Text(
-                        '${widget.status} • ${widget.selectedInterval.toUpperCase()}',
+                        '${widget.status == 'DELAYED' ? 'DELAYED (15M)' : widget.status} • ${widget.selectedInterval.toUpperCase()}',
                         style: AppTypography.labelSm.copyWith(
                           fontSize: 9,
                           color: widget.status == 'LIVE' ? AppColors.secondary : AppColors.warning,

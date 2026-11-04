@@ -12,6 +12,7 @@ import {
 import { TechnicalIndicatorService } from './indicators';
 import { HistoricalCandle } from '../../models/HistoricalCandle';
 import { InstrumentMasterService } from './instrumentMaster.service';
+import { AngelOneService } from './angelOne.service';
 
 interface CacheEntry<T> {
   data: T;
@@ -251,6 +252,18 @@ export class RealtimeMarketService {
       return cached.data;
     }
 
+    try {
+      await InstrumentMasterService.getInstrumentAsync(key);
+    } catch {
+      // Non-fatal
+    }
+
+    try {
+      await InstrumentMasterService.getInstrumentAsync(key);
+    } catch {
+      // Non-fatal
+    }
+
     const mapping = this.getMapping(key);
 
     // 1. Direct Binance Public Spot Feed for 24/7 Crypto (Exact TradingView tick-for-tick price)
@@ -409,7 +422,11 @@ export class RealtimeMarketService {
             bid: parseFloat((price * 0.9998).toFixed(2)),
             ask: parseFloat((price * 1.0002).toFixed(2)),
             currency,
-            status: 'LIVE',
+            status: (mapping.category === 'CRYPTO' ||
+              ((mapping.exchange === 'NSE' || mapping.exchange === 'BSE' || mapping.exchange === 'MCX') && AngelOneService.isConnected()) ||
+              (mapping.exchange === 'US' && Boolean(config.finnhubApiKey)))
+              ? 'LIVE'
+              : 'DELAYED',
             timestamp: new Date().toISOString(),
           };
           this.quoteCache.set(key, { data: quote, expiresAt: Date.now() + this.TTL_QUOTE });
@@ -444,6 +461,12 @@ export class RealtimeMarketService {
 
     if (cached && Date.now() < cached.expiresAt) {
       return cached.data;
+    }
+
+    try {
+      await InstrumentMasterService.getInstrumentAsync(key);
+    } catch {
+      // Non-fatal
     }
 
     const mapping = this.getMapping(key);
@@ -589,8 +612,18 @@ export class RealtimeMarketService {
               from: trimmedCandles[0].timestamp,
               to: trimmedCandles[trimmedCandles.length - 1].timestamp,
               count: trimmedCandles.length,
-              status: 'LIVE',
-              provider: 'TradeVerse Real-Time Feed (Finnhub & Global Market Engine)',
+              status: (mapping.category === 'CRYPTO' ||
+                ((mapping.exchange === 'NSE' || mapping.exchange === 'BSE' || mapping.exchange === 'MCX') && AngelOneService.isConnected()) ||
+                (mapping.exchange === 'US' && Boolean(config.finnhubApiKey)))
+                ? 'LIVE'
+                : 'DELAYED',
+              provider: mapping.category === 'CRYPTO'
+                ? 'TradeVerse Real-Time Feed (Binance Spot Live)'
+                : ((mapping.exchange === 'NSE' || mapping.exchange === 'BSE' || mapping.exchange === 'MCX') && AngelOneService.isConnected())
+                  ? 'TradeVerse Live Market Feed (Angel One SmartAPI)'
+                  : (mapping.exchange === 'US' && Boolean(config.finnhubApiKey))
+                    ? 'TradeVerse Live Market Feed (Finnhub)'
+                    : 'TradeVerse Market Feed (Delayed 15m)',
               candles: trimmedCandles,
               indicators,
               latestQuote: latestQuote || undefined,
@@ -636,11 +669,12 @@ export class RealtimeMarketService {
     if (interval === '1m') return '1d';
     if (interval === '5m' || interval === '15m' || interval === '30m') {
       if (range === '1D') return '1d';
-      if (range === '1W') return '5d';
+      if (range === '5D' || range === '1W') return '5d';
       return '1mo';
     }
     switch (range) {
       case '1D': return '1d';
+      case '5D':
       case '1W': return '5d';
       case '1M': return '1mo';
       case '3M': return '3mo';
@@ -648,6 +682,7 @@ export class RealtimeMarketService {
       case '1Y': return '1y';
       case '3Y': return '5y';
       case '5Y': return '5y';
+      case 'MAX':
       case 'ALL': return 'max';
       default: return '1mo';
     }
@@ -668,7 +703,107 @@ export class RealtimeMarketService {
     }
   }
 
-  private static async persistCandlesAsync(symbol: string, interval: string, candles: Candle[]): Promise<void> {
+  /**
+   * Aggregate daily candles into weekly ('1w') or monthly ('1mo' / '1M') candles
+   */
+  public static aggregateCandles(dailyCandles: Candle[], targetInterval: '1w' | '1mo' | '1M'): Candle[] {
+    if (!dailyCandles || dailyCandles.length === 0) return [];
+    if (targetInterval !== '1w' && targetInterval !== '1mo' && targetInterval !== '1M') return dailyCandles;
+
+    const groups: Map<string, Candle[]> = new Map();
+
+    for (const c of dailyCandles) {
+      const date = new Date(c.timestamp * 1000);
+      let groupKey: string;
+      if (targetInterval === '1w') {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+        groupKey = `${d.getUTCFullYear()}-W${weekNo}`;
+      } else {
+        groupKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+      }
+
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
+      }
+      groups.get(groupKey)!.push(c);
+    }
+
+    const aggregated: Candle[] = [];
+    for (const [, candleList] of groups) {
+      if (candleList.length === 0) continue;
+      candleList.sort((a, b) => a.timestamp - b.timestamp);
+      const open = candleList[0].open;
+      const close = candleList[candleList.length - 1].close;
+      let high = -Infinity;
+      let low = Infinity;
+      let volume = 0;
+
+      for (const c of candleList) {
+        if (c.high > high) high = c.high;
+        if (c.low < low) low = c.low;
+        volume += c.volume;
+      }
+
+      aggregated.push({
+        timestamp: candleList[0].timestamp,
+        open: Number(open.toFixed(2)),
+        high: Number(high.toFixed(2)),
+        low: Number(low.toFixed(2)),
+        close: Number(close.toFixed(2)),
+        volume: Number(volume.toFixed(2)),
+      });
+    }
+
+    aggregated.sort((a, b) => a.timestamp - b.timestamp);
+    return aggregated;
+  }
+
+  /**
+   * Query MongoDB cached candles for symbol, interval, and optional timestamp bounds
+   */
+  public static async getCachedCandles(
+    symbol: string,
+    interval: string,
+    from?: number,
+    to?: number,
+    limit: number = 500
+  ): Promise<Candle[] | null> {
+    try {
+      const query: Record<string, any> = {
+        symbol: symbol.toUpperCase(),
+        interval,
+      };
+      if (from || to) {
+        query.timestamp = {};
+        if (from) query.timestamp.$gte = from;
+        if (to) query.timestamp.$lte = to;
+      }
+      const docs = await HistoricalCandle.find(query)
+        .sort({ timestamp: 1 })
+        .limit(limit)
+        .lean();
+
+      if (docs && docs.length > 0) {
+        return docs.map((d: any) => ({
+          timestamp: d.timestamp,
+          open: d.open,
+          high: d.high,
+          low: d.low,
+          close: d.close,
+          volume: d.volume,
+        }));
+      }
+    } catch {
+      // Non-fatal
+    }
+    return null;
+  }
+
+  public static async persistCandlesAsync(symbol: string, interval: string, candles: Candle[]): Promise<void> {
     try {
       const ops = candles.map((c) => ({
         updateOne: {

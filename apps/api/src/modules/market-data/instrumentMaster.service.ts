@@ -359,6 +359,38 @@ export class InstrumentMasterService {
         console.log(`[InstrumentMaster] Master catalog already loaded with ${count} instruments. Keeping active data.`);
       }
 
+      // Preload active & popular instruments from MongoDB into memory catalog for O(1) lookups
+      try {
+        const topInstruments = await Instrument.find().sort({ popularity: -1 }).limit(2500).lean();
+        for (const doc of topInstruments) {
+          const item: NormalizedInstrument = {
+            instrumentId: doc.instrumentId,
+            symbol: doc.symbol,
+            displayName: doc.displayName,
+            assetClass: doc.assetClass as AssetClass,
+            exchange: doc.exchange as Exchange,
+            quoteCurrency: doc.quoteCurrency,
+            tickSize: doc.tickSize,
+            lotSize: doc.lotSize,
+            basePrice: doc.basePrice,
+            isin: doc.isin,
+            segment: doc.segment,
+            tradingStatus: (doc.tradingStatus as any) || 'ACTIVE',
+            aliases: doc.aliases,
+            popularity: doc.popularity,
+            nav: (doc as any).nav,
+            fundHouse: (doc as any).fundHouse,
+            schemeCode: (doc as any).schemeCode,
+          };
+          this.memoryCatalog.set(item.symbol.toUpperCase(), item);
+          this.memoryCatalog.set(`${item.exchange}:${item.symbol}`.toUpperCase(), item);
+          this.memoryCatalog.set(item.instrumentId.toUpperCase(), item);
+        }
+        console.log(`[InstrumentMaster] Preloaded ${topInstruments.length} active instruments into memory catalog.`);
+      } catch (e) {
+        console.warn('[InstrumentMaster] Failed to preload popular instruments:', (e as Error).message);
+      }
+
       this.lastSyncTimestamp = new Date();
       return await Instrument.countDocuments();
     } catch (err) {
@@ -1020,6 +1052,60 @@ export class InstrumentMasterService {
       this.memoryCatalog.get(`CRYPTO:${clean}`) ||
       this.memoryCatalog.get(`AMFI:${clean}`)
     );
+  }
+
+  /**
+   * Find an instrument by symbol or canonical name with MongoDB fallback
+   */
+  public static async getInstrumentAsync(symbol: string): Promise<NormalizedInstrument | undefined> {
+    const clean = symbol.trim().toUpperCase();
+    const existing = this.getInstrument(clean);
+    if (existing) return existing;
+
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const doc = (await Instrument.findOne({
+          $or: [
+            { symbol: clean },
+            { instrumentId: clean },
+            { instrumentId: `NSE:${clean}` },
+            { instrumentId: `BSE:${clean}` },
+            { instrumentId: `US:${clean}` },
+            { instrumentId: `CRYPTO:${clean}` },
+            { instrumentId: `AMFI:${clean}` },
+          ],
+        }).lean()) as any;
+
+        if (doc) {
+          const item: NormalizedInstrument = {
+            instrumentId: doc.instrumentId,
+            symbol: doc.symbol,
+            displayName: doc.displayName,
+            assetClass: doc.assetClass as AssetClass,
+            exchange: doc.exchange as Exchange,
+            quoteCurrency: doc.quoteCurrency,
+            tickSize: doc.tickSize,
+            lotSize: doc.lotSize,
+            basePrice: doc.basePrice,
+            isin: doc.isin,
+            segment: doc.segment,
+            tradingStatus: (doc.tradingStatus as any) || 'ACTIVE',
+            aliases: doc.aliases,
+            popularity: doc.popularity,
+            nav: (doc as any).nav,
+            fundHouse: (doc as any).fundHouse,
+            schemeCode: (doc as any).schemeCode,
+          };
+          this.memoryCatalog.set(item.symbol.toUpperCase(), item);
+          this.memoryCatalog.set(`${item.exchange}:${item.symbol}`.toUpperCase(), item);
+          this.memoryCatalog.set(item.instrumentId.toUpperCase(), item);
+          return item;
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+    return undefined;
   }
 
   /**

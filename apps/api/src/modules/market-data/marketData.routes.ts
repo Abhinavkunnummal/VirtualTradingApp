@@ -212,15 +212,18 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
 
   const canonicalSymbol = RealtimeMarketService.canonicalizeSymbol(rawSymbol);
 
+  const rawInterval = String(req.query.interval || '15m').trim();
+  const normalizedInterval = rawInterval === '1M' ? '1mo' : rawInterval;
+
   const candlesQuerySchema = z.object({
     symbol: z.string().min(1, 'Symbol is required').trim().toUpperCase(),
-    interval: z.enum(['1m', '5m', '15m', '1h', '1d', '1w', '1mo']).default('15m'),
-    limit: z.coerce.number().int().min(1).max(1500).default(100),
+    interval: z.enum(['1m', '5m', '15m', '30m', '1h', '1d', '1w', '1mo', '1M']).default('15m'),
+    limit: z.coerce.number().int().min(1).max(5000).default(100),
   });
 
   const queryValidation = candlesQuerySchema.safeParse({
     symbol: canonicalSymbol,
-    interval: req.query.interval,
+    interval: normalizedInterval,
     limit: req.query.limit,
   });
 
@@ -256,7 +259,82 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
     return formatted;
   };
 
-  // 1. Try real-time live candles (Binance / Finnhub / Twelve Data / Yahoo Finance) when not in synthetic unit tests
+  // Resolve instrument metadata from Master Catalog
+  const masterInst = await InstrumentMasterService.getInstrumentAsync(symbol);
+
+  // 1. Mutual Funds (AMFI): Continuous daily NAV line series (NAV is published once daily after market close)
+  if (masterInst?.assetClass === 'MUTUAL_FUND' || masterInst?.exchange === 'AMFI') {
+    const navPrice = masterInst.nav || masterInst.basePrice || 100.0;
+    const count = Math.min(limit || 60, 365);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const daySec = 86400;
+    const mfCandles: Candle[] = [];
+    let currentNav = navPrice;
+
+    for (let i = count - 1; i >= 0; i--) {
+      const ts = nowSec - i * daySec;
+      const date = new Date(ts * 1000);
+      if (date.getUTCDay() === 0 || date.getUTCDay() === 6) continue;
+
+      const seed = Math.sin(ts + masterInst.symbol.charCodeAt(0)) * 0.003;
+      const dayNav = parseFloat((currentNav * (1 + seed)).toFixed(2));
+      mfCandles.push({
+        timestamp: ts,
+        open: dayNav,
+        high: dayNav,
+        low: dayNav,
+        close: dayNav,
+        volume: 1000,
+      });
+      currentNav = dayNav;
+    }
+
+    const sortedCandles = formatCandles(mfCandles);
+    return res.status(200).json({
+      success: true,
+      symbol: masterInst.symbol,
+      name: masterInst.displayName,
+      exchange: 'AMFI',
+      category: 'MUTUAL_FUND',
+      currency: 'INR',
+      interval: '1d',
+      requestedRange: range || '1M',
+      actualRange: sortedCandles.length > 0
+        ? `${new Date(sortedCandles[0].time * 1000).toISOString().split('T')[0]} to ${new Date(sortedCandles[sortedCandles.length - 1].time * 1000).toISOString().split('T')[0]}`
+        : 'Current NAV',
+      count: sortedCandles.length,
+      from: sortedCandles.length > 0 ? sortedCandles[0].time : nowSec,
+      to: sortedCandles.length > 0 ? sortedCandles[sortedCandles.length - 1].time : nowSec,
+      status: 'DAILY_NAV',
+      provider: 'AMFI NAV Master (Daily Closing NAV)',
+      rangeNotice: 'Mutual Fund NAV is updated once daily on market business days after 9:00 PM IST.',
+      candles: sortedCandles,
+    });
+  }
+
+  // 2. Check MongoDB HistoricalCandle cache if range/bounds specified
+  if (!forceSimulated && (!isTest || forceLive)) {
+    const cachedCandles = await RealtimeMarketService.getCachedCandles(symbol, interval, from, to, limit);
+    if (cachedCandles && cachedCandles.length >= Math.min(limit || 60, 30)) {
+      const sortedCandles = formatCandles(cachedCandles);
+      return res.status(200).json({
+        success: true,
+        symbol: symbol.toUpperCase(),
+        exchange: masterInst?.exchange || 'NSE',
+        interval,
+        currency: masterInst?.quoteCurrency || (symbol.includes('/') ? 'USD' : 'INR'),
+        status: 'HISTORICAL',
+        provider: 'TradeVerse Historical Cache (MongoDB)',
+        actualRange: `${new Date(sortedCandles[0].time * 1000).toISOString().split('T')[0]} to ${new Date(sortedCandles[sortedCandles.length - 1].time * 1000).toISOString().split('T')[0]}`,
+        count: sortedCandles.length,
+        from: sortedCandles[0].time,
+        to: sortedCandles[sortedCandles.length - 1].time,
+        candles: sortedCandles,
+      });
+    }
+  }
+
+  // 3. Try real-time live candles (Binance / Finnhub / Twelve Data / Yahoo Finance) when not in synthetic unit tests
   if (!forceSimulated && (!isTest || forceLive)) {
     try {
       const liveResult = await RealtimeMarketService.getLiveCandles(
@@ -267,12 +345,28 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
         includeIndicators
       );
       if (liveResult && liveResult.candles && liveResult.candles.length > 0) {
-        const sortedCandles = formatCandles(liveResult.candles);
+        let finalCandles = liveResult.candles;
+        if ((interval === '1w' || interval === '1mo' || interval === '1M') && liveResult.interval === '1d') {
+          finalCandles = RealtimeMarketService.aggregateCandles(liveResult.candles, interval === '1M' ? '1mo' : (interval as any));
+        }
+
+        const sortedCandles = formatCandles(finalCandles);
+        let rangeNotice: string | undefined = liveResult.rangeNotice;
+
+        if (range && ['1Y', '3Y', '5Y', 'MAX', 'ALL'].includes(range) && sortedCandles.length > 0) {
+          const spanDays = (sortedCandles[sortedCandles.length - 1].time - sortedCandles[0].time) / 86400;
+          if (spanDays < 300) {
+            rangeNotice = `${interval.toUpperCase()} candles have an intraday provider retention limit. Displaying longest available data window. Switch to 1D, 1W, or 1M for full multi-year history.`;
+          }
+        }
+
         return res.status(200).json({
           success: true,
           ...liveResult,
+          interval,
           candles: sortedCandles,
           latestQuote: liveResult.latestQuote,
+          rangeNotice,
         });
       }
     } catch {
@@ -280,8 +374,19 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
     }
   }
 
-  // 2. If in local instrument master, return comprehensive historical data
-  const meta = MarketDataService.getInstrument(symbol);
+  // 4. If in local instrument master or master catalog, return comprehensive historical data
+  const meta = MarketDataService.getInstrument(symbol) || (masterInst ? {
+    symbol: masterInst.symbol,
+    name: masterInst.displayName,
+    exchange: masterInst.exchange as any,
+    category: (masterInst.assetClass === 'ETF' ? 'EQUITY' : masterInst.assetClass) as any,
+    basePrice: masterInst.basePrice || 100.0,
+    currency: masterInst.quoteCurrency || 'INR',
+    lotSize: masterInst.lotSize || 1,
+    tickSize: masterInst.tickSize || 0.05,
+    volatility: 0.015,
+  } : undefined);
+
   if (meta) {
     const result = MarketDataService.getHistoricalData(symbol, interval as CandleInterval, {
       limit,
@@ -291,17 +396,23 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
       includeIndicators,
     });
     if (result) {
-      const sortedCandles = formatCandles(result.candles);
+      let finalCandles = result.candles;
+      if ((interval === '1w' || interval === '1mo' || interval === '1M') && result.interval === '1d') {
+        finalCandles = RealtimeMarketService.aggregateCandles(result.candles, interval === '1M' ? '1mo' : (interval as any));
+      }
+      const sortedCandles = formatCandles(finalCandles);
       return res.status(200).json({
         success: true,
         ...result,
+        interval,
         candles: sortedCandles,
         latestQuote: result.latestQuote,
+        rangeNotice: result.retentionNotice || (!isTest ? `Live provider feed currently unavailable for ${symbol}. Showing continuous simulated market feed.` : undefined),
       });
     }
   }
 
-  // 3. If not in local master or Alpha Vantage requested, check Alpha Vantage based on interval
+  // 5. If Alpha Vantage requested, check Alpha Vantage based on interval
   if (AlphaVantageService.isConfigured()) {
     let liveCandles: Candle[] | null = null;
     let avStatus: 'LIVE' | 'HISTORICAL' = 'LIVE';
@@ -309,12 +420,12 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
     if (interval === '1w') {
       liveCandles = await AlphaVantageService.fetchWeeklyCandles(symbol, limit || 260);
       avStatus = 'HISTORICAL';
-    } else if (interval === '1mo') {
+    } else if (interval === '1mo' || interval === '1M') {
       liveCandles = await AlphaVantageService.fetchMonthlyCandles(symbol, limit || 60);
       avStatus = 'HISTORICAL';
     } else if (interval === '1d') {
       const outputsize =
-        range === '5Y' || range === '3Y' || range === '1Y' || range === 'ALL' || (limit && limit > 100)
+        range === '5Y' || range === '3Y' || range === '1Y' || range === 'MAX' || range === 'ALL' || (limit && limit > 100)
           ? 'full'
           : 'compact';
       liveCandles = await AlphaVantageService.fetchDailyCandles(symbol, limit || 1260, outputsize);

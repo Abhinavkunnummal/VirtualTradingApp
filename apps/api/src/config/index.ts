@@ -17,6 +17,10 @@ const envSchema = z.object({
   FINNHUB_API_KEY: z.string().optional().default(''),
   TWELVE_DATA_API_KEY: z.string().optional().default(''),
   BINANCE_WS_URL: z.string().default('wss://stream.binance.com:9443/ws'),
+  ANGEL_ONE_API_KEY: z.string().optional().default(''),
+  ANGEL_ONE_CLIENT_CODE: z.string().optional().default(''),
+  ANGEL_ONE_PIN: z.string().optional().default(''),
+  ANGEL_ONE_TOTP_SECRET: z.string().optional().default(''),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -48,6 +52,10 @@ export const config = {
   twelveDataApiKey: env.TWELVE_DATA_API_KEY,
   binanceWsUrl: env.BINANCE_WS_URL,
   binanceWsFallbackUrl: 'wss://data-stream.binance.vision/ws',
+  angelOneApiKey: env.ANGEL_ONE_API_KEY,
+  angelOneClientCode: env.ANGEL_ONE_CLIENT_CODE,
+  angelOnePin: env.ANGEL_ONE_PIN,
+  angelOneTotpSecret: env.ANGEL_ONE_TOTP_SECRET,
   isProduction: env.NODE_ENV === 'production',
   isTest: env.NODE_ENV === 'test',
 };

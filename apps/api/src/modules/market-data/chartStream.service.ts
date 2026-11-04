@@ -2,6 +2,7 @@ import { Socket } from 'socket.io';
 import { config } from '../../config';
 import { RealtimeMarketService } from './realtimeMarket.service';
 import { AlphaVantageService } from './alphaVantage.service';
+import { AngelOneService } from './angelOne.service';
 import { SocketService } from '../../services/socket.service';
 import { RateLimitBudgetGuard, sharedAlphaVantageBudget } from './rateLimitBudget';
 
@@ -165,6 +166,32 @@ export class ChartStreamService {
   // Rate limit guard for non-crypto upstream
   private static budgetGuard = sharedAlphaVantageBudget;
 
+  // Finnhub WebSocket for US real-time trades
+  private static finnhubWs: WebSocket | null = null;
+  private static isConnectingFinnhub = false;
+  private static finnhubRooms = new Map<string, Set<string>>();
+
+  static {
+    // Listen to Angel One real-time ticks
+    AngelOneService.addTickListener((tick) => {
+      ChartStreamService.broadcastLiveTick(tick.symbol, tick.price, tick.volume, tick.timestamp);
+    });
+  }
+
+  public static isDelayed(symbol: string): boolean {
+    const mapping = RealtimeMarketService.getMapping(symbol);
+    if (mapping.category === 'CRYPTO') {
+      return false; // Binance Spot live stream 24/7
+    }
+    if (mapping.exchange === 'NSE' || mapping.exchange === 'BSE' || mapping.exchange === 'MCX') {
+      return !AngelOneService.isConnected();
+    }
+    if (mapping.exchange === 'US') {
+      return !(this.finnhubWs && this.finnhubWs.readyState === WebSocket.OPEN);
+    }
+    return true;
+  }
+
   public static getBudgetGuard(): RateLimitBudgetGuard {
     return this.budgetGuard;
   }
@@ -222,7 +249,7 @@ export class ChartStreamService {
         low: existing.low,
         close: existing.close,
         volume: existing.volume,
-        delayed: false,
+        delayed: this.isDelayed(symbol),
       };
       socket.emit('chart:tick', payload);
     }
@@ -233,7 +260,7 @@ export class ChartStreamService {
       if (isCrypto) {
         this.registerCryptoStream(symbol, interval, roomName);
       } else {
-        this.registerNonCryptoStream(symbol, interval);
+        this.registerNonCryptoStream(symbol, interval, roomName);
       }
     }
   }
@@ -472,18 +499,30 @@ export class ChartStreamService {
     }
   }
 
-  // --- Non-Crypto Stream Management (Alpha Vantage Rate Guarded Polling) ---
+  // --- Non-Crypto Stream Management (Angel One + Finnhub + Rate Guarded Fallback) ---
 
-  private static registerNonCryptoStream(symbol: string, interval: string): void {
+  private static registerNonCryptoStream(symbol: string, interval: string, roomName: string): void {
     if (!this.activeNonCrypto.has(symbol)) {
       this.activeNonCrypto.set(symbol, new Set());
     }
     this.activeNonCrypto.get(symbol)!.add(interval);
 
+    const mapping = RealtimeMarketService.getMapping(symbol);
+
+    // 1. If Indian equity, index or MCX commodity -> Subscribe to Angel One SmartStream
+    if (mapping.exchange === 'NSE' || mapping.exchange === 'BSE' || mapping.exchange === 'MCX') {
+      AngelOneService.subscribe(symbol, roomName);
+    }
+
+    // 2. If US equity and Finnhub configured -> Subscribe to Finnhub WebSocket
+    if (mapping.exchange === 'US' && config.finnhubApiKey) {
+      this.registerFinnhubStream(symbol, roomName);
+    }
+
     // Initial fetch for the symbol
     this.pollSingleNonCrypto(symbol);
 
-    // Start shared poll loop if not running
+    // Start shared poll loop for fallback updates if not running
     if (!this.nonCryptoPollTimer && process.env.NODE_ENV !== 'test') {
       this.nonCryptoPollTimer = setInterval(() => {
         this.pollActiveNonCrypto();
@@ -506,6 +545,128 @@ export class ChartStreamService {
     }
   }
 
+  // --- Finnhub US WebSocket ---
+
+  private static registerFinnhubStream(symbol: string, roomName: string): void {
+    if (!config.finnhubApiKey || process.env.NODE_ENV === 'test') return;
+    const cleanSym = symbol.toUpperCase().trim();
+    if (!this.finnhubRooms.has(cleanSym)) {
+      this.finnhubRooms.set(cleanSym, new Set());
+    }
+    this.finnhubRooms.get(cleanSym)!.add(roomName);
+
+    if (this.finnhubWs && this.finnhubWs.readyState === WebSocket.OPEN) {
+      try {
+        this.finnhubWs.send(JSON.stringify({ type: 'subscribe', symbol: cleanSym }));
+      } catch {}
+    } else {
+      this.ensureFinnhubWsConnected();
+    }
+  }
+
+  private static unregisterFinnhubStream(symbol: string, roomName: string): void {
+    const cleanSym = symbol.toUpperCase().trim();
+    const rooms = this.finnhubRooms.get(cleanSym);
+    if (!rooms) return;
+    rooms.delete(roomName);
+    if (rooms.size === 0) {
+      this.finnhubRooms.delete(cleanSym);
+      if (this.finnhubWs && this.finnhubWs.readyState === WebSocket.OPEN) {
+        try {
+          this.finnhubWs.send(JSON.stringify({ type: 'unsubscribe', symbol: cleanSym }));
+        } catch {}
+      }
+      if (this.finnhubRooms.size === 0 && this.finnhubWs) {
+        try {
+          this.finnhubWs.close();
+        } catch {}
+        this.finnhubWs = null;
+      }
+    }
+  }
+
+  private static ensureFinnhubWsConnected(): void {
+    if (!config.finnhubApiKey || process.env.NODE_ENV === 'test') return;
+    if (this.finnhubWs || this.isConnectingFinnhub) return;
+
+    this.isConnectingFinnhub = true;
+    try {
+      const ws = new WebSocket(`wss://ws.finnhub.io?token=${encodeURIComponent(config.finnhubApiKey)}`);
+      this.finnhubWs = ws;
+
+      ws.onopen = () => {
+        this.isConnectingFinnhub = false;
+        for (const sym of this.finnhubRooms.keys()) {
+          try {
+            ws.send(JSON.stringify({ type: 'subscribe', symbol: sym }));
+          } catch {}
+        }
+      };
+
+      ws.onmessage = (event: MessageEvent) => {
+        try {
+          const raw = typeof event.data === 'string' ? event.data : event.data?.toString();
+          if (!raw) return;
+          const msg = JSON.parse(raw);
+          if (msg.type === 'trade' && Array.isArray(msg.data)) {
+            for (const t of msg.data) {
+              if (t.s && typeof t.p === 'number') {
+                this.broadcastLiveTick(t.s, t.p, t.v || 0, Math.floor(t.t / 1000));
+              }
+            }
+          }
+        } catch {}
+      };
+
+      ws.onerror = () => {};
+      ws.onclose = () => {
+        this.finnhubWs = null;
+        this.isConnectingFinnhub = false;
+      };
+    } catch {
+      this.finnhubWs = null;
+      this.isConnectingFinnhub = false;
+    }
+  }
+
+  /**
+   * Universal broadcast for live tick updates across symbol interval rooms
+   */
+  public static broadcastLiveTick(
+    symbol: string,
+    price: number,
+    volume: number = 0,
+    timestamp: number = Math.floor(Date.now() / 1000)
+  ): void {
+    const canonical = RealtimeMarketService.canonicalizeSymbol(symbol);
+    const intervals = this.activeNonCrypto.get(canonical);
+    if (!intervals || intervals.size === 0) return;
+
+    const delayed = this.isDelayed(canonical);
+
+    for (const interval of intervals) {
+      const roomName = `chart:${canonical}:${interval}`;
+      const currentCandle = this.formingCandles.get(roomName);
+      const agg = aggregateCandleTick(currentCandle, price, volume, timestamp, interval);
+
+      this.formingCandles.set(roomName, agg.candle);
+
+      const payload: ChartTickPayload = {
+        symbol: canonical,
+        interval,
+        time: agg.candle.time,
+        open: agg.candle.open,
+        high: agg.candle.high,
+        low: agg.candle.low,
+        close: agg.candle.close,
+        volume: agg.candle.volume,
+        delayed,
+      };
+
+      SocketService.getIO()?.to(roomName).emit('chart:tick', payload);
+    }
+  }
+
   /**
    * Poll a single non-crypto symbol and emit tick to its interval rooms
    */
@@ -513,10 +674,10 @@ export class ChartStreamService {
     const intervals = this.activeNonCrypto.get(symbol);
     if (!intervals || intervals.size === 0) return;
 
+    const delayed = this.isDelayed(symbol);
     const canRequest = this.budgetGuard.canRequest();
     let price: number | null = null;
     let volume = 0;
-    let isDelayed = false;
 
     if (canRequest) {
       try {
@@ -540,7 +701,6 @@ export class ChartStreamService {
 
     // If budget exhausted or fetch failed, fallback to cached candle close
     if (price === null) {
-      isDelayed = true;
       for (const interval of intervals) {
         const roomName = `chart:${symbol}:${interval}`;
         const cached = this.formingCandles.get(roomName);
@@ -553,28 +713,7 @@ export class ChartStreamService {
 
     if (price === null) return;
 
-    const nowSec = Math.floor(Date.now() / 1000);
-    for (const interval of intervals) {
-      const roomName = `chart:${symbol}:${interval}`;
-      const currentCandle = this.formingCandles.get(roomName);
-      const agg = aggregateCandleTick(currentCandle, price, volume, nowSec, interval);
-
-      this.formingCandles.set(roomName, agg.candle);
-
-      const payload: ChartTickPayload = {
-        symbol,
-        interval,
-        time: agg.candle.time,
-        open: agg.candle.open,
-        high: agg.candle.high,
-        low: agg.candle.low,
-        close: agg.candle.close,
-        volume: agg.candle.volume,
-        delayed: isDelayed,
-      };
-
-      SocketService.getIO()?.to(roomName).emit('chart:tick', payload);
-    }
+    this.broadcastLiveTick(symbol, price, volume);
   }
 
   private static async pollActiveNonCrypto(): Promise<void> {
@@ -600,6 +739,12 @@ export class ChartStreamService {
     if (isCrypto) {
       this.unregisterCryptoStream(symbol, interval, roomName);
     } else {
+      const mapping = RealtimeMarketService.getMapping(symbol);
+      if (mapping.exchange === 'NSE' || mapping.exchange === 'BSE' || mapping.exchange === 'MCX') {
+        AngelOneService.unsubscribe(symbol, roomName);
+      } else if (mapping.exchange === 'US') {
+        this.unregisterFinnhubStream(symbol, roomName);
+      }
       this.unregisterNonCryptoStream(symbol, interval);
     }
   }
@@ -624,10 +769,18 @@ export class ChartStreamService {
       }
       this.binanceWs = null;
     }
+    if (this.finnhubWs) {
+      try {
+        this.finnhubWs.close();
+      } catch {}
+      this.finnhubWs = null;
+    }
     this.isConnectingWs = false;
+    this.isConnectingFinnhub = false;
     this.reconnectDelay = 1000;
     this.activeWsUrl = config.binanceWsUrl;
     this.binanceStreamToRooms.clear();
+    this.finnhubRooms.clear();
     this.activeNonCrypto.clear();
     this.roomSubscribers.clear();
     this.socketSubscriptions.clear();

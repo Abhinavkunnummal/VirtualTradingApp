@@ -2,8 +2,8 @@ import { TechnicalIndicatorService, TechnicalIndicators } from './indicators';
 
 export type ExchangeType = 'NSE' | 'BSE' | 'MCX' | 'US' | 'CRYPTO';
 export type AssetCategory = 'EQUITY' | 'INDEX' | 'COMMODITY' | 'CRYPTO' | 'DERIVATIVE';
-export type CandleInterval = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w' | '1mo';
-export type HistoryRange = '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | 'ALL';
+export type CandleInterval = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w' | '1mo' | '1M';
+export type HistoryRange = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | 'MAX' | 'ALL';
 
 export interface MarketQuote {
   symbol: string;
@@ -48,6 +48,7 @@ export interface HistoricalDataResult {
   count: number;
   status: 'SIMULATED' | 'LIVE' | 'HISTORICAL' | 'HYBRID' | 'DELAYED';
   provider: string;
+  rangeNotice?: string;
   retentionNotice?: string;
   candles: Candle[];
   indicators?: TechnicalIndicators;
@@ -388,6 +389,7 @@ export class MarketDataService {
       case '1D':
         seconds = 86400;
         break;
+      case '5D':
       case '1W':
         seconds = 7 * 86400;
         break;
@@ -409,8 +411,9 @@ export class MarketDataService {
       case '5Y':
         seconds = 5 * 365 * 86400;
         break;
+      case 'MAX':
       case 'ALL':
-        seconds = 5 * 365 * 86400;
+        seconds = 10 * 365 * 86400;
         break;
       default:
         seconds = 30 * 86400;
@@ -463,6 +466,7 @@ export class MarketDataService {
       '1d': 86400,
       '1w': 604800,
       '1mo': 2592000,
+      '1M': 2592000,
     };
 
     const targetSeconds = intervalSecondsMap[interval] || 900;
@@ -540,6 +544,7 @@ export class MarketDataService {
       '1d': 86400,
       '1w': 604800,
       '1mo': 2592000,
+      '1M': 2592000,
     };
     const targetSeconds = intervalSecondsMap[interval] || 900;
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -604,28 +609,104 @@ export class MarketDataService {
 
   static getMarketStatus() {
     const now = new Date();
-    // UTC Hour
-    const utcHours = now.getUTCHours();
-    const utcDay = now.getUTCDay();
 
-    // Indian market: 9:15 AM IST to 3:30 PM IST (3:45 UTC to 10:00 UTC), Mon-Fri
-    const isWeekday = utcDay >= 1 && utcDay <= 5;
-    const isNSEOpen = isWeekday && utcHours >= 3 && utcHours < 10;
-    // MCX: 9:00 AM IST to 11:30 PM IST (3:30 UTC to 18:00 UTC), Mon-Fri
-    const isMCXOpen = isWeekday && utcHours >= 3 && utcHours < 18;
-    // US: 9:30 AM EDT to 4:00 PM EDT (13:30 UTC to 20:00 UTC), Mon-Fri
-    const isUSOpen = isWeekday && utcHours >= 13 && utcHours < 20;
+    // 1. Calculate IST Time (UTC + 5 hours 30 mins)
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(now.getTime() + istOffsetMs);
+    const istDay = istDate.getUTCDay(); // 0: Sun, 6: Sat
+    const istMinutes = istDate.getUTCHours() * 60 + istDate.getUTCMinutes();
+    const isIndianWeekday = istDay >= 1 && istDay <= 5;
+
+    // Standard NSE/BSE Sessions: Pre-open 09:00-09:15 (540-555m), Regular 09:15-15:30 (555-930m), Post 15:30-16:00 (930-960m)
+    let nseSession: 'PRE_OPEN' | 'REGULAR' | 'POST_CLOSE' | 'CLOSED' = 'CLOSED';
+    let isNSEOpen = false;
+
+    if (isIndianWeekday) {
+      if (istMinutes >= 540 && istMinutes < 555) {
+        nseSession = 'PRE_OPEN';
+        isNSEOpen = true; // Pre-open auction accepting orders
+      } else if (istMinutes >= 555 && istMinutes < 930) {
+        nseSession = 'REGULAR';
+        isNSEOpen = true;
+      } else if (istMinutes >= 930 && istMinutes < 960) {
+        nseSession = 'POST_CLOSE';
+        isNSEOpen = false;
+      }
+    }
+
+    // MCX: 09:00 AM to 11:30 PM IST (540 to 1410m), Mon-Fri
+    let mcxSession: 'REGULAR' | 'CLOSED' = 'CLOSED';
+    let isMCXOpen = false;
+    if (isIndianWeekday && istMinutes >= 540 && istMinutes < 1410) {
+      mcxSession = 'REGULAR';
+      isMCXOpen = true;
+    }
+
+    // 2. Calculate US Eastern Time (UTC - 5h standard, UTC - 4h DST)
+    // Approximate with UTC - 4 / - 5
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    const totalUtcMinutes = utcHours * 60 + utcMinutes;
+    const utcDay = now.getUTCDay();
+    const isUsWeekday = utcDay >= 1 && utcDay <= 5;
+
+    // US Regular matching: 13:30 UTC to 20:00 UTC (9:30 AM to 4:00 PM EST)
+    let usSession: 'PRE_MARKET' | 'REGULAR' | 'AFTER_HOURS' | 'CLOSED' = 'CLOSED';
+    let isUSOpen = false;
+
+    if (isUsWeekday) {
+      if (totalUtcMinutes >= 480 && totalUtcMinutes < 810) {
+        usSession = 'PRE_MARKET';
+      } else if (totalUtcMinutes >= 810 && totalUtcMinutes < 1200) {
+        usSession = 'REGULAR';
+        isUSOpen = true;
+      } else if (totalUtcMinutes >= 1200 && totalUtcMinutes < 1440) {
+        usSession = 'AFTER_HOURS';
+      }
+    }
 
     return {
       exchanges: [
-        { exchange: 'NSE', isOpen: isNSEOpen, session: isNSEOpen ? 'REGULAR' : 'CLOSED', timezone: 'Asia/Kolkata' },
-        { exchange: 'BSE', isOpen: isNSEOpen, session: isNSEOpen ? 'REGULAR' : 'CLOSED', timezone: 'Asia/Kolkata' },
-        { exchange: 'MCX', isOpen: isMCXOpen, session: isMCXOpen ? 'REGULAR' : 'CLOSED', timezone: 'Asia/Kolkata' },
-        { exchange: 'US', isOpen: isUSOpen, session: isUSOpen ? 'REGULAR' : 'CLOSED', timezone: 'America/New_York' },
-        { exchange: 'CRYPTO', isOpen: true, session: '24_7', timezone: 'UTC' },
+        {
+          exchange: 'NSE',
+          isOpen: isNSEOpen,
+          session: nseSession,
+          timezone: 'Asia/Kolkata',
+          tradingHours: '09:15 - 15:30 IST',
+          preOpenHours: '09:00 - 09:15 IST',
+        },
+        {
+          exchange: 'BSE',
+          isOpen: isNSEOpen,
+          session: nseSession,
+          timezone: 'Asia/Kolkata',
+          tradingHours: '09:15 - 15:30 IST',
+          preOpenHours: '09:00 - 09:15 IST',
+        },
+        {
+          exchange: 'MCX',
+          isOpen: isMCXOpen,
+          session: mcxSession,
+          timezone: 'Asia/Kolkata',
+          tradingHours: '09:00 - 23:30 IST',
+        },
+        {
+          exchange: 'US',
+          isOpen: isUSOpen,
+          session: usSession,
+          timezone: 'America/New_York',
+          tradingHours: '09:30 - 16:00 EST',
+        },
+        {
+          exchange: 'CRYPTO',
+          isOpen: true,
+          session: '24_7',
+          timezone: 'UTC',
+          tradingHours: '24/7/365 Continuous',
+        },
       ],
       serverTime: now.toISOString(),
-      disclaimer: 'Paper Trading Market Status. Timings reflect exchange matching hours.',
+      disclaimer: 'Market status reflects live exchange matching sessions and trading calendars.',
     };
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,10 +8,10 @@ import 'core/router/app_router.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Global layout overflow assertion guard in debug mode
+  // Global layout overflow assertion guard in debug mode ONLY (zero overhead / inert in release)
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
-    if (details.toString().contains('overflowed by')) {
+    if (kDebugMode && details.toString().contains('overflowed by')) {
       debugPrint('🚨 [LAYOUT OVERFLOW DETECTED]: ${details.summary}');
       assert(false, 'RenderFlex overflow detected in debug mode: ${details.summary}');
     }
