@@ -284,7 +284,9 @@ class _IndicatorsBottomSheetState extends State<IndicatorsBottomSheet> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildPeriodSlider({

@@ -152,7 +152,9 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
         ),
       ),
     );
-  }
+  },
+);
+}
 
   void _openQuizModal(LearningModuleModel module) {
     if (module.quizzes.isEmpty) return;
