@@ -187,7 +187,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
     double prevHaOpen = (rawCandles[0].open + rawCandles[0].close) / 2.0;
     double prevHaClose = (rawCandles[0].open + rawCandles[0].high + rawCandles[0].low + rawCandles[0].close) / 4.0;
     result.add(CandleData(
-      time: rawCandles[0].time,
+      timestamp: rawCandles[0].timestamp,
       open: prevHaOpen,
       high: math.max(rawCandles[0].high, math.max(prevHaOpen, prevHaClose)),
       low: math.min(rawCandles[0].low, math.min(prevHaOpen, prevHaClose)),
@@ -202,7 +202,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
       final haHigh = math.max(c.high, math.max(haOpen, haClose));
       final haLow = math.min(c.low, math.min(haOpen, haClose));
       result.add(CandleData(
-        time: c.time,
+        timestamp: c.timestamp,
         open: haOpen,
         high: haHigh,
         low: haLow,
