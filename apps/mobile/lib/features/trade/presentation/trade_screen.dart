@@ -146,6 +146,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
       final execution = result['execution'] as Map<String, dynamic>?;
 
       if (isSuccess) {
+        HapticFeedback.heavyImpact();
         OrderConfirmationSheet.show(
           context,
           symbol: symbol,
@@ -161,7 +162,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
           isExit: false,
         );
       } else {
-        HapticFeedback.heavyImpact();
+        HapticFeedback.mediumImpact();
         final isInsufficient = message.toLowerCase().contains('insufficient');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

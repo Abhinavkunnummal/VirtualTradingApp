@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
+import 'package:tradeverse_mobile/core/widgets/app_shimmer.dart';
+import 'package:tradeverse_mobile/core/widgets/empty_state_view.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
@@ -38,6 +41,11 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        HapticFeedback.selectionClick();
+      }
+    });
   }
 
   @override
@@ -61,6 +69,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
   }
 
   void _selectSearchTerm(String term) {
+    HapticFeedback.selectionClick();
     _searchController.text = term;
     ref.read(searchQueryProvider.notifier).state = term;
     ref.read(recentSearchesProvider.notifier).addSearch(term);
@@ -211,6 +220,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
                 ),
                 onSelected: (val) {
                   if (val) {
+                    HapticFeedback.selectionClick();
                     ref.read(searchFilterProvider.notifier).state = filter == 'All Assets' ? 'All' : filter;
                   }
                 },
@@ -241,7 +251,10 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
                       ],
                     ),
                     GestureDetector(
-                      onTap: () => ref.read(recentSearchesProvider.notifier).clearAll(),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        ref.read(recentSearchesProvider.notifier).clearAll();
+                      },
                       child: Text(
                         'Clear all',
                         style: AppTypography.labelSm.copyWith(color: AppColors.primary, fontSize: 11),
@@ -276,7 +289,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
         Expanded(
           child: searchResultsAsync.when(
             data: (instruments) => _buildAssetList(context, instruments),
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const WatchlistSkeleton(count: 6),
             error: (err, _) => Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -301,18 +314,20 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
   Widget _buildAssetList(BuildContext context, List<InstrumentModel> instruments) {
     if (instruments.isEmpty) {
       final q = _searchController.text.trim();
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.search_off, size: 48, color: AppColors.outline),
-            const SizedBox(height: 12),
-            Text(
-              q.isEmpty ? 'No instruments found in this filter' : 'No instruments found matching "$q"',
-              style: AppTypography.bodyMd,
-            ),
-          ],
-        ),
+      return EmptyStateView(
+        icon: Icons.search_off_rounded,
+        title: q.isEmpty ? 'No Instruments Found' : 'No Matches for "$q"',
+        message: q.isEmpty
+            ? 'Try selecting a different asset category or clearing the active filter.'
+            : 'Check for typos or try searching by stock ticker, company name, or ISIN.',
+        actionLabel: q.isNotEmpty ? 'Clear Search' : 'Show All Assets',
+        onAction: () {
+          HapticFeedback.lightImpact();
+          _searchController.clear();
+          ref.read(searchQueryProvider.notifier).state = '';
+          ref.read(searchFilterProvider.notifier).state = 'All';
+          setState(() {});
+        },
       );
     }
 
@@ -337,6 +352,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
             child: InkWell(
               // Instant Tap-To-Chart Navigation
               onTap: () {
+                HapticFeedback.lightImpact();
                 ref.read(liveQuotesProvider.notifier).trackSymbol(item.symbol);
                 ref.read(selectedTradeInstrumentProvider.notifier).state = item;
                 ref.read(recentSearchesProvider.notifier).addSearch(item.symbol);
@@ -550,6 +566,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
                 ),
                 onSelected: (val) {
                   if (val) {
+                    HapticFeedback.selectionClick();
                     ref.read(newsCategoryProvider.notifier).state = cat['value']!;
                   }
                 },
@@ -562,15 +579,10 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
           child: newsAsync.when(
             data: (articles) {
               if (articles.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.newspaper, size: 48, color: AppColors.outline),
-                      const SizedBox(height: 12),
-                      Text('No articles available for $selectedCategory', style: AppTypography.bodyMd),
-                    ],
-                  ),
+                return EmptyStateView(
+                  icon: Icons.newspaper_outlined,
+                  title: 'No Market News',
+                  message: 'No news updates currently available in $selectedCategory feed.',
                 );
               }
 
@@ -589,7 +601,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
                 ),
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const OrdersSkeleton(count: 4),
             error: (err, _) => Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,

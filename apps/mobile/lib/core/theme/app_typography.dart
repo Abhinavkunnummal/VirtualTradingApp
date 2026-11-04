@@ -7,7 +7,7 @@ class AppTypography {
         fontSize: 32,
         fontWeight: FontWeight.w700,
         height: 40 / 32,
-        letterSpacing: -0.96, // -0.03em
+        letterSpacing: -0.96,
         color: AppColors.onSurface,
       );
 
@@ -15,7 +15,7 @@ class AppTypography {
         fontSize: 24,
         fontWeight: FontWeight.w700,
         height: 32 / 24,
-        letterSpacing: -0.48, // -0.02em
+        letterSpacing: -0.48,
         color: AppColors.onSurface,
       );
 
@@ -23,7 +23,7 @@ class AppTypography {
         fontSize: 20,
         fontWeight: FontWeight.w600,
         height: 28 / 20,
-        letterSpacing: -0.3, // -0.015em
+        letterSpacing: -0.3,
         color: AppColors.onSurface,
       );
 
@@ -31,7 +31,7 @@ class AppTypography {
         fontSize: 16,
         fontWeight: FontWeight.w600,
         height: 24 / 16,
-        letterSpacing: -0.16, // -0.01em
+        letterSpacing: -0.16,
         color: AppColors.onSurface,
       );
 
@@ -63,25 +63,52 @@ class AppTypography {
         fontSize: 11,
         fontWeight: FontWeight.w600,
         height: 14 / 11,
-        letterSpacing: 0.44, // +0.04em
+        letterSpacing: 0.44,
         color: AppColors.outline,
       );
 
   // Tabular figures for rapid real-time financial telemetry scanning
+  static TextStyle get numericHeadline => GoogleFonts.inter(
+        fontSize: 26,
+        fontWeight: FontWeight.w700,
+        height: 32 / 26,
+        letterSpacing: -0.5,
+        color: AppColors.onSurface,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+
   static TextStyle get numericTicker => GoogleFonts.inter(
-        fontSize: 22,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        height: 26 / 20,
+        letterSpacing: -0.4,
+        color: AppColors.onSurface,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+
+  static TextStyle get numericSubhead => GoogleFonts.inter(
+        fontSize: 16,
         fontWeight: FontWeight.w600,
-        height: 28 / 22,
-        letterSpacing: -0.44,
+        height: 22 / 16,
+        letterSpacing: -0.2,
         color: AppColors.onSurface,
         fontFeatures: const [FontFeature.tabularFigures()],
       );
 
   static TextStyle get numericTable => GoogleFonts.inter(
         fontSize: 13,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w600,
         height: 18 / 13,
         letterSpacing: 0,
+        color: AppColors.onSurface,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+
+  static TextStyle get numericSmall => GoogleFonts.inter(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        height: 15 / 11,
+        letterSpacing: 0.2,
         color: AppColors.onSurface,
         fontFeatures: const [FontFeature.tabularFigures()],
       );

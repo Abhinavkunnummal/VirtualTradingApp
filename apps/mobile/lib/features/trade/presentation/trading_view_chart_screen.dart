@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/network/live_ticker_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_shimmer.dart';
 import '../../markets/domain/market_models.dart';
 import '../../portfolio/domain/portfolio_models.dart';
 import '../../portfolio/presentation/providers/portfolio_provider.dart';
@@ -255,6 +257,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   }
 
   void _toggleAutoAnalysis() {
+    HapticFeedback.lightImpact();
     setState(() => _isAutoAnalysisEnabled = !_isAutoAnalysisEnabled);
     _webViewController?.runJavaScript(ChartJsBridge.buildSetAutoAnalysisCall(_isAutoAnalysisEnabled));
     if (!_isAutoAnalysisEnabled) {
@@ -299,6 +302,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   }
 
   void _openIndicatorsModal(BuildContext context) {
+    HapticFeedback.selectionClick();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -329,6 +333,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   }
 
   void _selectDrawingTool(String tool) {
+    HapticFeedback.selectionClick();
     setState(() {
       _activeDrawingTool = (_activeDrawingTool == tool) ? 'cursor' : tool;
     });
@@ -336,10 +341,12 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   }
 
   void _undoDrawing() {
+    HapticFeedback.lightImpact();
     _webViewController?.runJavaScript(ChartJsBridge.buildUndoDrawingCall());
   }
 
   void _clearAllDrawings() {
+    HapticFeedback.mediumImpact();
     _webViewController?.runJavaScript(ChartJsBridge.buildClearDrawingsCall());
     _drawingStorage.clearDrawings(_getEffectiveInstrument().symbol);
     setState(() => _drawings = []);
@@ -375,6 +382,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   }
 
   void _changeInterval(String newInterval) {
+    HapticFeedback.selectionClick();
     final instrument = _getEffectiveInstrument();
     final oldInterval = ref.read(selectedCandleIntervalProvider);
     if (oldInterval == newInterval) return;
@@ -401,6 +409,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   }
 
   void _changeChartType(String type) {
+    HapticFeedback.selectionClick();
     setState(() => _selectedChartType = type);
     _webViewController?.runJavaScript(ChartJsBridge.buildSetChartTypeCall(type));
   }
@@ -1071,8 +1080,8 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                               child: WebViewWidget(controller: _webViewController!),
                             ),
                           if (candlesAsync.isLoading)
-                            const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.zerodhaBlue),
+                            const Positioned.fill(
+                              child: ChartSkeleton(),
                             ),
                         ],
                       ),
@@ -1222,6 +1231,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
     final requiredMargin = _getRequiredMargin();
 
     if (requiredMargin > availableCash) {
+      HapticFeedback.mediumImpact();
       if (mounted) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1260,6 +1270,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
       final currency = (isCrypto || widget.instrument.exchange == 'US' || widget.instrument.category == 'US') ? '\$' : '₹';
 
       if (!mounted) return;
+      HapticFeedback.heavyImpact();
       final messenger = ScaffoldMessenger.of(context);
       final navigator = Navigator.of(context);
       setState(() => _isSubmitting = false);
@@ -1304,6 +1315,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
       );
     } catch (e) {
       if (!mounted) return;
+      HapticFeedback.mediumImpact();
       final messenger = ScaffoldMessenger.of(context);
       setState(() => _isSubmitting = false);
       messenger.showSnackBar(
@@ -1408,7 +1420,10 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                 Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(8),
-                    onTap: () => setState(() => _isBuy = true),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _isBuy = true);
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
@@ -1429,7 +1444,10 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                 Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(8),
-                    onTap: () => setState(() => _isBuy = false),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _isBuy = false);
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
@@ -1522,7 +1540,12 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.remove_circle_outline, color: AppColors.outline),
-                    onPressed: _quantity > 1 ? () => setState(() => _quantity -= 1) : null,
+                    onPressed: _quantity > 1
+                        ? () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _quantity -= 1);
+                          }
+                        : null,
                   ),
                   Container(
                     width: 40,
@@ -1534,7 +1557,10 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
-                    onPressed: () => setState(() => _quantity += 1),
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _quantity += 1);
+                    },
                   ),
                 ],
               ),

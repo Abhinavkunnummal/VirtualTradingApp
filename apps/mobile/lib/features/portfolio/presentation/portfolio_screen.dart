@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
+import 'package:tradeverse_mobile/core/widgets/app_shimmer.dart';
+import 'package:tradeverse_mobile/core/widgets/empty_state_view.dart';
 import 'package:tradeverse_mobile/shared/widgets/loading_state_widget.dart';
 import 'package:tradeverse_mobile/shared/widgets/error_state_widget.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
@@ -48,6 +51,11 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        HapticFeedback.selectionClick();
+      }
+    });
   }
 
   @override
@@ -114,6 +122,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                       side: const BorderSide(color: AppColors.borderSubtle),
                       label: Text(label, style: AppTypography.labelSm.copyWith(color: AppColors.primary)),
                       onPressed: () {
+                        HapticFeedback.selectionClick();
                         amountController.text = amt.toStringAsFixed(0);
                       },
                     );
@@ -148,6 +157,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: () async {
+                      HapticFeedback.mediumImpact();
                       final entered = double.tryParse(amountController.text) ?? 100000.0;
                       Navigator.of(ctx).pop();
                       final success = await ref.read(portfolioProvider.notifier).topUpVirtualFunds(entered);
@@ -241,6 +251,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                         side: const BorderSide(color: AppColors.borderSubtle),
                         label: Text(label, style: AppTypography.labelSm.copyWith(color: AppColors.primary)),
                         onPressed: () {
+                          HapticFeedback.selectionClick();
                           setModalState(() {
                             amountController.text = amt.toStringAsFixed(0);
                             errorMessage = null;
@@ -296,6 +307,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                               'Amount exceeds available cash (₹${currentCash.toStringAsFixed(2)})');
                           return;
                         }
+                        HapticFeedback.mediumImpact();
                         Navigator.of(ctx).pop();
                         final res =
                             await ref.read(portfolioProvider.notifier).withdrawVirtualFunds(entered);
@@ -356,20 +368,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                     child: txAsync.when(
                       data: (txList) {
                         if (txList.isEmpty) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.history_outlined, size: 48, color: AppColors.outline),
-                                const SizedBox(height: 12),
-                                Text('No wallet transactions yet', style: AppTypography.bodyMd),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Add or withdraw funds to see records here.',
-                                  style: AppTypography.labelSm.copyWith(color: AppColors.outline),
-                                ),
-                              ],
-                            ),
+                          return const EmptyStateView(
+                            icon: Icons.history_toggle_off_outlined,
+                            title: 'No Wallet Transactions',
+                            message: 'Virtual funds added, withdrawn, or trade realized P&L settlements will be recorded here.',
                           );
                         }
                         return ListView.separated(
@@ -440,7 +442,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                           },
                         );
                       },
-                      loading: () => const Center(child: CircularProgressIndicator()),
+                      loading: () => const OrdersSkeleton(count: 4),
                       error: (err, _) => Center(child: Text(err.toString(), style: AppTypography.bodyMd)),
                     ),
                   ),
@@ -506,6 +508,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                   subtitle: Text('Virtual Currency • No Real Money', style: AppTypography.labelSm),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.outline),
                   onTap: () async {
+                    HapticFeedback.mediumImpact();
                     Navigator.of(ctx).pop();
                     final success = await ref.read(portfolioProvider.notifier).resetCapital(amt);
                     if (mounted) {
@@ -585,7 +588,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
             ],
           ),
         ),
-        loading: () => const LoadingStateWidget(message: 'Loading active portfolio holdings...'),
+        loading: () => const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: HoldingsSkeleton(count: 5),
+        ),
         error: (err, _) => ErrorStateWidget(
           title: 'Unable to Load Portfolio',
           message: err.toString(),
@@ -674,7 +680,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: _showTopUpModal,
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _showTopUpModal();
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -686,7 +695,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                     side: const BorderSide(color: AppColors.borderSubtle),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () => _showWithdrawModal(portfolio.availableCash),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _showWithdrawModal(portfolio.availableCash);
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -700,7 +712,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                     side: const BorderSide(color: AppColors.borderSubtle),
                   ),
                 ),
-                onPressed: _showTransactionsSheet,
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _showTransactionsSheet();
+                },
               ),
             ],
           ),
@@ -717,7 +732,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                 side: const BorderSide(color: AppColors.primaryBrand),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              onPressed: () => context.push('/orders'),
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                context.push('/orders');
+              },
             ),
           ),
         ],
@@ -753,17 +771,15 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
 
   Widget _buildHoldingsList(List<HoldingModel> holdings, Map<String, LiveQuote> liveQuotes) {
     if (holdings.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.account_balance_wallet_outlined, size: 48, color: AppColors.outline),
-            const SizedBox(height: 12),
-            Text('No active simulated holdings', style: AppTypography.bodyMd),
-            const SizedBox(height: 6),
-            Text('Place paper orders in the Trade ticket to build your portfolio.', style: AppTypography.labelSm),
-          ],
-        ),
+      return EmptyStateView(
+        icon: Icons.account_balance_wallet_outlined,
+        title: 'No Active Holdings',
+        message: 'Your virtual portfolio has no delivery positions. Execute simulated trades to start investing.',
+        actionLabel: 'Discover Markets',
+        onAction: () {
+          HapticFeedback.lightImpact();
+          context.go('/markets');
+        },
       );
     }
 

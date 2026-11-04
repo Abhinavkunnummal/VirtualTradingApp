@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:tradeverse_mobile/core/network/live_ticker_service.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
+import 'package:tradeverse_mobile/core/widgets/app_shimmer.dart';
+import 'package:tradeverse_mobile/core/widgets/empty_state_view.dart';
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
 import 'package:tradeverse_mobile/features/portfolio/domain/portfolio_models.dart';
@@ -27,6 +29,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        HapticFeedback.selectionClick();
+      }
+    });
   }
 
   @override
@@ -311,27 +318,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
   Widget _buildOpenPositionsTab(List<HoldingModel> holdings, Map<String, LiveQuote> liveQuotes) {
     if (holdings.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.inventory_2_outlined, size: 54, color: AppColors.outline),
-            const SizedBox(height: 12),
-            Text('No Open Positions', style: AppTypography.bodyLg),
-            const SizedBox(height: 6),
-            Text('Execute an order from Markets or Trade to build your portfolio.', style: AppTypography.bodyMd),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryBrand,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () => context.go('/markets'),
-              child: const Text('Explore Markets'),
-            ),
-          ],
-        ),
+      return EmptyStateView(
+        icon: Icons.account_balance_wallet_outlined,
+        title: 'No Open Positions',
+        message: 'You have no active open positions. Execute simulated trades to monitor real-time P&L.',
+        actionLabel: 'Explore Markets',
+        onAction: () {
+          HapticFeedback.lightImpact();
+          context.go('/markets');
+        },
       );
     }
 
@@ -569,7 +564,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                     backgroundColor: AppColors.surfaceContainer,
                     side: BorderSide(color: isSelected ? AppColors.primaryBrand : AppColors.borderSubtle),
                     onSelected: (val) {
-                      if (val) setState(() => _ordersFilter = f);
+                      if (val) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _ordersFilter = f);
+                      }
                     },
                   ),
                 );
@@ -591,8 +589,19 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               }).toList();
 
               if (filtered.isEmpty) {
-                return Center(
-                  child: Text('No $_ordersFilter orders found', style: AppTypography.bodyMd),
+                return EmptyStateView(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'No $_ordersFilter Orders',
+                  message: _ordersFilter == 'All'
+                      ? 'You haven\'t placed any simulated orders today.'
+                      : 'No orders with status "$_ordersFilter" found in today\'s session.',
+                  actionLabel: _ordersFilter == 'All' ? 'Place an Order' : null,
+                  onAction: _ordersFilter == 'All'
+                      ? () {
+                          HapticFeedback.lightImpact();
+                          context.go('/trade');
+                        }
+                      : null,
                 );
               }
 
@@ -682,6 +691,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                                 icon: const Icon(Icons.cancel_outlined, size: 18, color: AppColors.tertiary),
                                 tooltip: 'Cancel Order',
                                 onPressed: () async {
+                                  HapticFeedback.mediumImpact();
                                   final ok = await ref.read(submitOrderProvider).cancelOrder(orderId);
                                   if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -698,7 +708,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 },
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const OrdersSkeleton(count: 4),
             error: (err, _) => Center(child: Text('Error loading orders: $err')),
           ),
         ),
@@ -712,17 +722,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     return historyAsync.when(
       data: (trades) {
         if (trades.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.history, size: 48, color: AppColors.outline),
-                const SizedBox(height: 10),
-                Text('No Trade History Yet', style: AppTypography.bodyLg),
-                const SizedBox(height: 4),
-                Text('Squared-off positions will appear here with realized P&L.', style: AppTypography.bodyMd),
-              ],
-            ),
+          return EmptyStateView(
+            icon: Icons.history_toggle_off,
+            title: 'No Closed Trades',
+            message: 'Positions squared off during your trading sessions will appear here with realized P&L.',
+            actionLabel: 'Explore Markets',
+            onAction: () {
+              HapticFeedback.lightImpact();
+              context.go('/markets');
+            },
           );
         }
 
@@ -797,7 +805,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const OrdersSkeleton(count: 4),
       error: (err, _) => Center(child: Text('Error loading history: $err')),
     );
   }
@@ -927,11 +935,17 @@ class _SquareOffModalState extends State<_SquareOffModal> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   TextButton(
-                    onPressed: () => setState(() => _quantityToClose = (widget.holding.quantity / 2).ceil()),
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _quantityToClose = (widget.holding.quantity / 2).ceil());
+                    },
                     child: const Text('Sell 50%'),
                   ),
                   TextButton(
-                    onPressed: () => setState(() => _quantityToClose = widget.holding.quantity),
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _quantityToClose = widget.holding.quantity);
+                    },
                     child: const Text('Sell All (100%)'),
                   ),
                 ],
@@ -991,6 +1005,7 @@ class _SquareOffModalState extends State<_SquareOffModal> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () {
+                    HapticFeedback.mediumImpact();
                     widget.onSquareOff(
                       _quantityToClose,
                       _orderType,

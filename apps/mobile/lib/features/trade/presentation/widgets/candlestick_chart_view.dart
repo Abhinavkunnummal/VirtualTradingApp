@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/app_shimmer.dart';
+import '../../../../core/widgets/empty_state_view.dart';
 import '../../../../shared/widgets/loading_state_widget.dart';
 import '../../../../shared/widgets/error_state_widget.dart';
 import 'chart_indicators.dart';
@@ -396,7 +398,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
           SizedBox(
             height: chartHeight,
             child: widget.isLoading
-                ? LoadingStateWidget(message: 'Loading ${widget.symbol} (${widget.selectedInterval}) candles...')
+                ? const ChartSkeleton()
                 : widget.errorMessage != null
                     ? ErrorStateWidget(
                         title: 'Chart Unavailable',
@@ -404,11 +406,10 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                         onRetry: widget.onRetry,
                       )
                     : widget.candles.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No ${widget.selectedInterval} historical ticks for ${widget.symbol}.',
-                              style: AppTypography.bodyMd,
-                            ),
+                        ? EmptyStateView(
+                            icon: Icons.show_chart,
+                            title: 'No Historical Data',
+                            message: 'No ${widget.selectedInterval} historical ticks found for ${widget.symbol}.',
                           )
                         : LayoutBuilder(
                             builder: (context, constraints) {
