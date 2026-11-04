@@ -366,41 +366,48 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        holding.symbol,
-                        style: AppTypography.bodyLg.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainer,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppColors.borderSubtle),
+                  Expanded(
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 2,
+                      children: [
+                        Text(
+                          holding.symbol,
+                          style: AppTypography.bodyLg.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        child: Text(
-                          holding.product,
-                          style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.primary),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainer,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AppColors.borderSubtle),
+                          ),
+                          child: Text(
+                            holding.product,
+                            style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.primary),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '(${holding.exchange})',
-                        style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10),
-                      ),
-                    ],
+                        Text(
+                          '(${holding.exchange})',
+                          style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        '${isPos ? '+' : ''}$currency${pnl.toStringAsFixed(2)}',
-                        style: AppTypography.numericTable.copyWith(
-                          color: isPos ? AppColors.secondary : AppColors.tertiary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '${isPos ? '+' : ''}$currency${pnl.toStringAsFixed(2)}',
+                          style: AppTypography.numericTable.copyWith(
+                            color: isPos ? AppColors.secondary : AppColors.tertiary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                       Text(
@@ -479,11 +486,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
               if (holding.stopLoss != null || holding.targetPrice != null) ...[
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     if (holding.stopLoss != null)
                       Text(
-                        'SL: $currency${holding.stopLoss!.toStringAsFixed(2)}  ',
+                        'SL: $currency${holding.stopLoss!.toStringAsFixed(2)}',
                         style: AppTypography.labelSm.copyWith(color: AppColors.tertiary, fontSize: 10),
                       ),
                     if (holding.targetPrice != null)

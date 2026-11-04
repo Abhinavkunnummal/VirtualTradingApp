@@ -197,13 +197,13 @@ void main() {
       expect(find.text('Total Account Value'), findsOneWidget);
 
       // Open Top Up Modal
-      await tester.tap(find.byIcon(Icons.add_circle_outline));
+      await tester.tap(find.byIcon(Icons.add_circle_outline).first);
       await tester.pumpAndSettle();
       expectNoOverflow(tester);
       expect(find.text('Credit Virtual Funds'), findsOneWidget);
 
       // Close modal
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(find.byIcon(Icons.close).first);
       await tester.pumpAndSettle();
       expectNoOverflow(tester);
 
