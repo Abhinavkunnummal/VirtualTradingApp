@@ -1187,7 +1187,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                   : isIndexOrCommodity
                       ? [1, 2, 5, 10].map((multiplier) {
                           return ActionChip(
-                            label: Text('+${multiplier} Lot${multiplier > 1 ? 's' : ''}', style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                            label: Text('+$multiplier Lot${multiplier > 1 ? 's' : ''}', style: AppTypography.labelSm.copyWith(fontSize: 10)),
                             backgroundColor: AppColors.surfaceContainer,
                             side: const BorderSide(color: AppColors.borderSubtle),
                             onPressed: () => setState(() => _quantity += (multiplier * lotSize)),

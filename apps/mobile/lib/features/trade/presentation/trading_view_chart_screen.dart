@@ -595,58 +595,60 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
                           instrument.symbol,
                           style: AppTypography.headlineSm.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: AppColors.tvCardBg,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppColors.tvBorder),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.tvCardBg,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AppColors.tvBorder),
+                          ),
+                          child: Text(
+                            instrument.exchange,
+                            style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
+                          ),
                         ),
-                        child: Text(
-                          instrument.exchange,
-                          style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Builder(
-                        builder: (context) {
-                          final isDelayed = _isDelayed || liveQuote?.status == 'DELAYED';
-                          final isLive = liveQuote?.status == 'LIVE' || (!isDelayed && (candlesAsync.valueOrNull?.isNotEmpty ?? false) && !instrument.isSimulated);
+                        const SizedBox(width: 6),
+                        Builder(
+                          builder: (context) {
+                            final isDelayed = _isDelayed || liveQuote?.status == 'DELAYED';
+                            final isLive = liveQuote?.status == 'LIVE' || (!isDelayed && (candlesAsync.valueOrNull?.isNotEmpty ?? false) && !instrument.isSimulated);
 
-                          final badgeText = isDelayed ? 'DELAYED 15m' : (isLive ? 'LIVE' : 'SIMULATED');
-                          final badgeColor = isDelayed ? AppColors.warning : (isLive ? AppColors.secondary : AppColors.zerodhaBlue);
+                            final badgeText = isDelayed ? 'DELAYED 15m' : (isLive ? 'LIVE' : 'SIMULATED');
+                            final badgeColor = isDelayed ? AppColors.warning : (isLive ? AppColors.secondary : AppColors.zerodhaBlue);
 
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: badgeColor.withOpacity(0.18),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: badgeColor.withOpacity(0.4),
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: badgeColor.withOpacity(0.18),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: badgeColor.withOpacity(0.4),
+                                ),
                               ),
-                            ),
-                            child: Text(
-                              badgeText,
-                              style: AppTypography.labelSm.copyWith(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: badgeColor,
+                              child: Text(
+                                badgeText,
+                                style: AppTypography.labelSm.copyWith(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: badgeColor,
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                   Text(
                     instrument.name,
@@ -853,6 +855,39 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                                 i.toUpperCase(),
                                 style: AppTypography.labelSm.copyWith(
                                   fontSize: 11,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  color: isSelected ? Colors.white : AppColors.outline,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(width: 6),
+
+                    // Multi-Year Range Selection Pills
+                    Row(
+                      children: ['1D', '5D', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX'].map((r) {
+                        final isSelected = r.toUpperCase() == range.toUpperCase();
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(4),
+                            onTap: () => _changeRange(r),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isSelected ? AppColors.zerodhaBlue : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: isSelected ? AppColors.zerodhaBlue : AppColors.tvBorder,
+                                ),
+                              ),
+                              child: Text(
+                                r,
+                                style: AppTypography.labelSm.copyWith(
+                                  fontSize: 10,
                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                   color: isSelected ? Colors.white : AppColors.outline,
                                 ),
@@ -1213,58 +1248,59 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
             ),
 
             // TradingView Multi-Year History Range Bar (1D, 5D, 1M, 3M, 6M, 1Y, 3Y, 5Y, MAX)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: const BoxDecoration(
-                color: AppColors.tvCardBg,
-                border: Border(
-                  top: BorderSide(color: AppColors.tvBorder),
-                  bottom: BorderSide(color: AppColors.tvBorder),
+            if (MediaQuery.of(context).size.height >= 420)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: const BoxDecoration(
+                  color: AppColors.tvCardBg,
+                  border: Border(
+                    top: BorderSide(color: AppColors.tvBorder),
+                    bottom: BorderSide(color: AppColors.tvBorder),
+                  ),
                 ),
-              ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: [
-                    ...['1D', '5D', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX'].map((r) {
-                      final isSelected = r.toUpperCase() == range.toUpperCase();
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(4),
-                          onTap: () => _changeRange(r),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isSelected ? AppColors.zerodhaBlue : Colors.transparent,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: isSelected ? AppColors.zerodhaBlue : AppColors.tvBorder,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      ...['1D', '5D', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX'].map((r) {
+                        final isSelected = r.toUpperCase() == range.toUpperCase();
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(4),
+                            onTap: () => _changeRange(r),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isSelected ? AppColors.zerodhaBlue : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: isSelected ? AppColors.zerodhaBlue : AppColors.tvBorder,
+                                ),
                               ),
-                            ),
-                            child: Text(
-                              r,
-                              style: AppTypography.labelSm.copyWith(
-                                fontSize: 10,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                color: isSelected ? Colors.white : AppColors.outline,
+                              child: Text(
+                                r,
+                                style: AppTypography.labelSm.copyWith(
+                                  fontSize: 10,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  color: isSelected ? Colors.white : AppColors.outline,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    }),
-                  ],
+                        );
+                      }),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
             // Quick Execution Action Bar (Zerodha / Upstox Pro Dock)
             Container(
               padding: EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: MediaQuery.of(context).size.height < 450 ? 6 : 12,
+                vertical: MediaQuery.of(context).size.height < 450 ? 4 : 12,
               ),
               decoration: const BoxDecoration(
                 color: AppColors.tvCardBg,
@@ -1274,7 +1310,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                 children: [
                   Expanded(
                     child: SizedBox(
-                      height: MediaQuery.of(context).size.height < 450 ? 38 : 48,
+                      height: MediaQuery.of(context).size.height < 450 ? 32 : 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.kiteGreen,
