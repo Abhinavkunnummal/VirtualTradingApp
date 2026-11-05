@@ -196,8 +196,9 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDiscoveryTab(
     BuildContext context, {
@@ -355,9 +356,8 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
           ),
         ),
       ],
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildAssetList(BuildContext context, List<InstrumentModel> instruments) {
     if (instruments.isEmpty) {

@@ -50,7 +50,7 @@ class _AppShellState extends State<AppShell> {
               const SizedBox(width: 8),
               Text(
                 'Press back again to exit TradeVerse',
-                style: AppTypography.bodySm.copyWith(color: AppColors.onSurface),
+                style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
               ),
             ],
           ),
