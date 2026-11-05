@@ -1,7 +1,7 @@
 import { TechnicalIndicatorService, TechnicalIndicators } from './indicators';
 
-export type ExchangeType = 'NSE' | 'BSE' | 'MCX' | 'US' | 'CRYPTO';
-export type AssetCategory = 'EQUITY' | 'INDEX' | 'COMMODITY' | 'CRYPTO' | 'DERIVATIVE';
+export type ExchangeType = 'NSE' | 'BSE' | 'MCX' | 'US' | 'CRYPTO' | 'AMFI' | 'GLOBAL';
+export type AssetCategory = 'EQUITY' | 'INDEX' | 'COMMODITY' | 'CRYPTO' | 'DERIVATIVE' | 'ETF' | 'MUTUAL_FUND' | 'IPO';
 export type CandleInterval = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w' | '1mo' | '1M';
 export type HistoryRange = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | 'MAX' | 'ALL';
 
@@ -115,6 +115,9 @@ export class MarketDataService {
     { symbol: 'AXISBANK', name: 'Axis Bank Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 1180.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.012 },
     { symbol: 'ZOMATO', name: 'Zomato Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 265.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.024 },
     { symbol: 'JIOFIN', name: 'Jio Financial Services', exchange: 'NSE', category: 'EQUITY', basePrice: 320.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.019 },
+    { symbol: 'YESBANK', name: 'Yes Bank Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 20.45, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.020 },
+    { symbol: 'IDEA', name: 'Vodafone Idea Limited (Vi)', exchange: 'NSE', category: 'EQUITY', basePrice: 8.45, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.022 },
+    { symbol: 'KNRCON', name: 'KNR Constructions Limited', exchange: 'NSE', category: 'EQUITY', basePrice: 335.20, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.018 },
 
     // Adani Group Equities (Matches "Adani", "Adhani", "ADANIENT", etc.)
     { symbol: 'ADANIENT', name: 'Adani Enterprises Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 2840.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.022 },
@@ -124,11 +127,35 @@ export class MarketDataService {
     { symbol: 'ADANIPOWER', name: 'Adani Power Ltd.', exchange: 'NSE', category: 'EQUITY', basePrice: 590.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.024 },
     { symbol: 'AMBUJACEM', name: 'Ambuja Cements Ltd. (Adani)', exchange: 'NSE', category: 'EQUITY', basePrice: 560.00, currency: 'INR', lotSize: 1, tickSize: 0.05, volatility: 0.015 },
 
-    // MCX Commodities
-    { symbol: 'GOLD 1KG', name: 'MCX Gold Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 78450.00, currency: 'INR', lotSize: 1, tickSize: 1.0, volatility: 0.006 },
-    { symbol: 'SILVER 30KG', name: 'MCX Silver Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 94200.00, currency: 'INR', lotSize: 30, tickSize: 1.0, volatility: 0.015 },
+    // Indian ETFs
+    { symbol: 'NIFTYBEES', name: 'Nippon India ETF Nifty 50 BeES', exchange: 'NSE', category: 'ETF', basePrice: 272.50, currency: 'INR', lotSize: 1, tickSize: 0.01, volatility: 0.008 },
+    { symbol: 'BANKBEES', name: 'Nippon India ETF Nifty Bank BeES', exchange: 'NSE', category: 'ETF', basePrice: 535.10, currency: 'INR', lotSize: 1, tickSize: 0.01, volatility: 0.010 },
+    { symbol: 'GOLDBEES', name: 'Nippon India ETF Gold BeES', exchange: 'NSE', category: 'ETF', basePrice: 65.40, currency: 'INR', lotSize: 1, tickSize: 0.01, volatility: 0.006 },
+    { symbol: 'SILVERBEES', name: 'Nippon India ETF Silver BeES', exchange: 'NSE', category: 'ETF', basePrice: 91.20, currency: 'INR', lotSize: 1, tickSize: 0.01, volatility: 0.012 },
+    { symbol: 'MON100', name: 'Motilal Oswal Nasdaq 100 ETF', exchange: 'NSE', category: 'ETF', basePrice: 178.60, currency: 'INR', lotSize: 1, tickSize: 0.01, volatility: 0.011 },
+
+    // MCX Commodities & Current-Month Futures Contracts
+    { symbol: 'GOLD', name: 'MCX Gold Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 78450.00, currency: 'INR', lotSize: 1, tickSize: 1.0, volatility: 0.006 },
+    { symbol: 'GOLD 1KG', name: 'MCX Gold Futures 1KG', exchange: 'MCX', category: 'COMMODITY', basePrice: 78450.00, currency: 'INR', lotSize: 1, tickSize: 1.0, volatility: 0.006 },
+    { symbol: 'GOLDFUT', name: 'MCX Gold Current-Month Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 78520.00, currency: 'INR', lotSize: 1, tickSize: 1.0, volatility: 0.006 },
+    { symbol: 'SILVER', name: 'MCX Silver Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 94200.00, currency: 'INR', lotSize: 30, tickSize: 1.0, volatility: 0.015 },
+    { symbol: 'SILVER 30KG', name: 'MCX Silver Futures 30KG', exchange: 'MCX', category: 'COMMODITY', basePrice: 94200.00, currency: 'INR', lotSize: 30, tickSize: 1.0, volatility: 0.015 },
+    { symbol: 'SILVERFUT', name: 'MCX Silver Current-Month Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 94350.00, currency: 'INR', lotSize: 30, tickSize: 1.0, volatility: 0.015 },
     { symbol: 'CRUDEOIL', name: 'Crude Oil 100 BBL', exchange: 'MCX', category: 'COMMODITY', basePrice: 6120.00, currency: 'INR', lotSize: 100, tickSize: 1.0, volatility: 0.022 },
+    { symbol: 'CRUDEOILFUT', name: 'MCX Crude Oil Current-Month Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 6135.00, currency: 'INR', lotSize: 100, tickSize: 1.0, volatility: 0.022 },
     { symbol: 'NATURALGAS', name: 'Natural Gas Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 245.80, currency: 'INR', lotSize: 1250, tickSize: 0.1, volatility: 0.025 },
+    { symbol: 'NATGASFUT', name: 'MCX Natural Gas Current-Month Futures', exchange: 'MCX', category: 'COMMODITY', basePrice: 246.50, currency: 'INR', lotSize: 1250, tickSize: 0.1, volatility: 0.025 },
+
+    // Indian IPOs (Current & Upcoming Listings)
+    { symbol: 'SWIGGY', name: 'Swiggy Limited IPO', exchange: 'NSE', category: 'IPO', basePrice: 390.00, currency: 'INR', lotSize: 38, tickSize: 0.05, volatility: 0.025 },
+    { symbol: 'HYUNDAI', name: 'Hyundai Motor India Ltd IPO', exchange: 'NSE', category: 'IPO', basePrice: 1960.00, currency: 'INR', lotSize: 7, tickSize: 0.05, volatility: 0.020 },
+    { symbol: 'NTPCGREEN', name: 'NTPC Green Energy Ltd IPO', exchange: 'NSE', category: 'IPO', basePrice: 108.00, currency: 'INR', lotSize: 138, tickSize: 0.05, volatility: 0.022 },
+
+    // Indian Mutual Funds (AMFI Daily NAV Master)
+    { symbol: 'AXIS_BLUECHIP', name: 'Axis Bluechip Fund - Direct Plan', exchange: 'AMFI', category: 'MUTUAL_FUND', basePrice: 62.45, currency: 'INR', lotSize: 1, tickSize: 0.01, volatility: 0.004 },
+    { symbol: 'HDFC_TOP100', name: 'HDFC Top 100 Fund - Growth Option', exchange: 'AMFI', category: 'MUTUAL_FUND', basePrice: 1045.30, currency: 'INR', lotSize: 1, tickSize: 0.01, volatility: 0.004 },
+    { symbol: 'NIPPON_SMALLCAP', name: 'Nippon India Small Cap Fund - Growth', exchange: 'AMFI', category: 'MUTUAL_FUND', basePrice: 165.20, currency: 'INR', lotSize: 1, tickSize: 0.01, volatility: 0.005 },
+    { symbol: 'SBI_CONTRA', name: 'SBI Contra Fund - Regular Plan', exchange: 'AMFI', category: 'MUTUAL_FUND', basePrice: 382.15, currency: 'INR', lotSize: 1, tickSize: 0.01, volatility: 0.005 },
 
     // Crypto 24/7
     { symbol: 'BTC/USDT', name: 'Bitcoin 24/7 Simulator', exchange: 'CRYPTO', category: 'CRYPTO', basePrice: 77568.00, currency: 'USD', lotSize: 1, tickSize: 0.01, volatility: 0.028 },
@@ -152,21 +179,22 @@ export class MarketDataService {
   ];
 
   static getInstrument(symbol: string): InstrumentMeta | undefined {
-    const clean = symbol.trim().toUpperCase();
-    const found = this.instruments.find((i) => i.symbol === clean);
+    const rawClean = symbol.trim().toUpperCase();
+    const clean = rawClean.replace(/^(NSE|BSE|MCX|US|CRYPTO|AMFI):/, '');
+    const found = this.instruments.find((i) => i.symbol === clean || i.symbol === rawClean);
     if (found) return found;
 
     try {
       // Lazy lookup from InstrumentMasterService
       const { InstrumentMasterService } = require('./instrumentMaster.service');
-      const master = InstrumentMasterService.getInstrument(clean);
+      const master = InstrumentMasterService.getInstrument(clean) || InstrumentMasterService.getInstrument(rawClean);
       if (master) {
         return {
           symbol: master.symbol,
           name: master.displayName,
           exchange: master.exchange,
           category: (master.assetClass === 'ETF' ? 'EQUITY' : master.assetClass) as AssetCategory,
-          basePrice: master.basePrice || 100.0,
+          basePrice: master.basePrice || master.nav || 100.0,
           currency: master.quoteCurrency,
           lotSize: master.lotSize,
           tickSize: master.tickSize,

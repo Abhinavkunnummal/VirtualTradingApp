@@ -44,7 +44,10 @@ apps/mobile/ios/.symlinks/
 .DS_Store
 Thumbs.db
 
-# Secrets
+# Data & local DB
+.data/
+*.data
+*.log
 *.pem
 *.key
 *.keystore

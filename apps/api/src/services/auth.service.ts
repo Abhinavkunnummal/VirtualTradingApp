@@ -66,8 +66,8 @@ export class AuthService {
       displayName: data.displayName.trim(),
     });
 
-    // Idempotently create Paper Account with starting capital
-    const capital = data.startingCapital || config.startingCapital;
+    // New users start with 0 virtual capital; they can add funds via Add Funds
+    const capital = data.startingCapital !== undefined ? data.startingCapital : 0;
     const existingAccount = await PaperAccount.findOne({ userId: user._id });
     let paperAccount = existingAccount;
     if (!existingAccount) {
@@ -149,8 +149,8 @@ export class AuthService {
     if (!paperAccount) {
       paperAccount = await PaperAccount.create({
         userId: user._id,
-        startingCapital: config.startingCapital,
-        availableCash: config.startingCapital,
+        startingCapital: 0,
+        availableCash: 0,
         reservedMargin: 0,
         baseCurrency: 'INR',
         isSimulated: true,

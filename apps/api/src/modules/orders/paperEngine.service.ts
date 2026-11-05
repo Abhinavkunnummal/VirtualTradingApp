@@ -8,7 +8,7 @@ import { NotificationService } from '../notifications/notification.service';
 export interface SubmitOrderParams {
   userId: string;
   symbol: string;
-  exchange: 'NSE' | 'BSE' | 'MCX' | 'US' | 'CRYPTO';
+  exchange: 'NSE' | 'BSE' | 'MCX' | 'US' | 'CRYPTO' | 'AMFI' | 'GLOBAL';
   side: 'BUY' | 'SELL';
   orderType: 'MARKET' | 'LIMIT' | 'SL' | 'SL_M';
   product: 'CNC' | 'MIS';
@@ -109,6 +109,45 @@ export class PaperTradingEngine {
     }
     if (!quote) {
       throw new Error(`Symbol ${params.symbol} not available in market master or live feed.`);
+    }
+
+    // Validate quantity and asset class rules
+    const cleanSym = params.symbol.toUpperCase().trim();
+    const instMeta = MarketDataService.getInstrument(cleanSym);
+    const category = instMeta?.category || quote.category;
+    const lotSize = instMeta?.lotSize || 1;
+
+    // 1. Crypto: Fractional allowed, must be strictly positive
+    if (category === 'CRYPTO' || params.exchange === 'CRYPTO') {
+      if (params.quantity <= 0) {
+        throw new Error('Crypto order quantity must be greater than zero.');
+      }
+    }
+    // 2. Mutual Funds: Minimum purchase enforcement (₹100 minimum)
+    else if (category === 'MUTUAL_FUND' || params.exchange === 'AMFI') {
+      const orderValue = (params.limitPrice || quote.price) * params.quantity;
+      if (params.side === 'BUY' && orderValue < 100.0) {
+        throw new Error(`Minimum purchase amount for mutual funds is ₹100. Current order value is ₹${orderValue.toFixed(2)}.`);
+      }
+    }
+    // 3. Indices and Commodities: Lot size handling and validation
+    else if (category === 'INDEX' || category === 'COMMODITY' || params.exchange === 'MCX') {
+      if (lotSize > 1) {
+        if (params.quantity % lotSize !== 0) {
+          // If caller entered number of lots (e.g. 1 lot, 2 lots) where quantity < lotSize
+          if (params.quantity < lotSize && Number.isInteger(params.quantity)) {
+            params.quantity = params.quantity * lotSize;
+          } else {
+            throw new Error(`Order quantity (${params.quantity}) must be a multiple of lot size (${lotSize}) for ${params.symbol}.`);
+          }
+        }
+      }
+    }
+    // 4. Regular Equities / ETFs / IPOs
+    else {
+      if (!Number.isInteger(params.quantity) || params.quantity < 1) {
+        throw new Error(`Quantity must be a positive integer for ${params.symbol}.`);
+      }
     }
 
     // Check idempotency if provided

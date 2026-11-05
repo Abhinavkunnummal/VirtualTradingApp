@@ -84,7 +84,7 @@ const OrderSchema = new Schema<IOrder>(
     quantity: {
       type: Number,
       required: true,
-      min: 1,
+      min: 0.00000001,
     },
     filledQuantity: {
       type: Number,

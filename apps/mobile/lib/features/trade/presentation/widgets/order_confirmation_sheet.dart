@@ -10,7 +10,7 @@ class OrderConfirmationSheet extends StatelessWidget {
   final String side;
   final String orderType;
   final String product;
-  final int quantity;
+  final num quantity;
   final double price;
   final double? marginUsed;
   final double? fees;
@@ -43,7 +43,7 @@ class OrderConfirmationSheet extends StatelessWidget {
     required String side,
     required String orderType,
     required String product,
-    required int quantity,
+    required num quantity,
     required double price,
     double? marginUsed,
     double? fees,
@@ -158,7 +158,7 @@ class OrderConfirmationSheet extends StatelessWidget {
               const SizedBox(height: 4),
 
               Text(
-                '$side $quantity share(s) of $symbol on $exchange',
+                '$side ${quantity == quantity.roundToDouble() ? quantity.toInt().toString() : quantity.toStringAsFixed(4)} lot/unit(s) of $symbol on $exchange',
                 style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
                 textAlign: TextAlign.center,
               ),

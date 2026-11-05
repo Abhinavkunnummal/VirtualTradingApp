@@ -345,7 +345,7 @@ class SubmitOrderService {
     required String side,
     required String orderType,
     required String product,
-    required int quantity,
+    required num quantity,
     double? limitPrice,
     double? triggerPrice,
     String orderVariety = 'REGULAR',
@@ -413,7 +413,7 @@ class SubmitOrderService {
         ref.read(portfolioProvider.notifier).addHolding(
           symbol: symbol,
           exchange: exchange,
-          quantity: quantity,
+          quantity: quantity.toInt(),
           buyPrice: fillPrice,
         );
       } catch (_) {
@@ -484,7 +484,7 @@ class SubmitOrderService {
 
   Future<Map<String, dynamic>> squareOffPosition({
     required String symbol,
-    int? quantity,
+    num? quantity,
     String orderType = 'MARKET',
     double? limitPrice,
   }) async {
@@ -496,7 +496,7 @@ class SubmitOrderService {
       final portfolio = ref.read(portfolioProvider).valueOrNull;
       final holding = portfolio?.holdings.where((h) => h.symbol.toUpperCase() == symbol.toUpperCase()).firstOrNull;
       final avgBuy = holding?.averageBuyPrice ?? ltp;
-      final qtyToClose = quantity != null && quantity > 0 ? math.min(quantity, holding?.quantity ?? quantity) : (holding?.quantity ?? 10);
+      final qtyToClose = quantity != null && quantity > 0 ? math.min(quantity.toDouble(), (holding?.quantity ?? quantity).toDouble()) : (holding?.quantity ?? 10).toDouble();
       final gross = qtyToClose * exitPrice;
       final fees = 20.0 + (gross * 0.001);
       final realizedPnl = (exitPrice - avgBuy) * qtyToClose - fees;
@@ -505,7 +505,7 @@ class SubmitOrderService {
       // Update demo portfolio
       ref.read(portfolioProvider.notifier).squareOffHolding(
         symbol: symbol,
-        quantity: qtyToClose,
+        quantity: qtyToClose.toInt(),
         exitPrice: exitPrice,
       );
 

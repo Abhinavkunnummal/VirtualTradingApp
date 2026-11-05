@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +27,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   double? _selectedStrike;
   String _orderType = 'MARKET'; // MARKET, LIMIT, SL, SL_M
   String _orderVariety = 'REGULAR'; // REGULAR, COVER, BRACKET
-  int _quantity = 10;
+  double _quantity = 10.0;
   double? _customPrice;
   double? _targetPrice;
   double? _stopLossPrice;
@@ -481,7 +482,21 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                                   ),
                                   onTap: () {
                                     ref.read(selectedTradeInstrumentProvider.notifier).state = inst;
-                                    setState(() => _customPrice = null);
+                                    final isCrypto = inst.category == 'CRYPTO' || inst.symbol.contains('/');
+                                    final isIndexOrCommodity = inst.category == 'INDEX' || inst.category == 'COMMODITY' || inst.exchange == 'MCX' || inst.lotSize > 1;
+                                    final isMF = inst.category == 'MUTUAL_FUND' || inst.exchange == 'AMFI';
+                                    setState(() {
+                                      _customPrice = null;
+                                      if (isCrypto) {
+                                        _quantity = 0.1;
+                                      } else if (isIndexOrCommodity) {
+                                        _quantity = inst.lotSize.toDouble();
+                                      } else if (isMF) {
+                                        _quantity = (500.0 / (inst.price > 0 ? inst.price : 100.0)).ceilToDouble();
+                                      } else {
+                                        _quantity = 10.0;
+                                      }
+                                    });
                                     Navigator.of(ctx).pop();
                                   },
                                   title: Row(
@@ -549,6 +564,20 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     final holdingPnl = hasHolding ? (holdingCurrent - holdingInvested) : 0.0;
     final holdingPnlPct = (hasHolding && holdingInvested > 0) ? (holdingPnl / holdingInvested) * 100 : 0.0;
     final holdingIsPos = holdingPnl >= 0;
+
+    final isCrypto = instrument.category == 'CRYPTO' ||
+        instrument.symbol.contains('/') ||
+        ['BTC', 'ETH', 'SOL', 'DOGE', 'BNB'].any((c) => instrument.symbol.contains(c));
+    final isMF = instrument.category == 'MUTUAL_FUND' ||
+        instrument.exchange == 'AMFI' ||
+        instrument.symbol.startsWith('MF_') ||
+        instrument.symbol.contains('BLUECHIP') ||
+        instrument.symbol.contains('TOP100');
+    final isIndexOrCommodity = instrument.category == 'INDEX' ||
+        instrument.category == 'COMMODITY' ||
+        instrument.exchange == 'MCX' ||
+        instrument.lotSize > 1;
+    final lotSize = instrument.lotSize > 0 ? instrument.lotSize : 1;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -1070,7 +1099,16 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             const SizedBox(height: 16),
 
             // Quantity Stepper
-            Text('Shares (Quantity)', style: AppTypography.labelSm),
+            Text(
+              isCrypto
+                  ? 'Amount (Fractional allowed)'
+                  : isMF
+                      ? 'Units (Mutual Fund Min ₹100)'
+                      : isIndexOrCommodity
+                          ? 'Quantity (Lot Size: $lotSize)'
+                          : 'Shares (Quantity)',
+              style: AppTypography.labelSm,
+            ),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1085,13 +1123,36 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                   IconButton(
                     icon: const Icon(Icons.remove, color: AppColors.onSurface),
                     onPressed: () {
-                      if (_quantity > 1) setState(() => _quantity--);
+                      if (isCrypto) {
+                        if (_quantity > 0.06) setState(() => _quantity = math.max(0.01, double.parse((_quantity - 0.05).toStringAsFixed(3))));
+                      } else if (isIndexOrCommodity) {
+                        if (_quantity > lotSize) setState(() => _quantity -= lotSize);
+                      } else if (isMF) {
+                        if (_quantity > 5) setState(() => _quantity -= 5);
+                      } else {
+                        if (_quantity > 1) setState(() => _quantity -= 1);
+                      }
                     },
                   ),
-                  Text('$_quantity', style: AppTypography.numericTicker),
+                  Text(
+                    _quantity == _quantity.roundToDouble()
+                        ? _quantity.toInt().toString()
+                        : _quantity.toStringAsFixed(3),
+                    style: AppTypography.numericTicker,
+                  ),
                   IconButton(
                     icon: const Icon(Icons.add, color: AppColors.onSurface),
-                    onPressed: () => setState(() => _quantity++),
+                    onPressed: () {
+                      if (isCrypto) {
+                        setState(() => _quantity = double.parse((_quantity + 0.05).toStringAsFixed(3)));
+                      } else if (isIndexOrCommodity) {
+                        setState(() => _quantity += lotSize);
+                      } else if (isMF) {
+                        setState(() => _quantity += 5);
+                      } else {
+                        setState(() => _quantity += 1);
+                      }
+                    },
                   ),
                 ],
               ),
@@ -1101,14 +1162,44 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 6,
-              children: [10, 25, 50, 100].map((qty) {
-                return ActionChip(
-                  label: Text('+$qty', style: AppTypography.labelSm.copyWith(fontSize: 10)),
-                  backgroundColor: AppColors.surfaceContainer,
-                  side: const BorderSide(color: AppColors.borderSubtle),
-                  onPressed: () => setState(() => _quantity += qty),
-                );
-              }).toList(),
+              children: isCrypto
+                  ? [0.01, 0.05, 0.1, 0.5, 1.0].map((val) {
+                      return ActionChip(
+                        label: Text('+$val', style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                        backgroundColor: AppColors.surfaceContainer,
+                        side: const BorderSide(color: AppColors.borderSubtle),
+                        onPressed: () => setState(() => _quantity = double.parse((_quantity + val).toStringAsFixed(3))),
+                      );
+                    }).toList()
+                  : isIndexOrCommodity
+                      ? [1, 2, 5, 10].map((multiplier) {
+                          return ActionChip(
+                            label: Text('+${multiplier} Lot${multiplier > 1 ? 's' : ''}', style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                            backgroundColor: AppColors.surfaceContainer,
+                            side: const BorderSide(color: AppColors.borderSubtle),
+                            onPressed: () => setState(() => _quantity += (multiplier * lotSize)),
+                          );
+                        }).toList()
+                      : isMF
+                          ? [100, 500, 1000, 2500].map((amount) {
+                              return ActionChip(
+                                label: Text('₹$amount', style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                                backgroundColor: AppColors.surfaceContainer,
+                                side: const BorderSide(color: AppColors.borderSubtle),
+                                onPressed: () {
+                                  final units = (amount / (ltp > 0 ? ltp : 100.0)).ceilToDouble();
+                                  setState(() => _quantity = math.max(1.0, units));
+                                },
+                              );
+                            }).toList()
+                          : [10, 25, 50, 100].map((qty) {
+                              return ActionChip(
+                                label: Text('+$qty', style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                                backgroundColor: AppColors.surfaceContainer,
+                                side: const BorderSide(color: AppColors.borderSubtle),
+                                onPressed: () => setState(() => _quantity += qty),
+                              );
+                            }).toList(),
             ),
             const SizedBox(height: 16),
 

@@ -9,18 +9,18 @@ import { MarketDataService } from '../market-data/marketData.service';
 export const ordersRouter = express.Router();
 
 const SquareOffSchema = z.object({
-  quantity: z.number().int().positive().optional(),
+  quantity: z.number().positive().optional(),
   orderType: z.enum(['MARKET', 'LIMIT']).default('MARKET'),
   limitPrice: z.number().positive().optional(),
 });
 
 const SubmitOrderSchema = z.object({
   symbol: z.string().min(1, 'Symbol is required').trim().toUpperCase(),
-  exchange: z.enum(['NSE', 'BSE', 'MCX', 'US', 'CRYPTO']).default('NSE'),
+  exchange: z.enum(['NSE', 'BSE', 'MCX', 'US', 'CRYPTO', 'AMFI', 'GLOBAL']).default('NSE'),
   side: z.enum(['BUY', 'SELL']),
   orderType: z.enum(['MARKET', 'LIMIT', 'SL', 'SL_M']),
   product: z.enum(['CNC', 'MIS']).default('CNC'),
-  quantity: z.number().int().positive('Quantity must be greater than zero'),
+  quantity: z.number().positive('Quantity must be greater than zero'),
   limitPrice: z.number().positive().optional(),
   triggerPrice: z.number().positive().optional(),
   idempotencyKey: z.string().optional(),

@@ -51,6 +51,9 @@ export const SYMBOL_MAPPINGS: Record<string, SymbolMeta> = {
   'AXISBANK': { yf: 'AXISBANK.NS', category: 'EQUITY', exchange: 'NSE', name: 'Axis Bank Limited' },
   'ZOMATO': { yf: 'ZOMATO.NS', category: 'EQUITY', exchange: 'NSE', name: 'Zomato Limited' },
   'JIOFIN': { yf: 'JIOFIN.NS', category: 'EQUITY', exchange: 'NSE', name: 'Jio Financial Services' },
+  'YESBANK': { yf: 'YESBANK.NS', category: 'EQUITY', exchange: 'NSE', name: 'Yes Bank Limited' },
+  'IDEA': { yf: 'IDEA.NS', category: 'EQUITY', exchange: 'NSE', name: 'Vodafone Idea Limited (Vi)' },
+  'KNRCON': { yf: 'KNRCON.NS', category: 'EQUITY', exchange: 'NSE', name: 'KNR Constructions Limited' },
 
   // Adani Group Equities
   'ADANIENT': { yf: 'ADANIENT.NS', category: 'EQUITY', exchange: 'NSE', name: 'Adani Enterprises Ltd.' },
@@ -66,11 +69,36 @@ export const SYMBOL_MAPPINGS: Record<string, SymbolMeta> = {
   'FINNIFTY': { yf: 'NIFTY_FIN_SERVICE.NS', category: 'INDEX', exchange: 'NSE', name: 'Nifty Financial Services' },
   'SENSEX': { yf: '^BSESN', category: 'INDEX', exchange: 'BSE', name: 'BSE Sensex Index' },
 
-  // MCX Commodities
-  'GOLD 1KG': { yf: 'GC=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Gold Futures' },
-  'SILVER 30KG': { yf: 'SI=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Silver Futures' },
-  'CRUDEOIL': { yf: 'CL=F', category: 'COMMODITY', exchange: 'MCX', name: 'Crude Oil Futures' },
+  // Indian ETFs
+  'NIFTYBEES': { yf: 'NIFTYBEES.NS', category: 'ETF', exchange: 'NSE', name: 'Nippon India ETF Nifty 50 BeES' },
+  'BANKBEES': { yf: 'BANKBEES.NS', category: 'ETF', exchange: 'NSE', name: 'Nippon India ETF Nifty Bank BeES' },
+  'GOLDBEES': { yf: 'GOLDBEES.NS', category: 'ETF', exchange: 'NSE', name: 'Nippon India ETF Gold BeES' },
+  'SILVERBEES': { yf: 'SILVERBEES.NS', category: 'ETF', exchange: 'NSE', name: 'Nippon India ETF Silver BeES' },
+  'MON100': { yf: 'MON100.NS', category: 'ETF', exchange: 'NSE', name: 'Motilal Oswal Nasdaq 100 ETF' },
+
+  // MCX Commodities & Current-Month Futures Contracts
+  'GOLD': { yf: 'GC=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Gold Futures' },
+  'GOLD 1KG': { yf: 'GC=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Gold Futures 1KG' },
+  'GOLDFUT': { yf: 'GC=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Gold Current-Month Futures' },
+  'SILVER': { yf: 'SI=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Silver Futures' },
+  'SILVER 30KG': { yf: 'SI=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Silver Futures 30KG' },
+  'SILVERFUT': { yf: 'SI=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Silver Current-Month Futures' },
+  'CRUDEOIL': { yf: 'CL=F', category: 'COMMODITY', exchange: 'MCX', name: 'Crude Oil Futures 100 BBL' },
+  'CRUDE': { yf: 'CL=F', category: 'COMMODITY', exchange: 'MCX', name: 'Crude Oil Futures 100 BBL' },
+  'CRUDEOILFUT': { yf: 'CL=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Crude Oil Current-Month Futures' },
   'NATURALGAS': { yf: 'NG=F', category: 'COMMODITY', exchange: 'MCX', name: 'Natural Gas Futures' },
+  'NATGASFUT': { yf: 'NG=F', category: 'COMMODITY', exchange: 'MCX', name: 'MCX Natural Gas Current-Month Futures' },
+
+  // Indian IPOs (Current & Upcoming Listings)
+  'SWIGGY': { yf: 'SWIGGY.NS', category: 'IPO', exchange: 'NSE', name: 'Swiggy Limited IPO' },
+  'HYUNDAI': { yf: 'HYUNDAI.NS', category: 'IPO', exchange: 'NSE', name: 'Hyundai Motor India Ltd IPO' },
+  'NTPCGREEN': { yf: 'NTPCGREEN.NS', category: 'IPO', exchange: 'NSE', name: 'NTPC Green Energy Ltd IPO' },
+
+  // Indian Mutual Funds (AMFI Daily NAV Master)
+  'AXIS_BLUECHIP': { yf: '120465.MF', category: 'MUTUAL_FUND', exchange: 'AMFI', name: 'Axis Bluechip Fund - Direct Plan' },
+  'HDFC_TOP100': { yf: '101206.MF', category: 'MUTUAL_FUND', exchange: 'AMFI', name: 'HDFC Top 100 Fund - Growth Option' },
+  'NIPPON_SMALLCAP': { yf: '118989.MF', category: 'MUTUAL_FUND', exchange: 'AMFI', name: 'Nippon India Small Cap Fund' },
+  'SBI_CONTRA': { yf: '100377.MF', category: 'MUTUAL_FUND', exchange: 'AMFI', name: 'SBI Contra Fund - Regular Plan' },
 
   // Crypto 24/7
   'BTC/USDT': { yf: 'BTC-USD', twelve: 'BTC/USD', finnhub: 'BINANCE:BTCUSDT', category: 'CRYPTO', exchange: 'CRYPTO', name: 'Bitcoin 24/7' },
@@ -194,6 +222,27 @@ export class RealtimeMarketService {
           yf: `${master.symbol}.BO`,
           category: master.assetClass as any,
           exchange: 'BSE',
+          name: master.displayName,
+        };
+      } else if (master.exchange === 'MCX') {
+        const yfSym = master.symbol.includes('GOLD')
+          ? 'GC=F'
+          : master.symbol.includes('SILVER')
+          ? 'SI=F'
+          : master.symbol.includes('CRUDE')
+          ? 'CL=F'
+          : 'NG=F';
+        return {
+          yf: yfSym,
+          category: 'COMMODITY',
+          exchange: 'MCX',
+          name: master.displayName,
+        };
+      } else if (master.exchange === 'AMFI') {
+        return {
+          yf: `${master.symbol}.MF`,
+          category: 'MUTUAL_FUND',
+          exchange: 'AMFI',
           name: master.displayName,
         };
       } else if (master.exchange === 'US') {

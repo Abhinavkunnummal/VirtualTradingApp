@@ -145,6 +145,43 @@ export const ALIAS_MAP: Record<string, string[]> = {
   meta: ['META'],
   facebook: ['META'],
   netflix: ['NFLX'],
+  // Commodities & Futures
+  gold: ['GOLD', 'GOLD 1KG', 'GOLDFUT'],
+  'gold 1kg': ['GOLD 1KG', 'GOLD'],
+  'gold fut': ['GOLDFUT'],
+  silver: ['SILVER', 'SILVER 30KG', 'SILVERFUT'],
+  'silver 30kg': ['SILVER 30KG', 'SILVER'],
+  'silver fut': ['SILVERFUT'],
+  crude: ['CRUDEOIL', 'CRUDEOILFUT'],
+  crudeoil: ['CRUDEOIL', 'CRUDEOILFUT'],
+  'crude oil': ['CRUDEOIL', 'CRUDEOILFUT'],
+  'crude oil fut': ['CRUDEOILFUT'],
+  naturalgas: ['NATURALGAS', 'NATGASFUT'],
+  'natural gas': ['NATURALGAS', 'NATGASFUT'],
+  natgas: ['NATURALGAS', 'NATGASFUT'],
+  // Indian IPOs
+  swiggy: ['SWIGGY'],
+  'swiggy ipo': ['SWIGGY'],
+  hyundai: ['HYUNDAI'],
+  'hyundai ipo': ['HYUNDAI'],
+  ntpcgreen: ['NTPCGREEN'],
+  'ntpc green': ['NTPCGREEN'],
+  ipo: ['SWIGGY', 'HYUNDAI', 'NTPCGREEN'],
+  // Mutual Funds
+  axis_bluechip: ['AXIS_BLUECHIP', '120465'],
+  'axis bluechip': ['AXIS_BLUECHIP', '120465'],
+  hdfc_top100: ['HDFC_TOP100', '101206'],
+  'hdfc top 100': ['HDFC_TOP100', '101206'],
+  nippon_smallcap: ['NIPPON_SMALLCAP', '118989'],
+  'nippon small cap': ['NIPPON_SMALLCAP', '118989'],
+  sbi_contra: ['SBI_CONTRA', '100377'],
+  'sbi contra': ['SBI_CONTRA', '100377'],
+  '120465': ['AXIS_BLUECHIP'],
+  '101206': ['HDFC_TOP100'],
+  '118989': ['NIPPON_SMALLCAP'],
+  '100377': ['SBI_CONTRA'],
+  mf: ['AXIS_BLUECHIP', 'HDFC_TOP100', 'NIPPON_SMALLCAP', 'SBI_CONTRA'],
+  'mutual fund': ['AXIS_BLUECHIP', 'HDFC_TOP100', 'NIPPON_SMALLCAP', 'SBI_CONTRA'],
 };
 
 /**
@@ -254,11 +291,22 @@ export const CURATED_INSTRUMENTS: NormalizedInstrument[] = [
   { instrumentId: 'BSE:CDSL', symbol: 'CDSL', displayName: 'Central Depository Services Ltd.', assetClass: 'EQUITY', exchange: 'BSE', quoteCurrency: 'INR', tickSize: 0.05, lotSize: 1, basePrice: 1480.00, isin: 'INE736A01011', segment: 'EQ', tradingStatus: 'ACTIVE', popularity: 740 },
   { instrumentId: 'BSE:POLYCAB', symbol: 'POLYCAB', displayName: 'Polycab India Limited', assetClass: 'EQUITY', exchange: 'BSE', quoteCurrency: 'INR', tickSize: 0.05, lotSize: 1, basePrice: 6850.00, isin: 'INE455K01017', segment: 'EQ', tradingStatus: 'ACTIVE', popularity: 710 },
 
-  // MCX Commodities
-  { instrumentId: 'MCX:GOLD 1KG', symbol: 'GOLD 1KG', displayName: 'MCX Gold Futures', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 1, basePrice: 78450.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 800 },
-  { instrumentId: 'MCX:SILVER 30KG', symbol: 'SILVER 30KG', displayName: 'MCX Silver Futures', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 30, basePrice: 94200.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 780 },
-  { instrumentId: 'MCX:CRUDEOIL', symbol: 'CRUDEOIL', displayName: 'MCX Crude Oil 100 BBL', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 100, basePrice: 6120.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 750 },
-  { instrumentId: 'MCX:NATURALGAS', symbol: 'NATURALGAS', displayName: 'MCX Natural Gas Futures', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 0.1, lotSize: 1250, basePrice: 245.80, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 700 },
+  // MCX Commodities & Current-Month Futures Contracts
+  { instrumentId: 'MCX:GOLD', symbol: 'GOLD', displayName: 'MCX Gold Futures', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 1, basePrice: 78450.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 820, aliases: ['gold', 'gold 1kg'] },
+  { instrumentId: 'MCX:GOLD 1KG', symbol: 'GOLD 1KG', displayName: 'MCX Gold Futures 1KG', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 1, basePrice: 78450.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 800, aliases: ['gold', 'gold 1kg'] },
+  { instrumentId: 'MCX:GOLDFUT', symbol: 'GOLDFUT', displayName: 'MCX Gold Current-Month Futures (Nov 2024)', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 1, basePrice: 78520.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 790, aliases: ['gold fut', 'goldfut'] },
+  { instrumentId: 'MCX:SILVER', symbol: 'SILVER', displayName: 'MCX Silver Futures', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 30, basePrice: 94200.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 790, aliases: ['silver', 'silver 30kg'] },
+  { instrumentId: 'MCX:SILVER 30KG', symbol: 'SILVER 30KG', displayName: 'MCX Silver Futures 30KG', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 30, basePrice: 94200.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 780, aliases: ['silver', 'silver 30kg'] },
+  { instrumentId: 'MCX:SILVERFUT', symbol: 'SILVERFUT', displayName: 'MCX Silver Current-Month Futures (Dec 2024)', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 30, basePrice: 94350.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 770, aliases: ['silver fut', 'silverfut'] },
+  { instrumentId: 'MCX:CRUDEOIL', symbol: 'CRUDEOIL', displayName: 'MCX Crude Oil 100 BBL', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 100, basePrice: 6120.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 810, aliases: ['crude', 'crudeoil', 'crude oil'] },
+  { instrumentId: 'MCX:CRUDEOILFUT', symbol: 'CRUDEOILFUT', displayName: 'MCX Crude Oil Current-Month Futures (Nov 2024)', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 1.0, lotSize: 100, basePrice: 6135.00, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 800, aliases: ['crude fut', 'crudeoil fut'] },
+  { instrumentId: 'MCX:NATURALGAS', symbol: 'NATURALGAS', displayName: 'MCX Natural Gas Futures', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 0.1, lotSize: 1250, basePrice: 245.80, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 750, aliases: ['naturalgas', 'natgas'] },
+  { instrumentId: 'MCX:NATGASFUT', symbol: 'NATGASFUT', displayName: 'MCX Natural Gas Current-Month Futures (Nov 2024)', assetClass: 'COMMODITY', exchange: 'MCX', quoteCurrency: 'INR', tickSize: 0.1, lotSize: 1250, basePrice: 246.50, segment: 'COM', tradingStatus: 'ACTIVE', popularity: 740, aliases: ['natural gas fut', 'natgasfut'] },
+
+  // Indian IPOs (Current & Upcoming Listings)
+  { instrumentId: 'NSE:SWIGGY', symbol: 'SWIGGY', displayName: 'Swiggy Limited IPO', assetClass: 'IPO', exchange: 'NSE', quoteCurrency: 'INR', tickSize: 0.05, lotSize: 38, basePrice: 390.00, segment: 'IPO', tradingStatus: 'ACTIVE', popularity: 890, aliases: ['swiggy', 'swiggy ipo'] },
+  { instrumentId: 'NSE:HYUNDAI', symbol: 'HYUNDAI', displayName: 'Hyundai Motor India Ltd IPO', assetClass: 'IPO', exchange: 'NSE', quoteCurrency: 'INR', tickSize: 0.05, lotSize: 7, basePrice: 1960.00, segment: 'IPO', tradingStatus: 'ACTIVE', popularity: 870, aliases: ['hyundai', 'hyundai ipo'] },
+  { instrumentId: 'NSE:NTPCGREEN', symbol: 'NTPCGREEN', displayName: 'NTPC Green Energy Ltd IPO', assetClass: 'IPO', exchange: 'NSE', quoteCurrency: 'INR', tickSize: 0.05, lotSize: 138, basePrice: 108.00, segment: 'IPO', tradingStatus: 'ACTIVE', popularity: 850, aliases: ['ntpc green', 'ntpcgreen', 'ntpc ipo'] },
 
   // Crypto 24/7 Spot Pairs
   { instrumentId: 'CRYPTO:BTC/USDT', symbol: 'BTC/USDT', displayName: 'Bitcoin 24/7 Live Stream', assetClass: 'CRYPTO', exchange: 'CRYPTO', quoteCurrency: 'USD', tickSize: 0.01, lotSize: 1, basePrice: 77568.00, segment: 'CRYPTO', tradingStatus: 'ACTIVE', popularity: 999, aliases: ['btc', 'bitcoin'] },
@@ -327,6 +375,10 @@ export class InstrumentMasterService {
       this.memoryCatalog.set(item.symbol.toUpperCase(), item);
       this.memoryCatalog.set(`${item.exchange}:${item.symbol}`.toUpperCase(), item);
       this.memoryCatalog.set(item.instrumentId.toUpperCase(), item);
+      if (item.schemeCode) {
+        this.memoryCatalog.set(item.schemeCode.toUpperCase(), item);
+        this.memoryCatalog.set(`AMFI:${item.schemeCode}`.toUpperCase(), item);
+      }
     }
   }
 
@@ -342,10 +394,8 @@ export class InstrumentMasterService {
     try {
       const count = await Instrument.countDocuments();
 
-      if (count === 0) {
-        // Upsert curated baseline first so DB is never blank
-        await this.persistBatch(CURATED_INSTRUMENTS);
-      }
+      // Always persist curated baseline so newly added target instruments are present in DB
+      await this.persistBatch(CURATED_INSTRUMENTS);
 
       if (count < 1000) {
         if (process.env.NODE_ENV !== 'test') {
@@ -1044,13 +1094,16 @@ export class InstrumentMasterService {
    */
   public static getInstrument(symbol: string): NormalizedInstrument | undefined {
     const clean = symbol.trim().toUpperCase();
+    const bare = clean.replace(/^(NSE|BSE|MCX|US|CRYPTO|AMFI):/, '');
     return (
       this.memoryCatalog.get(clean) ||
-      this.memoryCatalog.get(`NSE:${clean}`) ||
-      this.memoryCatalog.get(`BSE:${clean}`) ||
-      this.memoryCatalog.get(`US:${clean}`) ||
-      this.memoryCatalog.get(`CRYPTO:${clean}`) ||
-      this.memoryCatalog.get(`AMFI:${clean}`)
+      this.memoryCatalog.get(bare) ||
+      this.memoryCatalog.get(`NSE:${bare}`) ||
+      this.memoryCatalog.get(`BSE:${bare}`) ||
+      this.memoryCatalog.get(`MCX:${bare}`) ||
+      this.memoryCatalog.get(`US:${bare}`) ||
+      this.memoryCatalog.get(`CRYPTO:${bare}`) ||
+      this.memoryCatalog.get(`AMFI:${bare}`)
     );
   }
 
@@ -1059,6 +1112,7 @@ export class InstrumentMasterService {
    */
   public static async getInstrumentAsync(symbol: string): Promise<NormalizedInstrument | undefined> {
     const clean = symbol.trim().toUpperCase();
+    const bare = clean.replace(/^(NSE|BSE|MCX|US|CRYPTO|AMFI):/, '');
     const existing = this.getInstrument(clean);
     if (existing) return existing;
 
@@ -1067,12 +1121,16 @@ export class InstrumentMasterService {
         const doc = (await Instrument.findOne({
           $or: [
             { symbol: clean },
+            { symbol: bare },
             { instrumentId: clean },
-            { instrumentId: `NSE:${clean}` },
-            { instrumentId: `BSE:${clean}` },
-            { instrumentId: `US:${clean}` },
-            { instrumentId: `CRYPTO:${clean}` },
-            { instrumentId: `AMFI:${clean}` },
+            { instrumentId: bare },
+            { instrumentId: `NSE:${bare}` },
+            { instrumentId: `BSE:${bare}` },
+            { instrumentId: `MCX:${bare}` },
+            { instrumentId: `US:${bare}` },
+            { instrumentId: `CRYPTO:${bare}` },
+            { instrumentId: `AMFI:${bare}` },
+            { schemeCode: bare },
           ],
         }).lean()) as any;
 
