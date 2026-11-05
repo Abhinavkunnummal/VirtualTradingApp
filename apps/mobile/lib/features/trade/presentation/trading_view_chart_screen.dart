@@ -437,6 +437,80 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     );
   }
 
+  void _showAiInsightsDetailSheet(BuildContext context, InstrumentModel instrument) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, color: AppColors.zerodhaBlue, size: 20),
+                      const SizedBox(width: 8),
+                      Text('AI Technical Insight', style: AppTypography.headlineSm),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Symbol: ${instrument.symbol} (${instrument.name})',
+                style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              if (_detectedPatterns.isNotEmpty) ...[
+                Text('Detected Chart Patterns:', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                ..._detectedPatterns.map((p) => Text('• $p', style: AppTypography.bodyMd.copyWith(fontSize: 12))),
+                const SizedBox(height: 8),
+              ] else ...[
+                Text('Real-time Heuristic Pattern Engine Active', style: AppTypography.bodyMd.copyWith(fontSize: 12)),
+                const SizedBox(height: 8),
+              ],
+              if (_supportLevels.isNotEmpty || _resistanceLevels.isNotEmpty) ...[
+                Text('Key Technical Levels:', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                if (_supportLevels.isNotEmpty)
+                  Text('Supports: ${_supportLevels.map((s) => "₹${s.toStringAsFixed(1)}").join(" | ")}', style: AppTypography.bodyMd.copyWith(color: AppColors.secondary, fontSize: 12)),
+                if (_resistanceLevels.isNotEmpty)
+                  Text('Resistances: ${_resistanceLevels.map((r) => "₹${r.toStringAsFixed(1)}").join(" | ")}', style: AppTypography.bodyMd.copyWith(color: AppColors.tertiary, fontSize: 12)),
+                const SizedBox(height: 8),
+              ],
+              const Divider(color: AppColors.borderSubtle),
+              const SizedBox(height: 4),
+              Text(
+                'Disclaimer: Technical insights and pattern recognition are generated automatically by heuristic algorithms for educational paper trading purposes only. This does not constitute financial, investment, or trading advice.',
+                style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final InstrumentModel instrument = widget.instrument ?? ref.watch(selectedTradeInstrumentProvider);
@@ -920,13 +994,15 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
 
             // AI Pattern & Support/Resistance Insights Banner
             if (_isAutoAnalysisEnabled)
-              Container(
+              InkWell(
                 key: const ValueKey('chart_ai_insights_banner'),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: const BoxDecoration(
-                  color: AppColors.surfaceLowest,
-                  border: Border(bottom: BorderSide(color: AppColors.tvBorder)),
-                ),
+                onTap: () => _showAiInsightsDetailSheet(context, instrument),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: const BoxDecoration(
+                    color: AppColors.surfaceLowest,
+                    border: Border(bottom: BorderSide(color: AppColors.tvBorder)),
+                  ),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
@@ -1000,6 +1076,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                   ),
                 ),
               ),
+            ),
 
             // Interactive Drawing Tools Secondary Toolbar
             if (_showDrawingTools)

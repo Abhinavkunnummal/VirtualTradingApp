@@ -436,6 +436,71 @@ final marketOverviewProvider = FutureProvider<List<InstrumentModel>>((ref) async
       isPositive: true,
       isSimulated: true,
     ),
+    InstrumentModel(
+      symbol: 'SWIGGY',
+      name: 'Swiggy Limited (Recent IPO)',
+      exchange: 'NSE',
+      category: 'IPO',
+      price: 456.20,
+      change: 12.40,
+      changePercent: 2.79,
+      isPositive: true,
+      isSimulated: true,
+      lotSize: 38,
+      tickSize: 0.05,
+    ),
+    InstrumentModel(
+      symbol: 'HYUNDAI',
+      name: 'Hyundai Motor India Ltd. (Recent IPO)',
+      exchange: 'NSE',
+      category: 'IPO',
+      price: 1820.50,
+      change: -14.20,
+      changePercent: -0.77,
+      isPositive: false,
+      isSimulated: true,
+      lotSize: 7,
+      tickSize: 0.05,
+    ),
+    InstrumentModel(
+      symbol: 'NTPCGREEN',
+      name: 'NTPC Green Energy Ltd. (Recent IPO)',
+      exchange: 'NSE',
+      category: 'IPO',
+      price: 108.40,
+      change: 3.10,
+      changePercent: 2.94,
+      isPositive: true,
+      isSimulated: true,
+      lotSize: 138,
+      tickSize: 0.05,
+    ),
+    InstrumentModel(
+      symbol: 'AXIS_BLUECHIP',
+      name: 'Axis Bluechip Growth Fund',
+      exchange: 'AMFI',
+      category: 'MUTUAL_FUND',
+      price: 62.45,
+      change: 0.45,
+      changePercent: 0.73,
+      isPositive: true,
+      isSimulated: true,
+      lotSize: 1,
+      tickSize: 0.01,
+    ),
+    InstrumentModel(
+      symbol: 'HDFC_TOP100',
+      name: 'HDFC Top 100 Growth Direct',
+      exchange: 'AMFI',
+      category: 'MUTUAL_FUND',
+      price: 1045.20,
+      change: 8.60,
+      changePercent: 0.83,
+      isPositive: true,
+      isSimulated: true,
+      lotSize: 1,
+      tickSize: 0.01,
+    ),
   ];
 });
 
@@ -494,6 +559,12 @@ final instrumentSearchResultsProvider = FutureProvider<List<InstrumentModel>>((r
     categoryParam = 'INDEX';
   } else if (filter == 'ETFs') {
     categoryParam = 'ETF';
+  } else if (filter == 'Commodities') {
+    categoryParam = 'COMMODITY';
+  } else if (filter == 'Mutual Funds') {
+    categoryParam = 'MUTUAL_FUND';
+  } else if (filter == 'IPOs') {
+    categoryParam = 'IPO';
   }
 
   if (!isTest) {

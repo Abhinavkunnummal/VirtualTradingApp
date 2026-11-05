@@ -36,6 +36,9 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
     'US',
     'Indices',
     'ETFs',
+    'Commodities',
+    'Mutual Funds',
+    'IPOs',
   ];
 
   @override
