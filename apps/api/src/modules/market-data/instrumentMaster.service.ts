@@ -407,6 +407,22 @@ export class InstrumentMasterService {
         }
       } else {
         console.log(`[InstrumentMaster] Master catalog already loaded with ${count} instruments. Keeping active data.`);
+        // Free-tier wake-up check: verify if last sync was > 24 hours ago
+        if (process.env.NODE_ENV !== 'test') {
+          try {
+            const newestDoc = (await Instrument.findOne().sort({ updatedAt: -1 }).select('updatedAt').lean()) as Record<string, any> | null;
+            const lastUpdated = newestDoc?.updatedAt ? new Date(newestDoc.updatedAt).getTime() : 0;
+            const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+            if (lastUpdated > 0 && lastUpdated < oneDayAgo) {
+              console.log('[InstrumentMaster] Last master catalog sync was > 24 hours ago. Triggering daily background refresh on wake-up...');
+              this.syncFromUpstream().catch((err) => {
+                console.warn('[InstrumentMaster] Wake-up daily sync notice:', err.message);
+              });
+            }
+          } catch {
+            // Ignore check error
+          }
+        }
       }
 
       // Preload active & popular instruments from MongoDB into memory catalog for O(1) lookups

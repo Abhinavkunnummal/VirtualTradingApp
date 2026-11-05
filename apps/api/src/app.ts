@@ -2,7 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import mongoose from 'mongoose';
 import { config } from './config';
+import { AngelOneService } from './modules/market-data/angelOne.service';
 import { errorHandler } from './middleware/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
 import { paperAccountRouter } from './modules/paper-accounts/paperAccount.routes';
@@ -21,7 +23,22 @@ export function createApp(): express.Application {
 
   // Security Middleware
   app.use(helmet({ contentSecurityPolicy: false }));
-  app.use(cors({ origin: config.corsOrigins, credentials: true }));
+
+  // Dynamic CORS origin handler supporting "*" and comma-separated domains
+  const allowedOrigins = config.corsOrigins === '*'
+    ? '*'
+    : config.corsOrigins.split(',').map((o) => o.trim());
+
+  app.use(cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins === '*' || (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin))) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS origin not allowed: ${origin}`));
+      }
+    },
+    credentials: true,
+  }));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
 
@@ -35,13 +52,37 @@ export function createApp(): express.Application {
 
   // Health & Monitoring Probes
   app.get('/health', (req, res) => {
+    const mongoState = mongoose.connection.readyState;
+    const dbStatus = mongoState === 1 ? 'connected' : (mongoState === 2 ? 'connecting' : 'disconnected');
+
+    const angelOneConfigured = AngelOneService.isConfigured();
+    const angelOneConnected = AngelOneService.isConnected();
+    const angelOneStatus = angelOneConnected ? 'connected' : (angelOneConfigured ? 'connecting' : 'not configured');
+
+    const binanceStatus = 'connected';
+    const finnhubStatus = config.finnhubApiKey ? 'connected' : 'delayed';
+    const twelveDataStatus = config.twelveDataApiKey ? 'connected' : 'not configured';
+    const alphaVantageStatus = config.alphaVantageApiKey ? 'configured' : 'not configured';
+
     res.status(200).json({
       status: 'healthy',
       version: '1.0.0',
       timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
       environment: config.nodeEnv,
+      database: {
+        status: dbStatus,
+        name: mongoose.connection.name || 'tradeverse',
+      },
+      providers: {
+        angelOne: angelOneStatus,
+        binance: binanceStatus,
+        finnhub: finnhubStatus,
+        twelveData: twelveDataStatus,
+        alphaVantage: alphaVantageStatus,
+      },
       services: {
-        database: 'configured',
+        database: dbStatus,
         paperEngine: 'active',
         marketData: 'active',
       },

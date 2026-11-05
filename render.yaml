@@ -22,5 +22,21 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: "*"
+      - key: STARTING_CAPITAL
+        value: "0"
+      - key: ANGEL_ONE_API_KEY
+        sync: false
+      - key: ANGEL_ONE_CLIENT_CODE
+        sync: false
+      - key: ANGEL_ONE_PIN
+        sync: false
+      - key: ANGEL_ONE_TOTP_SECRET
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: TWELVE_DATA_API_KEY
+        sync: false
       - key: ALPHA_VANTAGE_API_KEY
         sync: false
+      - key: BINANCE_WS_URL
+        value: "wss://stream.binance.com:9443/ws"

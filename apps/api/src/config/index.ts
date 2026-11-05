@@ -59,3 +59,34 @@ export const config = {
   isProduction: env.NODE_ENV === 'production',
   isTest: env.NODE_ENV === 'test',
 };
+
+export function validateEnvironment(): { isValid: boolean; missing: string[]; warnings: string[] } {
+  const missing: string[] = [];
+  const warnings: string[] = [];
+
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.MONGODB_URI) missing.push('MONGODB_URI');
+    if (!process.env.JWT_ACCESS_SECRET) missing.push('JWT_ACCESS_SECRET');
+    if (!process.env.JWT_REFRESH_SECRET) missing.push('JWT_REFRESH_SECRET');
+  }
+
+  if (!process.env.ANGEL_ONE_API_KEY || !process.env.ANGEL_ONE_CLIENT_CODE) {
+    warnings.push('ANGEL_ONE_API_KEY / CLIENT_CODE (Realtime Indian market feed falling back to simulated ticks / delayed quotes)');
+  }
+  if (!process.env.FINNHUB_API_KEY) {
+    warnings.push('FINNHUB_API_KEY (US stock trades will show Delayed badge)');
+  }
+
+  if (missing.length > 0) {
+    console.error(`[Fatal Config Error] Missing required production environment variables: ${missing.join(', ')} (secret values are never printed)`);
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(`Fatal: Missing required environment variables: ${missing.join(', ')}`);
+    }
+  }
+
+  if (warnings.length > 0 && process.env.NODE_ENV !== 'test') {
+    console.warn(`[Config Notice] Optional provider environment variables not configured: ${warnings.join('; ')}`);
+  }
+
+  return { isValid: missing.length === 0, missing, warnings };
+}

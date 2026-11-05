@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build_apk:
-    name: Build Android APK
+    name: Build Android APK (Debug & Release Split-per-ABI)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -48,16 +48,45 @@ jobs:
       - name: Run Tests
         run: flutter test
 
-      - name: Build Debug APK
-        run: flutter build apk --debug
+      - name: Configure Android Signing Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
+            echo "Release keystore decoded from GitHub Secrets successfully."
+          else
+            echo "No custom KEYSTORE_BASE64 secret found; falling back to default configuration."
+          fi
 
-      - name: Publish Debug APK to GitHub Release
+      - name: Build Debug APK
+        run: |
+          flutter build apk --debug \
+            --dart-define=API_BASE_URL=https://virtualtradingapp.onrender.com/api/v1 \
+            --dart-define=SOCKET_URL=https://virtualtradingapp.onrender.com
+
+      - name: Build Split-per-ABI Release APKs
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          flutter build apk --release --split-per-abi \
+            --dart-define=API_BASE_URL=https://virtualtradingapp.onrender.com/api/v1 \
+            --dart-define=SOCKET_URL=https://virtualtradingapp.onrender.com
+
+      - name: Publish APKs to GitHub Release
+        if: github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v1.0.0-debug -y || true
-          git tag -d v1.0.0-debug || true
-          gh release create v1.0.0-debug build/app/outputs/flutter-apk/app-debug.apk \
-            --title "TradeVerse Android Debug Build" \
-            --notes "Automated debug APK build from commit ${{ github.sha }}" \
-            --prerelease
+          gh release delete v1.0.0-release -y || true
+          git tag -d v1.0.0-release || true
+          gh release create v1.0.0-release \
+            build/app/outputs/flutter-apk/app-debug.apk \
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+            build/app/outputs/flutter-apk/app-x86_64-release.apk \
+            --title "TradeVerse Android Release v1.0.0" \
+            --notes "Automated release build with split-per-ABI APKs (armeabi-v7a, arm64-v8a, x86_64) and debug APK from commit ${{ github.sha }}." \
+            --latest

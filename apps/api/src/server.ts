@@ -2,14 +2,18 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import mongoose from 'mongoose';
 import { createApp } from './app';
-import { config } from './config';
+import { config, validateEnvironment } from './config';
 import { SocketService } from './services/socket.service';
 import { MarketDataService } from './modules/market-data/marketData.service';
 import { RealtimeMarketService } from './modules/market-data/realtimeMarket.service';
 import { InstrumentMasterService } from './modules/market-data/instrumentMaster.service';
+import { AngelOneService } from './modules/market-data/angelOne.service';
 import { PaperTradingEngine } from './modules/orders/paperEngine.service';
 
 async function bootstrap() {
+  // Validate production configuration and missing environment variables
+  validateEnvironment();
+
   const app = createApp();
   const server = http.createServer(app);
 
@@ -33,9 +37,16 @@ async function bootstrap() {
   }
 
   // Initialize and seed Instrument Master catalog
-  await InstrumentMasterService.init().catch((err) => {
+  await InstrumentMasterService.init().catch((err: unknown) => {
     console.warn('Instrument master init warning:', (err as Error).message);
   });
+
+  // Initialize Angel One connection on wake-up if credentials configured
+  if (AngelOneService.isConfigured()) {
+    AngelOneService.init().catch((err: unknown) => {
+      console.warn('Angel One wake-up init warning:', (err as Error).message);
+    });
+  }
 
   // Start background real-time ticker broadcaster (1s cycle for tick-by-tick TradingView precision)
   const activeSymbols = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'RELIANCE', 'TCS', 'HDFCBANK', 'NIFTY 50', 'SENSEX', 'GOLD 1KG', 'NVDA', 'AAPL'];

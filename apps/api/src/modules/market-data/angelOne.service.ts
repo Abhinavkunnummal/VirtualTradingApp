@@ -154,6 +154,15 @@ export class AngelOneService {
     return Boolean(this.ws && this.ws.readyState === WebSocket.OPEN && this.jwtToken);
   }
 
+  public static async init(): Promise<boolean> {
+    if (!this.isConfigured()) return false;
+    const ok = await this.login();
+    if (ok) {
+      await this.connectWebSocket();
+    }
+    return ok;
+  }
+
   public static addTickListener(listener: AngelOneTickListener): void {
     this.listeners.add(listener);
   }
