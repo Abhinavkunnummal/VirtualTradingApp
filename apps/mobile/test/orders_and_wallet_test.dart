@@ -38,7 +38,7 @@ class _MockSubmitOrderService implements SubmitOrderService {
     required String side,
     required String orderType,
     required String product,
-    required int quantity,
+    required num quantity,
     double? limitPrice,
     double? triggerPrice,
     String orderVariety = 'REGULAR',

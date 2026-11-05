@@ -75,13 +75,25 @@ jobs:
             --dart-define=API_BASE_URL=https://virtualtradingapp.onrender.com/api/v1 \
             --dart-define=SOCKET_URL=https://virtualtradingapp.onrender.com
 
+      - name: Upload APKs as Workflow Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TradeVerse-Android-APKs
+          path: |
+            apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
+            apps/mobile/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            apps/mobile/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            apps/mobile/build/app/outputs/flutter-apk/app-x86_64-release.apk
+          if-no-files-found: warn
+
       - name: Publish APKs to GitHub Release
         if: github.ref == 'refs/heads/main'
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete v1.0.0-release -y || true
-          git tag -d v1.0.0-release || true
+          git push origin :refs/tags/v1.0.0-release || true
           gh release create v1.0.0-release \
             build/app/outputs/flutter-apk/app-debug.apk \
             build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \

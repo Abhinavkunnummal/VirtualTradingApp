@@ -593,7 +593,7 @@ class HomeDashboardScreen extends ConsumerWidget {
     ];
 
     return SizedBox(
-      height: 72,
+      height: 84,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
@@ -625,7 +625,7 @@ class HomeDashboardScreen extends ConsumerWidget {
               ),
               child: Container(
                 width: 155,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.borderSubtle),
@@ -633,6 +633,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       sym,
@@ -640,7 +641,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Align(
                       alignment: Alignment.centerRight,
                       child: InstrumentPriceColumn(

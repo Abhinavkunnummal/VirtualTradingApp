@@ -50,7 +50,7 @@ class InstrumentRowTile extends StatelessWidget {
     final isFlat = !isPos && !isNeg;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: AppColors.surfaceLowest,
         borderRadius: BorderRadius.circular(10),
@@ -63,7 +63,7 @@ class InstrumentRowTile extends StatelessWidget {
         },
         borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -181,25 +181,28 @@ class InstrumentRowTile extends StatelessWidget {
 
               // Middle Section: Sparkline Mini-Chart (if enabled)
               if (showSparkline) ...[
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Flexible(
                   flex: 2,
                   child: Center(
-                    child: MiniSparkline(
-                      isPositive: isPos,
-                      isFlat: isFlat,
-                      width: 42.0,
-                      height: 20.0,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: MiniSparkline(
+                        isPositive: isPos,
+                        isFlat: isFlat,
+                        width: 36.0,
+                        height: 18.0,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
               ] else
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
 
               // Right Section: Strictly Right-Aligned Financial Price Column & Trade Action
               ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 84.0),
+                constraints: const BoxConstraints(minWidth: 70.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
@@ -210,7 +213,7 @@ class InstrumentRowTile extends StatelessWidget {
                       changePercent: changePercent,
                       currency: currency,
                       isCrypto: isCrypto,
-                      minWidth: 84.0,
+                      minWidth: 70.0,
                     ),
                     if (showTradeButton && onTradeTap != null) ...[
                       const SizedBox(height: 4),
