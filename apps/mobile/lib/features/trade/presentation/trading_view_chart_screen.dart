@@ -473,7 +473,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
       builder: (ctx) {
         final screenHeight = MediaQuery.of(ctx).size.height;
         final keyboardInset = MediaQuery.of(ctx).viewInsets.bottom;
-        final maxAllowedHeight = (screenHeight * 0.85 - keyboardInset).clamp(180.0, screenHeight);
+        final maxAllowedHeight = (screenHeight - keyboardInset - 32.0).clamp(140.0, screenHeight * 0.85);
 
         return SafeArea(
           top: false,
@@ -589,6 +589,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
 
     return Scaffold(
       backgroundColor: AppColors.tvDarkBg,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: AppColors.tvDarkBg,
         elevation: 0,
@@ -1255,7 +1256,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
             ),
 
             // TradingView Multi-Year History Range Bar (1D, 5D, 1M, 3M, 6M, 1Y, 3Y, 5Y, MAX)
-            if (MediaQuery.of(context).size.height >= 420)
+            if (MediaQuery.of(context).size.height >= 600)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: const BoxDecoration(
@@ -1307,7 +1308,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
             Container(
               padding: EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: MediaQuery.of(context).size.height < 450 ? 4 : 12,
+                vertical: MediaQuery.of(context).size.height < 600 ? 6 : 12,
               ),
               decoration: const BoxDecoration(
                 color: AppColors.tvCardBg,
@@ -1317,7 +1318,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                 children: [
                   Expanded(
                     child: SizedBox(
-                      height: MediaQuery.of(context).size.height < 450 ? 32 : 48,
+                      height: MediaQuery.of(context).size.height < 600 ? 38 : 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.kiteGreen,
@@ -1346,7 +1347,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: SizedBox(
-                      height: MediaQuery.of(context).size.height < 450 ? 38 : 48,
+                      height: MediaQuery.of(context).size.height < 600 ? 38 : 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.kiteRed,
@@ -1559,7 +1560,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
 
     final screenHeight = MediaQuery.of(context).size.height;
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    final maxAllowedHeight = (screenHeight * 0.88 - keyboardInset).clamp(180.0, screenHeight);
+    final maxAllowedHeight = (screenHeight - keyboardInset - 32.0).clamp(140.0, screenHeight * 0.85);
 
     return SafeArea(
       top: false,
