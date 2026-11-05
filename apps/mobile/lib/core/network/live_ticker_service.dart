@@ -262,7 +262,7 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
                   'symbol': activeSym,
                   'interval': activeInterval,
                   'time': DateTime.now().millisecondsSinceEpoch ~/ 1000,
-                  'open': activeQuote.open > 0 ? activeQuote.open : activeQuote.price,
+                  'open': activeQuote.price,
                   'high': activeQuote.high > 0 ? activeQuote.high : activeQuote.price,
                   'low': activeQuote.low > 0 ? activeQuote.low : activeQuote.price,
                   'close': activeQuote.price,
