@@ -470,69 +470,76 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-            left: 16,
-            right: 16,
-            top: 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.auto_awesome, color: AppColors.zerodhaBlue, size: 20),
-                      const SizedBox(width: 8),
-                      Text('AI Technical Insight', style: AppTypography.headlineSm),
+      builder: (ctx) {
+        final screenHeight = MediaQuery.of(ctx).size.height;
+        final keyboardInset = MediaQuery.of(ctx).viewInsets.bottom;
+        final maxAllowedHeight = (screenHeight * 0.85 - keyboardInset).clamp(180.0, screenHeight);
+
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: keyboardInset),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxAllowedHeight),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.auto_awesome, color: AppColors.zerodhaBlue, size: 20),
+                            const SizedBox(width: 8),
+                            Text('AI Technical Insight', style: AppTypography.headlineSm),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Symbol: ${instrument.symbol} (${instrument.name})',
+                      style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_detectedPatterns.isNotEmpty) ...[
+                      Text('Detected Chart Patterns:', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      ..._detectedPatterns.map((p) => Text('• $p', style: AppTypography.bodyMd.copyWith(fontSize: 12))),
+                      const SizedBox(height: 8),
+                    ] else ...[
+                      Text('Real-time Heuristic Pattern Engine Active', style: AppTypography.bodyMd.copyWith(fontSize: 12)),
+                      const SizedBox(height: 8),
                     ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.of(ctx).pop(),
-                  ),
-                ],
+                    if (_supportLevels.isNotEmpty || _resistanceLevels.isNotEmpty) ...[
+                      Text('Key Technical Levels:', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      if (_supportLevels.isNotEmpty)
+                        Text('Supports: ${_supportLevels.map((s) => "₹${s.toStringAsFixed(1)}").join(" | ")}', style: AppTypography.bodyMd.copyWith(color: AppColors.secondary, fontSize: 12)),
+                      if (_resistanceLevels.isNotEmpty)
+                        Text('Resistances: ${_resistanceLevels.map((r) => "₹${r.toStringAsFixed(1)}").join(" | ")}', style: AppTypography.bodyMd.copyWith(color: AppColors.tertiary, fontSize: 12)),
+                      const SizedBox(height: 8),
+                    ],
+                    const Divider(color: AppColors.borderSubtle),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Disclaimer: Technical insights and pattern recognition are generated automatically by heuristic algorithms for educational paper trading purposes only. This does not constitute financial, investment, or trading advice.',
+                      style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Symbol: ${instrument.symbol} (${instrument.name})',
-                style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              if (_detectedPatterns.isNotEmpty) ...[
-                Text('Detected Chart Patterns:', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                ..._detectedPatterns.map((p) => Text('• $p', style: AppTypography.bodyMd.copyWith(fontSize: 12))),
-                const SizedBox(height: 8),
-              ] else ...[
-                Text('Real-time Heuristic Pattern Engine Active', style: AppTypography.bodyMd.copyWith(fontSize: 12)),
-                const SizedBox(height: 8),
-              ],
-              if (_supportLevels.isNotEmpty || _resistanceLevels.isNotEmpty) ...[
-                Text('Key Technical Levels:', style: AppTypography.labelSm.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                if (_supportLevels.isNotEmpty)
-                  Text('Supports: ${_supportLevels.map((s) => "₹${s.toStringAsFixed(1)}").join(" | ")}', style: AppTypography.bodyMd.copyWith(color: AppColors.secondary, fontSize: 12)),
-                if (_resistanceLevels.isNotEmpty)
-                  Text('Resistances: ${_resistanceLevels.map((r) => "₹${r.toStringAsFixed(1)}").join(" | ")}', style: AppTypography.bodyMd.copyWith(color: AppColors.tertiary, fontSize: 12)),
-                const SizedBox(height: 8),
-              ],
-              const Divider(color: AppColors.borderSubtle),
-              const SizedBox(height: 4),
-              Text(
-                'Disclaimer: Technical insights and pattern recognition are generated automatically by heuristic algorithms for educational paper trading purposes only. This does not constitute financial, investment, or trading advice.',
-                style: AppTypography.labelSm.copyWith(color: AppColors.outline, fontSize: 10),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1550,21 +1557,26 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
     final available = portfolio?.availableCash ?? 1000000.0;
     final margin = _getRequiredMargin();
 
+    final screenHeight = MediaQuery.of(context).size.height;
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final maxAllowedHeight = (screenHeight * 0.88 - keyboardInset).clamp(180.0, screenHeight);
+
     return SafeArea(
       top: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: keyboardInset > 0 ? 12.0 : 24.0,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: keyboardInset),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: maxAllowedHeight,
           ),
-          child: Column(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 16,
+              bottom: 16,
+            ),
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
