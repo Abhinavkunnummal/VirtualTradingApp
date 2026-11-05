@@ -334,15 +334,17 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
     }
   }
 
-  // 3. Try real-time live candles (Binance / Finnhub / Twelve Data / Yahoo Finance) when not in synthetic unit tests
+  // 3. Try real-time live candles (Binance / Angel One / Finnhub / Twelve Data / Yahoo Finance) when not in synthetic unit tests
   if (!forceSimulated && (!isTest || forceLive)) {
     try {
       const liveResult = await RealtimeMarketService.getLiveCandles(
         symbol,
         interval as CandleInterval,
         range,
-        limit || 60,
-        includeIndicators
+        limit || 100,
+        includeIndicators,
+        from,
+        to
       );
       if (liveResult && liveResult.candles && liveResult.candles.length > 0) {
         let finalCandles = liveResult.candles;
@@ -459,9 +461,35 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
     }
   }
 
-  return res.status(404).json({
-    success: false,
-    message: `Instrument "${symbol}" not found in market master or Alpha Vantage.`,
+  // 6. Resilient Fallback: Always return valid continuous candles so chart is never empty or 404
+  const fallbackResult = MarketDataService.getHistoricalData(symbol, interval as CandleInterval, {
+    limit: limit || 100,
+    range: range || '1D',
+    from,
+    to,
+    includeIndicators,
+  });
+
+  if (fallbackResult) {
+    const sortedCandles = formatCandles(fallbackResult.candles);
+    return res.status(200).json({
+      success: true,
+      ...fallbackResult,
+      interval,
+      candles: sortedCandles,
+      rangeNotice: 'Live feed unavailable for this symbol. Displaying continuous simulated candles.',
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    symbol: symbol.toUpperCase(),
+    exchange: 'NSE',
+    interval,
+    currency: 'INR',
+    status: 'SIMULATED',
+    candles: [],
+    rangeNotice: 'No trading data recorded for this instrument.',
   });
 };
 

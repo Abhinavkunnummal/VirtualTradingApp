@@ -10,7 +10,7 @@ export interface IHistoricalCandle extends Document {
   low: number;
   close: number;
   volume: number;
-  source: 'ALPHA_VANTAGE' | 'SIMULATOR' | 'HYBRID' | 'EXCHANGE';
+  source: 'BINANCE' | 'ANGEL_ONE' | 'FINNHUB' | 'YAHOO' | 'AMFI' | 'ALPHA_VANTAGE' | 'SIMULATOR' | 'HYBRID' | 'EXCHANGE' | string;
   isSimulated: boolean;
   createdAt: Date;
 }
@@ -26,7 +26,8 @@ const HistoricalCandleSchema = new Schema<IHistoricalCandle>(
     },
     exchange: {
       type: String,
-      required: true,
+      required: false,
+      default: 'NSE',
       uppercase: true,
       trim: true,
     },
@@ -63,7 +64,6 @@ const HistoricalCandleSchema = new Schema<IHistoricalCandle>(
     },
     source: {
       type: String,
-      enum: ['ALPHA_VANTAGE', 'SIMULATOR', 'HYBRID', 'EXCHANGE'],
       default: 'SIMULATOR',
     },
     isSimulated: {

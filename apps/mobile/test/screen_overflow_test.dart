@@ -18,6 +18,7 @@ import 'package:tradeverse_mobile/features/trade/presentation/trading_view_chart
 import 'package:tradeverse_mobile/features/trade/presentation/orders_screen.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/widgets/order_confirmation_sheet.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/widgets/indicators_bottom_sheet.dart';
+import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestick_chart_view.dart';
 import 'package:tradeverse_mobile/features/trade/domain/chart_indicator_config.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
 import 'package:tradeverse_mobile/features/community/presentation/community_screen.dart';
@@ -279,6 +280,40 @@ void main() {
         addTearDown(() => resetScreen(tester));
 
         await tester.pumpWidget(buildTestApp(const LearnScreen()));
+        await tester.pumpAndSettle();
+        expectNoOverflow(tester);
+      });
+
+      testWidgets('FullscreenChartView renders at $sizeName without overflow', (tester) async {
+        setScreenDimensions(tester, size);
+        addTearDown(() => resetScreen(tester));
+
+        final List<CandleData> sampleCandles = List.generate(
+          20,
+          (i) => CandleData(
+            timestamp: 1700000000 + i * 3600,
+            open: 2900.0 + i,
+            high: 2910.0 + i,
+            low: 2895.0 + i,
+            close: 2905.0 + i,
+            volume: 1000,
+          ),
+        );
+
+        await tester.pumpWidget(
+          buildTestApp(
+            FullscreenChartView(
+              symbol: 'RELIANCE',
+              candles: sampleCandles,
+              currentPrice: 2905.0,
+              selectedInterval: '15m',
+              onIntervalChanged: (_) {},
+              selectedRange: '1D',
+              onRangeChanged: (_) {},
+              status: 'LIVE',
+            ),
+          ),
+        );
         await tester.pumpAndSettle();
         expectNoOverflow(tester);
       });

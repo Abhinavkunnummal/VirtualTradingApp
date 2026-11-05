@@ -425,12 +425,38 @@ describe('Chart Candles REST & Streaming Unit Tests', () => {
 
     it('should provide daily NAV line candles for mutual fund instruments without 404', async () => {
       const res = await request(app).get('/api/market/candles?symbol=AMFI:120503&interval=1d&limit=15');
-      // Even if AMFI:120503 is not seeded in test memory, endpoint returns 200 or simulated data
-      expect([200, 404]).toContain(res.status);
-      if (res.status === 200) {
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.candles.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should support Phase G range chips (1D, 5D, 1M, 3M, 6M, 1Y, 3Y, 5Y, MAX)', async () => {
+      const ranges = ['1D', '5D', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX'];
+      for (const range of ranges) {
+        const res = await request(app).get(`/api/market/candles?symbol=RELIANCE&range=${range}&interval=1d&limit=50`);
+        expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
-        expect(res.body.candles.length).toBeGreaterThanOrEqual(1);
+        expect(Array.isArray(res.body.candles)).toBe(true);
+        expect(res.body.candles.length).toBeGreaterThan(0);
       }
+    });
+
+    it('should support from and to timestamps and limits up to 5000', async () => {
+      const now = Math.floor(Date.now() / 1000);
+      const from = now - 30 * 86400; // 30 days ago
+      const res = await request(app).get(`/api/market/candles?symbol=BTC/USDT&interval=1h&from=${from}&to=${now}&limit=1000`);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.candles.length).toBeGreaterThan(0);
+      expect(res.body.candles[0].time).toBeGreaterThanOrEqual(from - 3600);
+    });
+
+    it('should never return 404 or empty chart for uncataloged symbols, returning continuous simulated data', async () => {
+      const res = await request(app).get('/api/market/candles?symbol=UNKNOWN_ARBITRARY_TOKEN_999&interval=15m&limit=20');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.candles.length).toBeGreaterThan(0);
+      expect(res.body.rangeNotice).toBeDefined();
     });
   });
 });

@@ -14,11 +14,17 @@ class CandleQuery {
   final String symbol;
   final String interval;
   final String range;
+  final int? from;
+  final int? to;
+  final int? limit;
 
   const CandleQuery({
     required this.symbol,
     required this.interval,
     this.range = '1D',
+    this.from,
+    this.to,
+    this.limit,
   });
 
   @override
@@ -27,10 +33,13 @@ class CandleQuery {
       (other is CandleQuery &&
           other.symbol == symbol &&
           other.interval == interval &&
-          other.range == range);
+          other.range == range &&
+          other.from == from &&
+          other.to == to &&
+          other.limit == limit);
 
   @override
-  int get hashCode => Object.hash(symbol, interval, range);
+  int get hashCode => Object.hash(symbol, interval, range, from, to, limit);
 }
 
 final selectedTradeInstrumentProvider = StateProvider<InstrumentModel>((ref) {
@@ -150,6 +159,8 @@ List<CandleData> _generateRealisticCandles({
   return result;
 }
 
+final candleRangeNoticeProvider = StateProvider.family<String?, String>((ref, symbol) => null);
+
 final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((ref, query) async {
   final selectedInst = ref.watch(selectedTradeInstrumentProvider);
   final double currentLtp = (selectedInst.symbol == query.symbol)
@@ -169,18 +180,28 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
   final apiClient = ref.watch(apiClientProvider);
   final encodedSymbol = Uri.encodeComponent(query.symbol);
 
+  final queryParams = <String, dynamic>{
+    'symbol': query.symbol,
+    'interval': query.interval,
+    'range': query.range,
+    'limit': query.limit ?? 250,
+  };
+  if (query.from != null) queryParams['from'] = query.from;
+  if (query.to != null) queryParams['to'] = query.to;
+
   // 1. Primary endpoint: /market/candles (Lightweight Charts canonical API)
   try {
     final response = await apiClient.get<Map<String, dynamic>>(
       '/market/candles',
-      queryParameters: {
-        'symbol': query.symbol,
-        'interval': query.interval,
-        'limit': 250,
-      },
+      queryParameters: queryParams,
     );
 
     if (response.statusCode == 200 && response.data?['success'] == true) {
+      if (response.data?['rangeNotice'] != null) {
+        ref.read(candleRangeNoticeProvider(query.symbol).notifier).state = response.data!['rangeNotice'] as String;
+      } else {
+        ref.read(candleRangeNoticeProvider(query.symbol).notifier).state = null;
+      }
       final list = response.data!['candles'] as List<dynamic>? ?? [];
       if (list.isNotEmpty) {
         return list.map((c) => CandleData.fromJson(c as Map<String, dynamic>)).toList();
@@ -188,19 +209,19 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
     }
   } catch (_) {}
 
-  // 2. Fallback endpoint: /market/candles/:symbol
+  // 2. Fallback endpoint: /market-data/candles/:symbol
   try {
     final response = await apiClient.get<Map<String, dynamic>>(
       '/market-data/candles/$encodedSymbol',
-      queryParameters: {
-        'symbol': query.symbol,
-        'interval': query.interval,
-        'range': query.range,
-        'limit': 250,
-      },
+      queryParameters: queryParams,
     );
 
     if (response.statusCode == 200 && response.data?['success'] == true) {
+      if (response.data?['rangeNotice'] != null) {
+        ref.read(candleRangeNoticeProvider(query.symbol).notifier).state = response.data!['rangeNotice'] as String;
+      } else {
+        ref.read(candleRangeNoticeProvider(query.symbol).notifier).state = null;
+      }
       final list = response.data!['candles'] as List<dynamic>? ?? [];
       if (list.isNotEmpty) {
         return list.map((c) => CandleData.fromJson(c as Map<String, dynamic>)).toList();

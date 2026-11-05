@@ -206,8 +206,17 @@ export class MarketDataService {
   }
 
   static getQuote(symbol: string): MarketQuote | null {
-    const meta = this.getInstrument(symbol);
-    if (!meta) return null;
+    const meta = this.getInstrument(symbol) || {
+      symbol: symbol.toUpperCase(),
+      name: symbol.toUpperCase(),
+      exchange: (symbol.includes('/') || symbol === 'BTC' || symbol === 'ETH' ? 'CRYPTO' : 'NSE') as ExchangeType,
+      category: 'EQUITY' as AssetCategory,
+      basePrice: 100.0,
+      currency: symbol.includes('/') ? 'USD' : 'INR',
+      lotSize: 1,
+      tickSize: 0.05,
+      volatility: 0.012,
+    };
 
     // Deterministic simulation tick based on timestamp
     const now = Date.now();
@@ -453,8 +462,17 @@ export class MarketDataService {
     to?: number,
     anchorQuote?: MarketQuote | null
   ): Candle[] {
-    const meta = this.getInstrument(symbol);
-    if (!meta) return [];
+    const meta = this.getInstrument(symbol) || {
+      symbol: symbol.toUpperCase(),
+      name: symbol.toUpperCase(),
+      exchange: (symbol.includes('/') || symbol === 'BTC' || symbol === 'ETH' ? 'CRYPTO' : 'NSE') as ExchangeType,
+      category: 'EQUITY' as AssetCategory,
+      basePrice: 100.0,
+      currency: symbol.includes('/') ? 'USD' : 'INR',
+      lotSize: 1,
+      tickSize: 0.05,
+      volatility: 0.012,
+    };
 
     const intervalSecondsMap: Record<CandleInterval, number> = {
       '1m': 60,
@@ -477,10 +495,10 @@ export class MarketDataService {
     if (range) {
       const bounds = this.getRangeBounds(range, endSeconds);
       const span = bounds.to - bounds.from;
-      candleCount = Math.min(Math.max(Math.ceil(span / targetSeconds), 10), 1300);
+      candleCount = Math.min(Math.max(Math.ceil(span / targetSeconds), 10), 5000);
     } else if (from) {
       const span = Math.max(endSeconds - from, targetSeconds);
-      candleCount = Math.min(Math.max(Math.ceil(span / targetSeconds), 5), 1300);
+      candleCount = Math.min(Math.max(Math.ceil(span / targetSeconds), 5), 5000);
     }
 
     // Direct generation for 1m, 1mo, or long histories
@@ -531,8 +549,17 @@ export class MarketDataService {
       includeIndicators?: boolean;
     }
   ): HistoricalDataResult | null {
-    const meta = this.getInstrument(symbol);
-    if (!meta) return null;
+    const meta = this.getInstrument(symbol) || {
+      symbol: symbol.toUpperCase(),
+      name: symbol.toUpperCase(),
+      exchange: (symbol.includes('/') || symbol === 'BTC' || symbol === 'ETH' ? 'CRYPTO' : 'NSE') as ExchangeType,
+      category: 'EQUITY' as AssetCategory,
+      basePrice: 100.0,
+      currency: symbol.includes('/') ? 'USD' : 'INR',
+      lotSize: 1,
+      tickSize: 0.05,
+      volatility: 0.012,
+    };
 
     const intervalSecondsMap: Record<CandleInterval, number> = {
       '1m': 60,
@@ -569,7 +596,7 @@ export class MarketDataService {
       from = Math.max(from, to - maxRetention);
     }
 
-    const calculatedLimit = Math.min(Math.max(Math.ceil((to - from) / targetSeconds), 10), 1300);
+    const calculatedLimit = Math.min(Math.max(Math.ceil((to - from) / targetSeconds), 10), 5000);
     const finalLimit = options?.limit ? Math.min(options.limit, calculatedLimit) : calculatedLimit;
 
     const quote = this.getQuote(symbol);

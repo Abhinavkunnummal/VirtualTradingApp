@@ -114,11 +114,11 @@ void main() {
 
       // 2. Verify Range Selector Chips by Key
       expect(find.byKey(const ValueKey('range_1D')), findsOneWidget);
-      expect(find.byKey(const ValueKey('range_1W')), findsOneWidget);
+      expect(find.byKey(const ValueKey('range_5D')), findsOneWidget);
       expect(find.byKey(const ValueKey('range_1M')), findsOneWidget);
       expect(find.byKey(const ValueKey('range_1Y')), findsOneWidget);
       expect(find.byKey(const ValueKey('range_5Y')), findsOneWidget);
-      expect(find.byKey(const ValueKey('range_ALL')), findsOneWidget);
+      expect(find.byKey(const ValueKey('range_MAX')), findsOneWidget);
 
       // 3. Verify Interval Selector Chips by Key
       expect(find.byKey(const ValueKey('interval_1m')), findsOneWidget);
@@ -142,15 +142,25 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('indicator_RSI(14)')));
       await tester.pumpAndSettle();
 
-      // 7. Test tapping 5Y range chip
+      // 7. Test tapping 5Y range chip (maps default interval to 1w)
       await tester.tap(find.byKey(const ValueKey('range_5Y')));
       await tester.pumpAndSettle();
       expect(currentRange, equals('5Y'));
+      expect(currentInterval, equals('1w'));
 
-      // 8. Test tapping 1d interval chip
+      // 8. Test overriding interval by tapping 1d chip
       await tester.tap(find.byKey(const ValueKey('interval_1d')));
       await tester.pumpAndSettle();
       expect(currentInterval, equals('1d'));
+      expect(currentRange, equals('5Y'));
+
+      // 8.5. Test Fullscreen mode entry and exit
+      expect(find.byKey(const ValueKey('chart_fullscreen_btn')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('chart_fullscreen_btn')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('exit_fullscreen_btn')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('exit_fullscreen_btn')));
+      await tester.pumpAndSettle();
 
       // 9. Test panning and double-tap reset gesture on chart
       final chartFinder = find.byType(CustomPaint).first;

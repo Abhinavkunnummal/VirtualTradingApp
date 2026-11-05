@@ -790,6 +790,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               onRangeChanged: (newRange) {
                 ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
               },
+              rangeNotice: ref.watch(candleRangeNoticeProvider(instrument.symbol)),
               status: liveQuote?.status == 'LIVE'
                   ? 'LIVE'
                   : (liveQuote?.status == 'DELAYED'

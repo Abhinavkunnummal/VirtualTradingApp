@@ -443,19 +443,21 @@ export class RealtimeMarketService {
   }
 
   /**
-   * Fetch Live Real-Time Historical Candles from Yahoo Finance or Twelve Data
+   * Fetch Live Real-Time Historical Candles from Binance, Angel One, Yahoo Finance, or Twelve Data
    */
   public static async getLiveCandles(
     symbol: string,
     interval: CandleInterval = '15m',
     range: HistoryRange = '1D',
     limit: number = 60,
-    includeIndicators: boolean = true
+    includeIndicators: boolean = true,
+    from?: number,
+    to?: number
   ): Promise<HistoricalDataResult | null> {
     const key = symbol.toUpperCase().trim();
-    const cacheKey = `${key}:${interval}:${range}:${limit}`;
+    const cacheKey = `${key}:${interval}:${range || 'custom'}:${limit}:${from || 0}:${to || 0}`;
     const cached = this.candleCache.get(cacheKey);
-    const ttl = interval.includes('d') || interval.includes('w') || interval.includes('mo')
+    const ttl = interval.includes('d') || interval.includes('w') || interval.includes('mo') || interval.includes('M')
       ? this.TTL_CANDLES_DAILY
       : this.TTL_CANDLES_INTRADAY;
 
@@ -471,7 +473,7 @@ export class RealtimeMarketService {
 
     const mapping = this.getMapping(key);
 
-    // 0. Direct Binance Spot Klines for 24/7 Crypto (Exact TradingView tick-for-tick candles)
+    // 0. Direct Binance Spot Klines for 24/7 Crypto (with pagination up to 5000 candles)
     if (mapping.category === 'CRYPTO') {
       try {
         let binanceSymbol = key.replace('/', '').replace('-', '').toUpperCase();
@@ -479,60 +481,155 @@ export class RealtimeMarketService {
           binanceSymbol = `${binanceSymbol}USDT`;
         }
         const binanceInterval = this.toBinanceInterval(interval);
-        const klinesUrl = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=${limit || 60}`;
-        const res = await fetch(klinesUrl, { signal: AbortSignal.timeout(3500) });
-        if (res.ok) {
-          const rawKlines = (await res.json()) as any[];
-          if (Array.isArray(rawKlines) && rawKlines.length > 0) {
-            const candles: Candle[] = rawKlines.map((k) => ({
-              timestamp: Math.floor(Number(k[0]) / 1000),
-              open: parseFloat(parseFloat(k[1]).toFixed(2)),
-              high: parseFloat(parseFloat(k[2]).toFixed(2)),
-              low: parseFloat(parseFloat(k[3]).toFixed(2)),
-              close: parseFloat(parseFloat(k[4]).toFixed(2)),
-              volume: parseFloat(parseFloat(k[5]).toFixed(2)),
-            }));
 
-            // Exact LTP synchronization with latest forming candle
-            const latestQuote = await this.getLiveQuote(key);
-            if (latestQuote && candles.length > 0) {
-              const last = candles[candles.length - 1];
-              last.close = latestQuote.price;
-              last.high = Math.max(last.high, latestQuote.price);
-              last.low = Math.min(last.low, latestQuote.price);
-            }
+        let targetLimit = Math.min(Math.max(limit || 60, 1), 5000);
+        let allCandles: Candle[] = [];
+        let currentEndTime = to ? to * 1000 : undefined;
 
-            let indicators = undefined;
-            if (includeIndicators) {
-              indicators = TechnicalIndicatorService.calculateAll(candles);
-            }
-
-            const fromDate = new Date(candles[0].timestamp * 1000).toISOString().split('T')[0];
-            const toDate = new Date(candles[candles.length - 1].timestamp * 1000).toISOString().split('T')[0];
-
-            const resultPayload: HistoricalDataResult = {
-              symbol: key,
-              name: mapping.name,
-              exchange: mapping.exchange,
-              category: mapping.category,
-              currency: 'USD',
-              interval,
-              requestedRange: range,
-              actualRange: `${fromDate} to ${toDate}`,
-              from: candles[0].timestamp,
-              to: candles[candles.length - 1].timestamp,
-              count: candles.length,
-              status: 'LIVE',
-              provider: 'TradeVerse Real-Time Feed (Binance Spot Live)',
-              candles,
-              indicators,
-              latestQuote: latestQuote || undefined,
-            };
-
-            this.candleCache.set(cacheKey, { data: resultPayload, expiresAt: Date.now() + ttl });
-            this.persistCandlesAsync(key, interval, candles).catch(() => {});
-            return resultPayload;
+        while (targetLimit > 0) {
+          const fetchLimit = Math.min(targetLimit, 1000);
+          let klinesUrl = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=${fetchLimit}`;
+          if (currentEndTime) {
+            klinesUrl += `&endTime=${currentEndTime}`;
           }
+          if (from) {
+            klinesUrl += `&startTime=${from * 1000}`;
+          }
+          const res = await fetch(klinesUrl, { signal: AbortSignal.timeout(4000) });
+          if (!res.ok) break;
+          const rawKlines = (await res.json()) as any[];
+          if (!Array.isArray(rawKlines) || rawKlines.length === 0) break;
+
+          const parsedChunk: Candle[] = rawKlines.map((k) => ({
+            timestamp: Math.floor(Number(k[0]) / 1000),
+            open: parseFloat(parseFloat(k[1]).toFixed(2)),
+            high: parseFloat(parseFloat(k[2]).toFixed(2)),
+            low: parseFloat(parseFloat(k[3]).toFixed(2)),
+            close: parseFloat(parseFloat(k[4]).toFixed(2)),
+            volume: parseFloat(parseFloat(k[5]).toFixed(2)),
+          }));
+
+          allCandles = [...parsedChunk, ...allCandles];
+          targetLimit -= parsedChunk.length;
+
+          if (rawKlines.length < fetchLimit || (from && parsedChunk[0].timestamp <= from)) {
+            break;
+          }
+          currentEndTime = Number(rawKlines[0][0]) - 1;
+        }
+
+        if (allCandles.length > 0) {
+          const candleMap = new Map<number, Candle>();
+          for (const c of allCandles) {
+            candleMap.set(c.timestamp, c);
+          }
+          const candles = Array.from(candleMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+
+          // Exact LTP synchronization with latest forming candle
+          const latestQuote = await this.getLiveQuote(key);
+          if (latestQuote && candles.length > 0) {
+            const last = candles[candles.length - 1];
+            last.close = latestQuote.price;
+            last.high = Math.max(last.high, latestQuote.price);
+            last.low = Math.min(last.low, latestQuote.price);
+          }
+
+          let indicators = undefined;
+          if (includeIndicators) {
+            indicators = TechnicalIndicatorService.calculateAll(candles);
+          }
+
+          const fromDate = new Date(candles[0].timestamp * 1000).toISOString().split('T')[0];
+          const toDate = new Date(candles[candles.length - 1].timestamp * 1000).toISOString().split('T')[0];
+
+          const resultPayload: HistoricalDataResult = {
+            symbol: key,
+            name: mapping.name,
+            exchange: mapping.exchange,
+            category: mapping.category,
+            currency: 'USD',
+            interval,
+            requestedRange: range,
+            actualRange: `${fromDate} to ${toDate}`,
+            from: candles[0].timestamp,
+            to: candles[candles.length - 1].timestamp,
+            count: candles.length,
+            status: 'LIVE',
+            provider: 'TradeVerse Real-Time Feed (Binance Spot Live)',
+            candles,
+            indicators,
+            latestQuote: latestQuote || undefined,
+          };
+
+          this.candleCache.set(cacheKey, { data: resultPayload, expiresAt: Date.now() + ttl });
+          this.persistCandlesAsync(key, interval, candles, mapping.exchange, 'BINANCE').catch(() => {});
+          return resultPayload;
+        }
+      } catch {
+        // Fall through to Yahoo Finance
+      }
+    }
+
+    // 1. Angel One SmartAPI for Indian Equities / Indices / MCX Commodities
+    if ((mapping.exchange === 'NSE' || mapping.exchange === 'BSE' || mapping.exchange === 'MCX') && AngelOneService.isConnected()) {
+      try {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const targetTo = to || nowSec;
+        let targetFrom = from;
+        if (!targetFrom) {
+          const bounds = MarketDataService.getRangeBounds(range || '1D', targetTo);
+          targetFrom = bounds.from;
+        }
+
+        const angelCandles = await AngelOneService.fetchHistoricalCandles(key, interval, targetFrom, targetTo);
+        if (angelCandles && angelCandles.length > 0) {
+          const candles: Candle[] = angelCandles.map((c) => ({
+            timestamp: c.timestamp,
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+            volume: c.volume,
+          }));
+
+          const latestQuote = await this.getLiveQuote(key);
+          if (latestQuote && candles.length > 0) {
+            const last = candles[candles.length - 1];
+            last.close = latestQuote.price;
+            last.high = Math.max(last.high, latestQuote.price);
+            last.low = Math.min(last.low, latestQuote.price);
+          }
+
+          let indicators = undefined;
+          if (includeIndicators) {
+            indicators = TechnicalIndicatorService.calculateAll(candles);
+          }
+
+          const fromDate = new Date(candles[0].timestamp * 1000).toISOString().split('T')[0];
+          const toDate = new Date(candles[candles.length - 1].timestamp * 1000).toISOString().split('T')[0];
+
+          const resultPayload: HistoricalDataResult = {
+            symbol: key,
+            name: mapping.name,
+            exchange: mapping.exchange,
+            category: mapping.category,
+            currency: 'INR',
+            interval,
+            requestedRange: range,
+            actualRange: `${fromDate} to ${toDate}`,
+            from: candles[0].timestamp,
+            to: candles[candles.length - 1].timestamp,
+            count: candles.length,
+            status: 'LIVE',
+            provider: 'TradeVerse Live Market Feed (Angel One SmartAPI)',
+            candles,
+            indicators,
+            latestQuote: latestQuote || undefined,
+          };
+
+          this.candleCache.set(cacheKey, { data: resultPayload, expiresAt: Date.now() + ttl });
+          this.persistCandlesAsync(key, interval, candles, mapping.exchange, 'ANGEL_ONE').catch(() => {});
+          return resultPayload;
         }
       } catch {
         // Fall through to Yahoo Finance
@@ -803,11 +900,17 @@ export class RealtimeMarketService {
     return null;
   }
 
-  public static async persistCandlesAsync(symbol: string, interval: string, candles: Candle[]): Promise<void> {
+  public static async persistCandlesAsync(
+    symbol: string,
+    interval: string,
+    candles: Candle[],
+    exchange: string = 'NSE',
+    source: string = 'LIVE'
+  ): Promise<void> {
     try {
       const ops = candles.map((c) => ({
         updateOne: {
-          filter: { symbol, interval, timestamp: c.timestamp },
+          filter: { symbol: symbol.toUpperCase(), interval, timestamp: c.timestamp },
           update: {
             $set: {
               open: c.open,
@@ -815,14 +918,21 @@ export class RealtimeMarketService {
               low: c.low,
               close: c.close,
               volume: c.volume,
-              dataSource: 'LIVE',
-              isComplete: true,
+              source,
+              isSimulated: source === 'SIMULATOR',
+            },
+            $setOnInsert: {
+              symbol: symbol.toUpperCase(),
+              interval,
+              exchange: exchange.toUpperCase(),
             },
           },
           upsert: true,
         },
       }));
-      await HistoricalCandle.bulkWrite(ops, { ordered: false });
+      if (ops.length > 0) {
+        await HistoricalCandle.bulkWrite(ops, { ordered: false });
+      }
     } catch {
       // Non-fatal
     }

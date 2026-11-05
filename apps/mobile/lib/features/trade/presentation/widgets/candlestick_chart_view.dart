@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_shimmer.dart';
@@ -78,6 +79,10 @@ class CandlestickChartView extends StatefulWidget {
   final ValueChanged<String>? onRangeChanged;
   final String status;
   final String chartType;
+  final String? rangeNotice;
+  final VoidCallback? onLoadOlderCandles;
+  final bool isLoadingOlder;
+  final bool isFullscreen;
   final VoidCallback? onRetry;
   final VoidCallback? onOpenTradingView;
 
@@ -95,9 +100,37 @@ class CandlestickChartView extends StatefulWidget {
     this.onRangeChanged,
     this.status = 'SIMULATED',
     this.chartType = 'candles',
+    this.rangeNotice,
+    this.onLoadOlderCandles,
+    this.isLoadingOlder = false,
+    this.isFullscreen = false,
     this.onRetry,
     this.onOpenTradingView,
   });
+
+  static String defaultIntervalForRange(String range) {
+    switch (range.toUpperCase()) {
+      case '1D':
+        return '5m';
+      case '5D':
+      case '1W':
+        return '15m';
+      case '1M':
+        return '1h';
+      case '3M':
+      case '6M':
+      case '1Y':
+        return '1d';
+      case '3Y':
+      case '5Y':
+        return '1w';
+      case 'MAX':
+      case 'ALL':
+        return '1M';
+      default:
+        return '15m';
+    }
+  }
 
   static double calculateCandleWidth(double chartWidth, int candleCount, double zoom) {
     if (candleCount <= 0 || chartWidth <= 0) return 8.0;
@@ -160,11 +193,24 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.symbol != widget.symbol ||
         oldWidget.selectedInterval != widget.selectedInterval ||
-        oldWidget.selectedRange != widget.selectedRange ||
-        oldWidget.candles.length != widget.candles.length) {
+        oldWidget.selectedRange != widget.selectedRange) {
       _inspectedCandle = null;
       _needsPanReset = true;
       _recalculateIndicators();
+    } else if (oldWidget.candles.length != widget.candles.length) {
+      _recalculateIndicators();
+      // If older candles were prepended, adjust pan offset smoothly without snapping
+      if (oldWidget.candles.isNotEmpty &&
+          widget.candles.length > oldWidget.candles.length &&
+          widget.candles.last.timestamp == oldWidget.candles.last.timestamp) {
+        final addedCount = widget.candles.length - oldWidget.candles.length;
+        const axisWidth = 54.0;
+        final chartWidth = math.max(MediaQuery.sizeOf(context).width - axisWidth, 50.0);
+        final candleWidth = CandlestickChartView.calculateCandleWidth(chartWidth, widget.candles.length, _zoomScale);
+        _panOffset -= addedCount * candleWidth;
+      } else {
+        _needsPanReset = true;
+      }
     }
   }
 
@@ -299,18 +345,93 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                     ),
                   ],
                 ),
-                if (displayPrice != null)
-                  Text(
-                    '$currency${displayPrice.toStringAsFixed(2)}',
-                    style: AppTypography.numericTable.copyWith(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: (activeCandle?.isBullish ?? true) ? AppColors.secondary : AppColors.tertiary,
-                    ),
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (displayPrice != null)
+                      Text(
+                        '$currency${displayPrice.toStringAsFixed(2)}',
+                        style: AppTypography.numericTable.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: (activeCandle?.isBullish ?? true) ? AppColors.secondary : AppColors.tertiary,
+                        ),
+                      ),
+                    if (!widget.isFullscreen)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: InkWell(
+                          key: const ValueKey('chart_fullscreen_btn'),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => FullscreenChartView(
+                                  symbol: widget.symbol,
+                                  candles: widget.candles,
+                                  currentPrice: widget.currentPrice,
+                                  currencySymbol: widget.currencySymbol,
+                                  selectedInterval: widget.selectedInterval,
+                                  onIntervalChanged: widget.onIntervalChanged,
+                                  selectedRange: widget.selectedRange,
+                                  onRangeChanged: widget.onRangeChanged,
+                                  status: widget.status,
+                                  chartType: widget.chartType,
+                                  rangeNotice: widget.rangeNotice,
+                                  onLoadOlderCandles: widget.onLoadOlderCandles,
+                                  isLoadingOlder: widget.isLoadingOlder,
+                                ),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(5),
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: AppColors.borderSubtle),
+                            ),
+                            child: const Icon(
+                              Icons.fullscreen,
+                              size: 16,
+                              color: AppColors.outline,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           const SizedBox(height: 6),
+
+          // 1.5. Informative Range Notice Banner (Retention constraints / Provider Notes)
+          if (widget.rangeNotice != null && widget.rangeNotice!.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primaryBrand.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.primaryBrand.withOpacity(0.25)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 14, color: AppColors.primaryBrand),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      widget.rangeNotice!,
+                      style: AppTypography.labelSm.copyWith(
+                        fontSize: 10,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // 2. Crosshair Inspection / Active Candle OHLCV Readout
           if (activeCandle != null)
@@ -435,6 +556,11 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                                       final minPan = chartWidth - totalWidth - 30.0;
                                       const maxPan = 30.0;
                                       _panOffset = _panOffset.clamp(minPan, maxPan);
+                                      if (_panOffset >= maxPan - 8.0 &&
+                                          widget.onLoadOlderCandles != null &&
+                                          !widget.isLoadingOlder) {
+                                        widget.onLoadOlderCandles!();
+                                      }
                                     } else {
                                       _panOffset = 0.0;
                                     }
@@ -527,7 +653,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
         ),
         const SizedBox(height: 6),
 
-          // 6. 5-Year History Range Selector Chips (1D, 1W, 1M, 3M, 6M, 1Y, 3Y, 5Y, ALL)
+          // 6. Multi-Year History Range Selector Chips (1D, 5D, 1M, 3M, 6M, 1Y, 3Y, 5Y, MAX)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -539,13 +665,22 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                   physics: const BouncingScrollPhysics(),
                   child: Row(
                     children: [
-                    ...['1D', '1W', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'ALL'].map((range) {
-                      final isSelected = widget.selectedRange.toUpperCase() == range.toUpperCase();
+                    ...['1D', '5D', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX'].map((range) {
+                      final isSelected = widget.selectedRange.toUpperCase() == range.toUpperCase() ||
+                          (range == '5D' && widget.selectedRange.toUpperCase() == '1W') ||
+                          (range == 'MAX' && widget.selectedRange.toUpperCase() == 'ALL');
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 2),
                         child: InkWell(
                           key: ValueKey('range_$range'),
-                          onTap: widget.onRangeChanged != null ? () => widget.onRangeChanged!(range) : null,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            widget.onRangeChanged?.call(range);
+                            final defInterval = CandlestickChartView.defaultIntervalForRange(range);
+                            if (defInterval.toLowerCase() != widget.selectedInterval.toLowerCase()) {
+                              widget.onIntervalChanged(defInterval);
+                            }
+                          },
                           borderRadius: BorderRadius.circular(5),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -1170,5 +1305,143 @@ class _CandlestickPainter extends CustomPainter {
         oldDelegate.showMacd != showMacd ||
         oldDelegate.panOffset != panOffset ||
         oldDelegate.zoomScale != zoomScale;
+  }
+}
+
+class FullscreenChartView extends StatefulWidget {
+  final String symbol;
+  final List<CandleData> candles;
+  final double? currentPrice;
+  final String? currencySymbol;
+  final String selectedInterval;
+  final ValueChanged<String> onIntervalChanged;
+  final String selectedRange;
+  final ValueChanged<String>? onRangeChanged;
+  final String status;
+  final String chartType;
+  final String? rangeNotice;
+  final VoidCallback? onLoadOlderCandles;
+  final bool isLoadingOlder;
+
+  const FullscreenChartView({
+    super.key,
+    required this.symbol,
+    required this.candles,
+    this.currentPrice,
+    this.currencySymbol,
+    required this.selectedInterval,
+    required this.onIntervalChanged,
+    required this.selectedRange,
+    this.onRangeChanged,
+    this.status = 'SIMULATED',
+    this.chartType = 'candles',
+    this.rangeNotice,
+    this.onLoadOlderCandles,
+    this.isLoadingOlder = false,
+  });
+
+  @override
+  State<FullscreenChartView> createState() => _FullscreenChartViewState();
+}
+
+class _FullscreenChartViewState extends State<FullscreenChartView> {
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        key: const ValueKey('exit_fullscreen_btn'),
+                        icon: const Icon(Icons.fullscreen_exit, color: AppColors.primaryBrand),
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.of(context).pop();
+                        },
+                        tooltip: 'Exit Fullscreen',
+                      ),
+                      Text(
+                        widget.symbol,
+                        style: AppTypography.headlineSm.copyWith(fontSize: 16),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: widget.status == 'LIVE'
+                              ? AppColors.secondary.withOpacity(0.15)
+                              : AppColors.warning.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: widget.status == 'LIVE'
+                                ? AppColors.secondary.withOpacity(0.3)
+                                : AppColors.warning.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Text(
+                          widget.status == 'DELAYED' ? 'DELAYED (15M)' : widget.status,
+                          style: AppTypography.labelSm.copyWith(
+                            fontSize: 9,
+                            color: widget.status == 'LIVE' ? AppColors.secondary : AppColors.warning,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Expanded(
+                child: CandlestickChartView(
+                  symbol: widget.symbol,
+                  candles: widget.candles,
+                  currentPrice: widget.currentPrice,
+                  currencySymbol: widget.currencySymbol,
+                  selectedInterval: widget.selectedInterval,
+                  onIntervalChanged: widget.onIntervalChanged,
+                  selectedRange: widget.selectedRange,
+                  onRangeChanged: widget.onRangeChanged,
+                  status: widget.status,
+                  chartType: widget.chartType,
+                  rangeNotice: widget.rangeNotice,
+                  onLoadOlderCandles: widget.onLoadOlderCandles,
+                  isLoadingOlder: widget.isLoadingOlder,
+                  isFullscreen: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

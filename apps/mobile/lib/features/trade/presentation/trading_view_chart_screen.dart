@@ -1062,6 +1062,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                         onIntervalChanged: _changeInterval,
                         selectedRange: range,
                         chartType: _selectedChartType,
+                        rangeNotice: ref.watch(candleRangeNoticeProvider(instrument.symbol)),
                         onRangeChanged: (newRange) {
                           ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
                         },
