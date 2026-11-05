@@ -258,10 +258,13 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
             if (activeSym != null) {
               final activeQuote = updated[activeSym];
               if (activeQuote != null && activeQuote.price > 0) {
+                final intervalSec = _intervalToSeconds(activeInterval);
+                final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+                final bucketTime = (nowSec ~/ intervalSec) * intervalSec;
                 final tickPayload = {
                   'symbol': activeSym,
                   'interval': activeInterval,
-                  'time': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                  'time': bucketTime,
                   'open': activeQuote.price,
                   'high': activeQuote.high > 0 ? activeQuote.high : activeQuote.price,
                   'low': activeQuote.low > 0 ? activeQuote.low : activeQuote.price,
@@ -281,6 +284,28 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
     } finally {
       _isFetching = false;
     }
+  }
+
+  int _intervalToSeconds(dynamic interval) {
+    if (interval == null) return 900;
+    final str = interval.toString().toLowerCase();
+    if (str.endsWith('m') && !str.endsWith('mo')) {
+      final m = int.tryParse(str.replaceAll('m', '')) ?? 15;
+      return m * 60;
+    }
+    if (str.endsWith('h')) {
+      final h = int.tryParse(str.replaceAll('h', '')) ?? 1;
+      return h * 3600;
+    }
+    if (str.endsWith('d')) {
+      final d = int.tryParse(str.replaceAll('d', '')) ?? 1;
+      return d * 86400;
+    }
+    if (str.endsWith('w')) {
+      final w = int.tryParse(str.replaceAll('w', '')) ?? 1;
+      return w * 604800;
+    }
+    return 900;
   }
 
   void _updateQuote(LiveQuote quote) {

@@ -716,29 +716,65 @@
           const c = typeof data === 'string' ? JSON.parse(data) : data;
           if (!c || !mainSeries) return;
 
-          let candleToUpdate = c;
+          const price = Number(c.close !== undefined ? c.close : (c.price !== undefined ? c.price : c.value));
+          if (isNaN(price) || price <= 0) return;
+
+          const tickTime = Number(c.time) || Math.floor(Date.now() / 1000);
+
+          // Dynamically deduce candle interval in seconds from previous bars (default: 15m = 900s)
+          let barInterval = 900;
+          if (cachedCandles.length >= 2) {
+            const diff = cachedCandles[cachedCandles.length - 1].time - cachedCandles[cachedCandles.length - 2].time;
+            if (diff > 0 && diff <= 2592000) {
+              barInterval = diff;
+            }
+          }
+
+          let candleToUpdate = null;
           if (cachedCandles.length > 0) {
             const last = cachedCandles[cachedCandles.length - 1];
-            if (last) {
-              if (c.time < last.time) {
-                // Candle timestamp behind current forming bar: merge price into latest bar to prevent out-of-order error
-                candleToUpdate = {
-                  time: last.time,
-                  open: last.open,
-                  high: Math.max(last.high, c.high || c.close),
-                  low: Math.min(last.low, c.low || c.close),
-                  close: c.close,
-                  volume: (last.volume || 0) + (c.volume || 0),
-                };
-                cachedCandles[cachedCandles.length - 1] = candleToUpdate;
-              } else if (last.time === c.time) {
-                cachedCandles[cachedCandles.length - 1] = c;
-              } else {
-                cachedCandles.push(c);
-              }
+            // Check if tick falls into the current forming bar window [last.time, last.time + barInterval)
+            const isWithinCurrentBar = (tickTime <= last.time) || (tickTime < (last.time + barInterval));
+
+            if (isWithinCurrentBar) {
+              // Smoothly form the active candle while preserving its initial open price!
+              const currentHigh = Number(last.high) || price;
+              const currentLow = Number(last.low) || price;
+              const tickHigh = c.high !== undefined ? Number(c.high) : price;
+              const tickLow = c.low !== undefined ? Number(c.low) : price;
+
+              candleToUpdate = {
+                time: last.time,
+                open: Number(last.open) || price,
+                high: Math.max(currentHigh, tickHigh, price),
+                low: Math.min(currentLow, tickLow, price),
+                close: price,
+                volume: (Number(last.volume) || 0) + (Number(c.volume) || 0),
+              };
+              cachedCandles[cachedCandles.length - 1] = candleToUpdate;
+            } else {
+              // Genuine new bar interval reached! Align start time to interval
+              const alignedTime = last.time + Math.floor((tickTime - last.time) / barInterval) * barInterval;
+              candleToUpdate = {
+                time: alignedTime > last.time ? alignedTime : (last.time + barInterval),
+                open: c.open !== undefined ? Number(c.open) : price,
+                high: c.high !== undefined ? Math.max(Number(c.high), price) : price,
+                low: c.low !== undefined ? Math.min(Number(c.low), price) : price,
+                close: price,
+                volume: Number(c.volume) || 0,
+              };
+              cachedCandles.push(candleToUpdate);
             }
           } else {
-            cachedCandles.push(c);
+            candleToUpdate = {
+              time: tickTime,
+              open: c.open !== undefined ? Number(c.open) : price,
+              high: c.high !== undefined ? Math.max(Number(c.high), price) : price,
+              low: c.low !== undefined ? Math.min(Number(c.low), price) : price,
+              close: price,
+              volume: Number(c.volume) || 0,
+            };
+            cachedCandles.push(candleToUpdate);
           }
 
           if (currentChartType === 'line' || currentChartType === 'area') {

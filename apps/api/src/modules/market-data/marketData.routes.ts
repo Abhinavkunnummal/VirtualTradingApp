@@ -16,7 +16,7 @@ const handleInstrumentSearch = async (req: Request, res: Response) => {
   const exchange = ((req.query.exchange as string) || 'ALL').trim().toUpperCase();
   const categoryOrType = (((req.query.type || req.query.category) as string) || 'ALL').trim();
   const page = Math.max(1, parseInt((req.query.page || req.query.cursor) as string, 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 30));
+  const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string, 10) || 50));
 
   const searchResult = await InstrumentMasterService.searchInstruments({
     query,
@@ -69,7 +69,7 @@ const handleInstrumentList = async (req: Request, res: Response) => {
     exchange,
     category,
     page: 1,
-    limit: 100,
+    limit: Math.min(1000, Math.max(1, parseInt(req.query.limit as string, 10) || 500)),
   });
 
   return res.status(200).json({

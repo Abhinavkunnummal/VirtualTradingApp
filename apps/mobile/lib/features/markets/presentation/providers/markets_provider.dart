@@ -13,6 +13,19 @@ final marketOverviewProvider = FutureProvider<List<InstrumentModel>>((ref) async
   if (!isTest) {
     final apiClient = ref.watch(apiClientProvider);
     try {
+      final response = await apiClient.get<Map<String, dynamic>>('/market/instruments/search?limit=300');
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final list = response.data!['instruments'] as List<dynamic>? ?? [];
+        if (list.isNotEmpty) {
+          ref.read(isOfflineFallbackActiveProvider.notifier).state = false;
+          return list.map((q) => InstrumentModel.fromJson(q as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (_) {
+      // Try quotes endpoint fallback
+    }
+
+    try {
       final response = await apiClient.get<Map<String, dynamic>>('/market-data/quotes');
       if (response.statusCode == 200 && response.data?['success'] == true) {
         final list = response.data!['quotes'] as List<dynamic>? ?? [];
@@ -570,7 +583,7 @@ final instrumentSearchResultsProvider = FutureProvider<List<InstrumentModel>>((r
   if (!isTest) {
     final apiClient = ref.watch(apiClientProvider);
     try {
-      final endpoint = '/market/instruments/search?q=${Uri.encodeComponent(query)}&exchange=$exchangeParam&category=$categoryParam&limit=60';
+      final endpoint = '/market/instruments/search?q=${Uri.encodeComponent(query)}&exchange=$exchangeParam&category=$categoryParam&limit=300';
       final response = await apiClient.get<Map<String, dynamic>>(endpoint);
       if (response.statusCode == 200 && response.data?['success'] == true) {
         final list = response.data!['instruments'] as List<dynamic>? ?? [];

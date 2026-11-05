@@ -861,7 +861,7 @@ export class InstrumentMasterService {
   public static async searchInstruments(options: SearchOptions = {}): Promise<SearchResult> {
     const rawQ = (options.query || '').trim();
     const page = Math.max(1, Number(options.page || options.cursor) || 1);
-    const limit = Math.min(100, Math.max(1, Number(options.limit) || 30));
+    const limit = Math.min(2000, Math.max(1, Number(options.limit) || 100));
     const exchangeFilter = (options.exchange || 'ALL').toUpperCase();
     const categoryFilter = (options.category || options.type || 'ALL').toUpperCase();
 
@@ -922,9 +922,12 @@ export class InstrumentMasterService {
           }
         }
 
-        const rawDocs = await Instrument.find(matchCriteria)
-          .limit(300)
-          .lean();
+        const fetchLimit = Math.min(5000, Math.max(1000, limit * page * 2));
+        const findQuery = Instrument.find(matchCriteria);
+        if (!rawQ) {
+          findQuery.sort({ popularity: -1, symbol: 1 });
+        }
+        const rawDocs = await findQuery.limit(fetchLimit).lean();
 
         if (rawDocs.length > 0) {
           // Score and rank candidates
@@ -936,7 +939,14 @@ export class InstrumentMasterService {
             .filter((item) => item.score > 0)
             .sort((a, b) => b.score - a.score);
 
-          const total = scored.length;
+          let total = scored.length;
+          if (!rawQ) {
+            try {
+              total = await Instrument.countDocuments(matchCriteria);
+            } catch {
+              total = scored.length;
+            }
+          }
           const startIndex = (page - 1) * limit;
           const paged = scored.slice(startIndex, startIndex + limit).map((s) => this.formatResultItem(s.doc));
 
