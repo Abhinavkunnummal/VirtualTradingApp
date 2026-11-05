@@ -1881,6 +1881,7 @@ class _QuickOrderSheetState extends ConsumerState<_QuickOrderSheet> {
       ),
     ),
   ),
+),
 );
 }
 }
