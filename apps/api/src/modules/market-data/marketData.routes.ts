@@ -218,7 +218,7 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
   const candlesQuerySchema = z.object({
     symbol: z.string().min(1, 'Symbol is required').trim().toUpperCase(),
     interval: z.enum(['1m', '5m', '15m', '30m', '1h', '1d', '1w', '1mo', '1M']).default('15m'),
-    limit: z.coerce.number().int().min(1).max(5000).default(100),
+    limit: z.coerce.number().int().min(1).max(5000).optional(),
   });
 
   const queryValidation = candlesQuerySchema.safeParse({
@@ -235,8 +235,11 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
     });
   }
 
-  const { symbol, interval, limit } = queryValidation.data;
-  const range = (req.query.range as HistoryRange) || (req.query.limit ? undefined : '1D');
+  const { symbol, interval } = queryValidation.data;
+  const rawRange = req.query.range as HistoryRange | undefined;
+  const rawLimit = queryValidation.data.limit;
+  const range = rawRange || (rawLimit ? undefined : '1D');
+  const limit = rawLimit;
   const from = req.query.from ? parseInt(req.query.from as string, 10) : undefined;
   const to = req.query.to ? parseInt(req.query.to as string, 10) : undefined;
   const includeIndicators = req.query.indicators === 'true';
@@ -341,7 +344,7 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
         symbol,
         interval as CandleInterval,
         range,
-        limit || 100,
+        limit,
         includeIndicators,
         from,
         to

@@ -531,7 +531,25 @@ export class RealtimeMarketService {
         }
         const binanceInterval = this.toBinanceInterval(interval);
 
-        let targetLimit = Math.min(Math.max(limit || 60, 1), 5000);
+        let targetLimit = limit;
+        if (!targetLimit && range) {
+          const bounds = MarketDataService.getRangeBounds(range, Math.floor(Date.now() / 1000));
+          const secMap: Record<string, number> = {
+            '1m': 60,
+            '5m': 300,
+            '15m': 900,
+            '30m': 1800,
+            '1h': 3600,
+            '4h': 14400,
+            '1d': 86400,
+            '1w': 604800,
+            '1mo': 2592000,
+            '1M': 2592000,
+          };
+          const sec = secMap[interval] || 900;
+          targetLimit = Math.min(Math.ceil((bounds.to - bounds.from) / sec), 5000);
+        }
+        targetLimit = Math.min(Math.max(targetLimit || 120, 1), 5000);
         let allCandles: Candle[] = [];
         let currentEndTime = to ? to * 1000 : undefined;
 
@@ -727,8 +745,8 @@ export class RealtimeMarketService {
           }
 
           if (candles.length > 0) {
-            // Trim to requested limit if provided
-            const trimmedCandles = limit && candles.length > limit ? candles.slice(-limit) : candles;
+            // Trim to requested limit if explicit limit was provided and no multi-year range
+            const trimmedCandles = (limit && !range && candles.length > limit) ? candles.slice(-limit) : candles;
 
             // Compute Indicators
             let indicators = undefined;

@@ -701,20 +701,33 @@
           const c = typeof data === 'string' ? JSON.parse(data) : data;
           if (!c || !mainSeries) return;
 
-          // Update cached array first
+          let candleToUpdate = c;
           if (cachedCandles.length > 0) {
             const last = cachedCandles[cachedCandles.length - 1];
-            if (last && last.time === c.time) {
-              cachedCandles[cachedCandles.length - 1] = c;
-            } else if (last && c.time > last.time) {
-              cachedCandles.push(c);
+            if (last) {
+              if (c.time < last.time) {
+                // Candle timestamp behind current forming bar: merge price into latest bar to prevent out-of-order error
+                candleToUpdate = {
+                  time: last.time,
+                  open: last.open,
+                  high: Math.max(last.high, c.high || c.close),
+                  low: Math.min(last.low, c.low || c.close),
+                  close: c.close,
+                  volume: (last.volume || 0) + (c.volume || 0),
+                };
+                cachedCandles[cachedCandles.length - 1] = candleToUpdate;
+              } else if (last.time === c.time) {
+                cachedCandles[cachedCandles.length - 1] = c;
+              } else {
+                cachedCandles.push(c);
+              }
             }
           } else {
             cachedCandles.push(c);
           }
 
           if (currentChartType === 'line' || currentChartType === 'area') {
-            mainSeries.update({ time: c.time, value: c.close });
+            mainSeries.update({ time: candleToUpdate.time, value: candleToUpdate.close });
           } else if (currentChartType === 'heikin_ashi') {
             const haCandles = computeHeikinAshi(cachedCandles);
             if (haCandles.length > 0) {
@@ -722,19 +735,19 @@
             }
           } else {
             mainSeries.update({
-              time: c.time,
-              open: c.open,
-              high: c.high,
-              low: c.low,
-              close: c.close,
+              time: candleToUpdate.time,
+              open: candleToUpdate.open,
+              high: candleToUpdate.high,
+              low: candleToUpdate.low,
+              close: candleToUpdate.close,
             });
           }
 
-          if (volumeSeries && c.volume !== undefined) {
-            const isUp = c.close >= c.open;
+          if (volumeSeries && candleToUpdate.volume !== undefined) {
+            const isUp = candleToUpdate.close >= candleToUpdate.open;
             volumeSeries.update({
-              time: c.time,
-              value: c.volume || 0,
+              time: candleToUpdate.time,
+              value: candleToUpdate.volume || 0,
               color: isUp ? 'rgba(8, 153, 129, 0.35)' : 'rgba(242, 54, 69, 0.35)',
             });
           }

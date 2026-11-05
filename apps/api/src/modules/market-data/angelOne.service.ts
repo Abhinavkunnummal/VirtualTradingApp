@@ -181,7 +181,7 @@ export class AngelOneService {
     this.isLoggingIn = true;
     try {
       const totp = generateTOTP(config.angelOneTotpSecret);
-      const url = 'https://apiconnect.angelone.in/rest/auth/partner/v1/loginByPassword';
+      const url = 'https://apiconnect.angelone.in/rest/auth/angelbroking/user/v1/loginByPassword';
 
       const res = await fetch(url, {
         method: 'POST',
@@ -203,8 +203,15 @@ export class AngelOneService {
         signal: AbortSignal.timeout(10000),
       });
 
-      if (res.ok) {
-        const json = (await res.json()) as any;
+      const text = await res.text();
+      let json: any = null;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        console.warn(`[AngelOne] Auth HTTP ${res.status}: non-JSON response (${text.slice(0, 120)})`);
+      }
+
+      if (res.ok && json) {
         if (json?.status && json?.data?.jwtToken) {
           this.jwtToken = json.data.jwtToken.startsWith('Bearer ')
             ? json.data.jwtToken
@@ -216,8 +223,10 @@ export class AngelOneService {
           console.log('[AngelOne] Successfully authenticated SmartAPI session.');
           return true;
         } else {
-          console.warn('[AngelOne] Authentication rejected:', json?.message || 'Invalid credentials');
+          console.warn('[AngelOne] Authentication rejected:', json?.message || json?.errorcode || 'Invalid credentials');
         }
+      } else if (!res.ok) {
+        console.warn(`[AngelOne] Auth failed HTTP ${res.status}: ${json?.message || text.slice(0, 120)}`);
       }
     } catch (e) {
       console.warn('[AngelOne] Authentication request failed:', (e as Error).message);
@@ -409,6 +418,7 @@ export class AngelOneService {
     }));
 
     const frame = {
+      correlationID: `stream_${Date.now().toString().slice(-6)}`,
       action, // 1 = Subscribe, 0 = Unsubscribe
       params: {
         mode: 1, // 1 = Quote Mode (LTP, Vol, Ts)

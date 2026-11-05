@@ -70,30 +70,30 @@ List<CandleData> _generateRealisticCandles({
 
   // Determine realistic candle count based on range and interval
   int count = 45;
-  if (range == '5Y' || range == 'ALL') {
+  if (range == '5Y' || range == 'ALL' || range == 'MAX') {
     if (interval == '1d') {
-      count = 250;
+      count = 1250;
     } else if (interval == '1w') {
       count = 260;
     } else if (interval == '1mo') {
       count = 60;
     } else {
-      count = 80;
+      count = 120;
     }
   } else if (range == '3Y') {
-    count = interval == '1mo' ? 36 : (interval == '1w' ? 156 : 180);
+    count = interval == '1mo' ? 36 : (interval == '1w' ? 156 : 750);
   } else if (range == '1Y') {
-    count = interval == '1mo' ? 12 : (interval == '1w' ? 52 : 120);
+    count = interval == '1mo' ? 12 : (interval == '1w' ? 52 : 250);
   } else if (range == '6M') {
-    count = 80;
+    count = 130;
   } else if (range == '3M') {
-    count = 65;
+    count = 90;
   } else if (range == '1M') {
-    count = 45;
-  } else if (range == '1W') {
-    count = 40;
+    count = 60;
+  } else if (range == '1W' || range == '5D') {
+    count = 50;
   } else {
-    count = 36;
+    count = 45;
   }
 
   // Unique polynomial hash for the symbol
@@ -184,8 +184,8 @@ final candlesProvider = FutureProvider.family<List<CandleData>, CandleQuery>((re
     'symbol': query.symbol,
     'interval': query.interval,
     'range': query.range,
-    'limit': query.limit ?? 250,
   };
+  if (query.limit != null) queryParams['limit'] = query.limit;
   if (query.from != null) queryParams['from'] = query.from;
   if (query.to != null) queryParams['to'] = query.to;
 

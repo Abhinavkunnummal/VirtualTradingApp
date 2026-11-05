@@ -393,6 +393,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     );
 
     ref.read(selectedCandleIntervalProvider.notifier).state = newInterval;
+    _subscribedInterval = newInterval;
 
     ref.read(liveQuotesProvider.notifier).subscribeChart(
       symbol: instrument.symbol,
@@ -406,6 +407,30 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
       interval: newInterval,
       range: ref.read(selectedHistoryRangeProvider),
     )));
+  }
+
+  void _changeRange(String newRange) {
+    HapticFeedback.selectionClick();
+    final instrument = _getEffectiveInstrument();
+    final oldRange = ref.read(selectedHistoryRangeProvider);
+    if (oldRange == newRange) return;
+
+    ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
+
+    // Auto-select standard interval if switching between intraday and multi-year
+    final currentInterval = ref.read(selectedCandleIntervalProvider);
+    if (['1Y', '3Y', '5Y', 'MAX'].contains(newRange) && ['1m', '5m', '15m'].contains(currentInterval)) {
+      _changeInterval('1d');
+    } else if (['1D', '5D'].contains(newRange) && currentInterval == '1d') {
+      _changeInterval('15m');
+    } else {
+      // Refresh history for new range
+      ref.invalidate(candlesProvider(CandleQuery(
+        symbol: instrument.symbol,
+        interval: currentInterval,
+        range: newRange,
+      )));
+    }
   }
 
   void _changeChartType(String type) {
@@ -595,33 +620,27 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                       const SizedBox(width: 6),
                       Builder(
                         builder: (context) {
-                          final inst = widget.instrument;
-                          final isCrypto = inst != null &&
-                              (inst.exchange == 'CRYPTO' ||
-                                  inst.category == 'CRYPTO' ||
-                                  inst.symbol.contains('/') ||
-                                  inst.symbol.toUpperCase().endsWith('USDT'));
-                          final showLive = isCrypto && !_isDelayed;
+                          final isDelayed = _isDelayed || liveQuote?.status == 'DELAYED';
+                          final isLive = liveQuote?.status == 'LIVE' || (!isDelayed && (candlesAsync.valueOrNull?.isNotEmpty ?? false) && !instrument.isSimulated);
+
+                          final badgeText = isDelayed ? 'DELAYED 15m' : (isLive ? 'LIVE' : 'SIMULATED');
+                          final badgeColor = isDelayed ? AppColors.warning : (isLive ? AppColors.secondary : AppColors.zerodhaBlue);
 
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: showLive
-                                  ? AppColors.secondary.withOpacity(0.18)
-                                  : AppColors.warning.withOpacity(0.18),
+                              color: badgeColor.withOpacity(0.18),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: showLive
-                                    ? AppColors.secondary.withOpacity(0.4)
-                                    : AppColors.warning.withOpacity(0.4),
+                                color: badgeColor.withOpacity(0.4),
                               ),
                             ),
                             child: Text(
-                              showLive ? 'LIVE' : 'DELAYED 15m',
+                              badgeText,
                               style: AppTypography.labelSm.copyWith(
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
-                                color: showLive ? AppColors.secondary : AppColors.warning,
+                                color: badgeColor,
                               ),
                             ),
                           );
@@ -1140,9 +1159,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                         selectedRange: range,
                         chartType: _selectedChartType,
                         rangeNotice: ref.watch(candleRangeNoticeProvider(instrument.symbol)),
-                        onRangeChanged: (newRange) {
-                          ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
-                        },
+                        onRangeChanged: _changeRange,
                         status: _isDelayed ? 'DELAYED' : (liveQuote?.status == 'LIVE' ? 'LIVE' : 'SIMULATED'),
                         onRetry: () => ref.refresh(candlesProvider(CandleQuery(
                           symbol: instrument.symbol,
@@ -1163,6 +1180,83 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
                             ),
                         ],
                       ),
+              ),
+            ),
+
+            // Range Notice Banner if present
+            Builder(
+              builder: (context) {
+                final rangeNotice = ref.watch(candleRangeNoticeProvider(instrument.symbol));
+                if (rangeNotice == null || rangeNotice.isEmpty) return const SizedBox.shrink();
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 14, color: AppColors.warning),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          rangeNotice,
+                          style: AppTypography.labelSm.copyWith(color: AppColors.warning, fontSize: 10),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            // TradingView Multi-Year History Range Bar (1D, 5D, 1M, 3M, 6M, 1Y, 3Y, 5Y, MAX)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: const BoxDecoration(
+                color: AppColors.tvCardBg,
+                border: Border(
+                  top: BorderSide(color: AppColors.tvBorder),
+                  bottom: BorderSide(color: AppColors.tvBorder),
+                ),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    ...['1D', '5D', '1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX'].map((r) {
+                      final isSelected = r.toUpperCase() == range.toUpperCase();
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(4),
+                          onTap: () => _changeRange(r),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppColors.zerodhaBlue : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isSelected ? AppColors.zerodhaBlue : AppColors.tvBorder,
+                              ),
+                            ),
+                            child: Text(
+                              r,
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 10,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                color: isSelected ? Colors.white : AppColors.outline,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
               ),
             ),
 
