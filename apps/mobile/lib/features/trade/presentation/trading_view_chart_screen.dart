@@ -412,7 +412,6 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
 
   void _changeRange(String newRange) {
     HapticFeedback.selectionClick();
-    final instrument = _getEffectiveInstrument();
     final oldRange = ref.read(selectedHistoryRangeProvider);
     if (oldRange == newRange) return;
 
