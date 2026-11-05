@@ -26,6 +26,10 @@ android {
         versionName = "1.0.0"
     }
 
+    aaptOptions {
+        cruncherEnabled = false
+    }
+
     signingConfigs {
         release {
             def keystoreFile = file("release.keystore")
