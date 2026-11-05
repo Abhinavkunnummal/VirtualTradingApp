@@ -605,9 +605,25 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
     final holdingPnl = hasHolding ? (holdingCurrent - holdingInvested) : 0.0;
     final holdingPnlPct = (hasHolding && holdingInvested > 0) ? (holdingPnl / holdingInvested) * 100 : 0.0;
     final holdingIsPos = holdingPnl >= 0;
+    final canDirectPop = _activeDrawingTool == 'cursor';
 
-    return Scaffold(
-      backgroundColor: AppColors.tvDarkBg,
+    return PopScope(
+      canPop: canDirectPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_activeDrawingTool != 'cursor') {
+          setState(() {
+            _activeDrawingTool = 'cursor';
+          });
+          _webViewController?.runJavaScript(ChartJsBridge.buildSetDrawingModeCall('cursor'));
+          return;
+        }
+        if (context.canPop()) {
+          context.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.tvDarkBg,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: AppColors.tvDarkBg,
@@ -1398,8 +1414,9 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildChartTypeIcon(String type, IconData icon, String tooltip) {
     final isSelected = _selectedChartType == type;

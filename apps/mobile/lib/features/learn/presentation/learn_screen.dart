@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tradeverse_mobile/core/theme/app_colors.dart';
 import 'package:tradeverse_mobile/core/theme/app_typography.dart';
 import 'package:tradeverse_mobile/features/learn/domain/learn_models.dart';
@@ -503,10 +504,22 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
     final modulesAsync = ref.watch(learningModulesProvider);
     final completed = ref.watch(completedModulesProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text('Learn Trading with AI', style: AppTypography.headlineSm),
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.onSurface),
+            onPressed: () => context.pop(),
+          ),
+          title: Text('Learn Trading with AI', style: AppTypography.headlineSm),
         actions: [
           IconButton(
             icon: const Icon(Icons.support_agent),
@@ -595,6 +608,7 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
           onRetry: () => ref.refresh(learningModulesProvider),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

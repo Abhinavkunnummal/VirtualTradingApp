@@ -85,9 +85,20 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
     final selectedFilter = ref.watch(searchFilterProvider);
     final recentSearches = ref.watch(recentSearchesProvider);
     final isOffline = ref.watch(isOfflineFallbackActiveProvider);
+    final hasSearchText = _searchController.text.trim().isNotEmpty;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return PopScope(
+      canPop: !hasSearchText,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (hasSearchText) {
+          _searchController.clear();
+          ref.read(searchQueryProvider.notifier).state = '';
+          setState(() {});
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const FittedBox(
           fit: BoxFit.scaleDown,
@@ -344,8 +355,9 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildAssetList(BuildContext context, List<InstrumentModel> instruments) {
     if (instruments.isEmpty) {

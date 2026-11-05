@@ -133,12 +133,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final totalRealized = pnlSummary?.totalRealizedPnl ?? 0.0;
     final netPnl = totalUnrealized + totalRealized;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text('Orders & Positions', style: AppTypography.headlineSm),
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        }
+      },
+      child: Scaffold(
         backgroundColor: AppColors.background,
-        elevation: 0,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.onSurface),
+            onPressed: () => context.pop(),
+          ),
+          title: Text('Orders & Positions', style: AppTypography.headlineSm),
+          backgroundColor: AppColors.background,
+          elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, size: 20),
@@ -200,8 +212,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSummaryHeader({
     required double totalUnrealized,
