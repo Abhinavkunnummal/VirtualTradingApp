@@ -14,6 +14,7 @@ import 'package:tradeverse_mobile/features/markets/presentation/providers/market
 import 'package:tradeverse_mobile/features/markets/presentation/providers/recent_searches_service.dart';
 import 'package:tradeverse_mobile/features/markets/domain/news_models.dart';
 import 'package:tradeverse_mobile/features/markets/presentation/providers/news_provider.dart';
+import 'package:tradeverse_mobile/shared/widgets/instrument_row_tile.dart';
 
 class MarketsScreen extends ConsumerStatefulWidget {
   const MarketsScreen({super.key});
@@ -368,187 +369,44 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> with SingleTicker
         ref.invalidate(instrumentSearchResultsProvider);
       },
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         itemCount: instruments.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (_, __) => const SizedBox(height: 6),
         itemBuilder: (context, index) {
           final item = instruments[index];
           final currency = item.currency == 'USD' || item.category == 'US' || item.category == 'CRYPTO' ? '\$' : '₹';
+          final live = ref.watch(liveQuoteForSymbolProvider(item.symbol));
+          final displayPrice = (live != null && live.price > 0) ? live.price : item.price;
+          final displayChange = live != null ? live.change : item.change;
+          final displayPct = live != null ? live.changePercent : item.changePercent;
 
-          return Container(
-            decoration: BoxDecoration(
-              color: AppColors.surfaceLowest,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.borderSubtle),
-            ),
-            child: InkWell(
-              // Instant Tap-To-Chart Navigation
-              onTap: () {
-                HapticFeedback.lightImpact();
-                ref.read(liveQuotesProvider.notifier).trackSymbol(item.symbol);
-                ref.read(selectedTradeInstrumentProvider.notifier).state = item;
-                ref.read(recentSearchesProvider.notifier).addSearch(item.symbol);
-                context.push('/tradingview-pro');
-              },
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                child: Row(
-                  children: [
-                    // Left Column: Symbol, Exchange badge, Name, Lot size & Tick size
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 6,
-                            runSpacing: 2,
-                            children: [
-                              Text(
-                                item.symbol,
-                                style: AppTypography.headlineSm.copyWith(fontSize: 15),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceHighest,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  item.exchange,
-                                  style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline),
-                                ),
-                              ),
-                              if (item.category == 'ETF')
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryBrand.withOpacity(0.18),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'ETF',
-                                    style: AppTypography.labelSm.copyWith(fontSize: 8, color: AppColors.primary, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.name,
-                            style: AppTypography.bodyMd.copyWith(fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                          const SizedBox(height: 3),
-                          // Lot size & Tick size readout
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 2,
-                            children: [
-                              Text(
-                                'Lot: ${item.lotSize}',
-                                style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.outline),
-                              ),
-                              Text(
-                                '•',
-                                style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.outline),
-                              ),
-                              Text(
-                                'Tick: $currency${item.tickSize}',
-                                style: AppTypography.labelSm.copyWith(fontSize: 10, color: AppColors.outline),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Right Side: Price, 24h Change, and Instant Tap-To-Order Button
-                    Flexible(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Builder(
-                            builder: (context) {
-                              final live = ref.watch(liveQuoteForSymbolProvider(item.symbol));
-                              final displayPrice = (live != null && live.price > 0) ? live.price : item.price;
-                              final displayChange = live != null ? live.change : item.change;
-                              final displayPct = live != null ? live.changePercent : item.changePercent;
-                              final itemIsPos = displayChange >= 0;
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      '$currency${displayPrice.toStringAsFixed(2)}',
-                                      style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      '${itemIsPos ? '+' : ''}${displayChange.toStringAsFixed(2)} (${displayPct.toStringAsFixed(2)}%)',
-                                      style: AppTypography.numericTable.copyWith(
-                                        color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 5),
-
-                          // Instant Tap-To-Order Action
-                          InkWell(
-                            key: ValueKey('order_btn_${item.symbol}'),
-                            borderRadius: BorderRadius.circular(4),
-                            onTap: () {
-                              ref.read(liveQuotesProvider.notifier).trackSymbol(item.symbol);
-                              ref.read(selectedTradeInstrumentProvider.notifier).state = item;
-                              ref.read(recentSearchesProvider.notifier).addSearch(item.symbol);
-                              context.go('/trade');
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryBrand.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: AppColors.primaryBrand.withOpacity(0.35)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.swap_horiz, size: 12, color: AppColors.primary),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'TRADE',
-                                    style: AppTypography.labelSm.copyWith(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          return InstrumentRowTile(
+            key: ValueKey('market_tile_${item.symbol}'),
+            symbol: item.symbol,
+            name: item.name,
+            exchange: item.exchange,
+            category: item.category,
+            price: displayPrice,
+            change: displayChange,
+            changePercent: displayPct,
+            lotSize: item.lotSize,
+            tickSize: item.tickSize,
+            currency: currency,
+            showSparkline: true,
+            showTradeButton: true,
+            tradeButtonKey: ValueKey('order_btn_${item.symbol}'),
+            onTap: () {
+              ref.read(liveQuotesProvider.notifier).trackSymbol(item.symbol);
+              ref.read(selectedTradeInstrumentProvider.notifier).state = item;
+              ref.read(recentSearchesProvider.notifier).addSearch(item.symbol);
+              context.push('/tradingview-pro');
+            },
+            onTradeTap: () {
+              ref.read(liveQuotesProvider.notifier).trackSymbol(item.symbol);
+              ref.read(selectedTradeInstrumentProvider.notifier).state = item;
+              ref.read(recentSearchesProvider.notifier).addSearch(item.symbol);
+              context.go('/trade');
+            },
           );
         },
       ),

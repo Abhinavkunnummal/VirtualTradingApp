@@ -15,6 +15,8 @@ import 'package:tradeverse_mobile/features/notifications/presentation/providers/
 import 'package:tradeverse_mobile/features/markets/domain/market_models.dart';
 import 'package:tradeverse_mobile/features/markets/presentation/providers/markets_provider.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
+import 'package:tradeverse_mobile/shared/widgets/instrument_row_tile.dart';
+import 'package:tradeverse_mobile/shared/widgets/instrument_price_column.dart';
 
 class HomeDashboardScreen extends ConsumerWidget {
   const HomeDashboardScreen({super.key});
@@ -602,14 +604,10 @@ class HomeDashboardScreen extends ConsumerWidget {
           final t = tickers[index];
           final sym = t['symbol'] as String;
           final live = ref.watch(liveQuoteForSymbolProvider(sym));
-          final isPos = live != null ? (live.change >= 0) : (t['isPos'] as bool);
           final currency = t['category'] == 'US' || t['category'] == 'CRYPTO' ? '\$' : '₹';
-          final displayPrice = (live != null && live.price > 0)
-              ? '$currency${live.price.toStringAsFixed(2)}'
-              : (t['displayPrice'] as String);
-          final displayChange = live != null
-              ? '${live.change >= 0 ? '+' : ''}${live.changePercent.toStringAsFixed(2)}%'
-              : (t['change'] as String);
+          final priceVal = (live != null && live.price > 0) ? live.price : (t['price'] as num).toDouble();
+          final changeVal = live != null ? live.change : ((t['isPos'] as bool) ? 1.0 : -1.0);
+          final changePctVal = live != null ? live.changePercent : 0.5;
 
           return Material(
             color: AppColors.surfaceContainer,
@@ -642,27 +640,17 @@ class HomeDashboardScreen extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            displayPrice,
-                            style: AppTypography.numericTable,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            displayChange,
-                            style: AppTypography.numericTable.copyWith(
-                              color: isPos ? AppColors.secondary : AppColors.tertiary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: InstrumentPriceColumn(
+                        price: priceVal,
+                        change: changeVal,
+                        changePercent: changePctVal,
+                        currency: currency,
+                        isCrypto: t['category'] == 'CRYPTO',
+                        showChangeNominal: false,
+                        minWidth: 60,
                       ),
                     ),
                   ],
@@ -686,85 +674,26 @@ class HomeDashboardScreen extends ConsumerWidget {
     required VoidCallback onTap,
   }) {
     final live = ref.watch(liveQuoteForSymbolProvider(symbol == 'BTC/USD' ? 'BTC/USDT' : symbol));
-    final isCrypto = exchange == 'CRYPTO';
+    final isCrypto = exchange == 'CRYPTO' || symbol.contains('/');
     final currency = isCrypto || exchange == 'US' ? '\$' : '₹';
-    final displayPrice = (live != null && live.price > 0) ? '$currency${live.price.toStringAsFixed(2)}' : price;
-    final displayChange = live != null
-        ? '${live.change >= 0 ? '+' : ''}$currency${live.change.toStringAsFixed(2)} (${live.changePercent.toStringAsFixed(2)}%)'
-        : change;
-    final itemIsPos = live != null ? (live.change >= 0) : isPositive;
+    final cleanPrice = double.tryParse(price.replaceAll(RegExp(r'[^\d.]'), '')) ?? 0.0;
+    final displayPrice = (live != null && live.price > 0) ? live.price : cleanPrice;
+    final displayChange = live != null ? live.change : (isPositive ? 1.0 : -1.0);
+    final displayChangePct = live != null ? live.changePercent : 0.5;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLowest,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 6,
-                      runSpacing: 2,
-                      children: [
-                        Text(
-                          symbol,
-                          style: AppTypography.headlineSm.copyWith(fontSize: 15),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceHighest,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(exchange, style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(name, style: AppTypography.bodyMd.copyWith(fontSize: 12), overflow: TextOverflow.ellipsis),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(displayPrice, style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.w600)),
-                    ),
-                    const SizedBox(height: 2),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        displayChange,
-                        style: AppTypography.numericTable.copyWith(
-                          color: itemIsPos ? AppColors.secondary : AppColors.tertiary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return InstrumentRowTile(
+      key: ValueKey('watchlist_tile_$symbol'),
+      symbol: symbol,
+      name: name,
+      exchange: exchange,
+      category: isCrypto ? 'CRYPTO' : (exchange == 'US' ? 'US' : 'EQUITY'),
+      price: displayPrice,
+      change: displayChange,
+      changePercent: displayChangePct,
+      currency: currency,
+      showSparkline: true,
+      showTradeButton: false,
+      onTap: onTap,
     );
   }
 

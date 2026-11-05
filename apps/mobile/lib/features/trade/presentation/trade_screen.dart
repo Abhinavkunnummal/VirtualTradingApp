@@ -12,6 +12,7 @@ import 'package:tradeverse_mobile/features/trade/presentation/widgets/candlestic
 import 'package:tradeverse_mobile/features/trade/presentation/providers/order_provider.dart';
 import 'package:tradeverse_mobile/features/trade/presentation/widgets/order_confirmation_sheet.dart';
 import 'package:tradeverse_mobile/features/portfolio/presentation/providers/portfolio_provider.dart';
+import 'package:tradeverse_mobile/shared/widgets/instrument_price_column.dart';
 
 class TradeScreen extends ConsumerStatefulWidget {
   const TradeScreen({super.key});
@@ -503,13 +504,25 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                                     children: [
                                       Text(inst.symbol, style: AppTypography.headlineSm.copyWith(fontSize: 14)),
                                       const SizedBox(width: 6),
-                                      Text(inst.exchange, style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceHighest,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(inst.exchange, style: AppTypography.labelSm.copyWith(fontSize: 9, color: AppColors.outline)),
+                                      ),
                                     ],
                                   ),
-                                  subtitle: Text(inst.name, style: AppTypography.bodyMd.copyWith(fontSize: 11)),
-                                  trailing: Text(
-                                    '$currency${inst.price.toStringAsFixed(2)}',
-                                    style: AppTypography.numericTable.copyWith(fontWeight: FontWeight.bold),
+                                  subtitle: Text(inst.name, style: AppTypography.bodyMd.copyWith(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  trailing: InstrumentPriceColumn(
+                                    price: inst.price,
+                                    change: inst.change,
+                                    changePercent: inst.changePercent,
+                                    currency: currency,
+                                    isCrypto: inst.category == 'CRYPTO' || inst.symbol.contains('/'),
+                                    minWidth: 70,
+                                    showChangeNominal: false,
                                   ),
                                 );
                               },
