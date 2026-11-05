@@ -76,6 +76,7 @@ export function createApp(): express.Application {
       },
       providers: {
         angelOne: angelOneStatus,
+        angelOneAuthError: AngelOneService.getLastAuthError(),
         binance: binanceStatus,
         finnhub: finnhubStatus,
         twelveData: twelveDataStatus,

@@ -250,6 +250,30 @@ class LiveQuotesNotifier extends StateNotifier<Map<String, LiveQuote>> {
             }
           }
           state = updated;
+
+          // Keep live candle formation active even on HTTP fallback / during socket reconnect
+          if (_activeChartSubscription != null && _chartTickListeners.isNotEmpty) {
+            final activeSym = _activeChartSubscription!['symbol'];
+            final activeInterval = _activeChartSubscription!['interval'];
+            if (activeSym != null) {
+              final activeQuote = updated[activeSym];
+              if (activeQuote != null && activeQuote.price > 0) {
+                final tickPayload = {
+                  'symbol': activeSym,
+                  'interval': activeInterval,
+                  'time': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                  'open': activeQuote.open > 0 ? activeQuote.open : activeQuote.price,
+                  'high': activeQuote.high > 0 ? activeQuote.high : activeQuote.price,
+                  'low': activeQuote.low > 0 ? activeQuote.low : activeQuote.price,
+                  'close': activeQuote.price,
+                  'delayed': activeQuote.status == 'DELAYED',
+                };
+                for (final listener in List.of(_chartTickListeners)) {
+                  listener(tickPayload);
+                }
+              }
+            }
+          }
         }
       }
     } catch (_) {

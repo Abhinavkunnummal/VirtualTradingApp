@@ -130,6 +130,11 @@ export class AngelOneService {
 
   private static listeners: Set<AngelOneTickListener> = new Set();
   private static masterScripLoaded: boolean = false;
+  private static lastAuthError: { timestamp: string; status?: number; message?: string; raw?: any } | null = null;
+
+  public static getLastAuthError() {
+    return this.lastAuthError;
+  }
 
   public static readonly SUBSCRIPTION_CAP = 500;
 
@@ -220,15 +225,33 @@ export class AngelOneService {
           this.feedToken = json.data.feedToken;
           // Tokens valid for ~24h; refresh after 20h
           this.tokenExpiresAt = Date.now() + 20 * 60 * 60 * 1000;
+          this.lastAuthError = null;
           console.log('[AngelOne] Successfully authenticated SmartAPI session.');
           return true;
         } else {
-          console.warn('[AngelOne] Authentication rejected:', json?.message || json?.errorcode || 'Invalid credentials');
+          const errMsg = json?.message || json?.errorcode || 'Invalid credentials';
+          this.lastAuthError = {
+            timestamp: new Date().toISOString(),
+            status: res.status,
+            message: errMsg,
+            raw: json,
+          };
+          console.warn('[AngelOne] Authentication rejected:', errMsg);
         }
       } else if (!res.ok) {
-        console.warn(`[AngelOne] Auth failed HTTP ${res.status}: ${json?.message || text.slice(0, 120)}`);
+        const errMsg = json?.message || text.slice(0, 120);
+        this.lastAuthError = {
+          timestamp: new Date().toISOString(),
+          status: res.status,
+          message: errMsg,
+        };
+        console.warn(`[AngelOne] Auth failed HTTP ${res.status}: ${errMsg}`);
       }
     } catch (e) {
+      this.lastAuthError = {
+        timestamp: new Date().toISOString(),
+        message: (e as Error).message,
+      };
       console.warn('[AngelOne] Authentication request failed:', (e as Error).message);
     } finally {
       this.isLoggingIn = false;
@@ -275,7 +298,12 @@ export class AngelOneService {
     }
 
     const authed = await this.ensureLoggedIn();
-    if (!authed || !this.jwtToken) return;
+    if (!authed || !this.jwtToken) {
+      if (this.subscribedTokens.size > 0) {
+        this.scheduleReconnect();
+      }
+      return;
+    }
 
     this.isConnectingWs = true;
     try {

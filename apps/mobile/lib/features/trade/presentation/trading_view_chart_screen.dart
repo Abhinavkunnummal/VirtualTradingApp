@@ -54,6 +54,7 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
   LiveQuotesNotifier? _liveQuotesNotifier;
   String? _subscribedSymbol;
   String? _subscribedInterval;
+  String? _lastSyncedQueryKey;
 
   static const List<String> _supportedIntervals = ['1m', '5m', '15m', '1h', '1d'];
 
@@ -417,20 +418,35 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
 
     ref.read(selectedHistoryRangeProvider.notifier).state = newRange;
 
-    // Auto-select standard interval if switching between intraday and multi-year
-    final currentInterval = ref.read(selectedCandleIntervalProvider);
-    if (['1Y', '3Y', '5Y', 'MAX'].contains(newRange) && ['1m', '5m', '15m'].contains(currentInterval)) {
-      _changeInterval('1d');
-    } else if (['1D', '5D'].contains(newRange) && currentInterval == '1d') {
-      _changeInterval('15m');
-    } else {
-      // Refresh history for new range
-      ref.invalidate(candlesProvider(CandleQuery(
-        symbol: instrument.symbol,
-        interval: currentInterval,
-        range: newRange,
-      )));
+    // Automatically map each range to its optimal default interval
+    String targetInterval;
+    switch (newRange.toUpperCase()) {
+      case '1D':
+        targetInterval = '5m';
+        break;
+      case '5D':
+        targetInterval = '15m';
+        break;
+      case '1M':
+        targetInterval = '1h';
+        break;
+      case '3M':
+      case '6M':
+      case '1Y':
+        targetInterval = '1d';
+        break;
+      case '3Y':
+      case '5Y':
+        targetInterval = '1w';
+        break;
+      case 'MAX':
+        targetInterval = '1M';
+        break;
+      default:
+        targetInterval = '15m';
     }
+
+    _changeInterval(targetInterval);
   }
 
   void _changeChartType(String type) {
@@ -567,13 +583,17 @@ class _TradingViewChartScreenState extends ConsumerState<TradingViewChartScreen>
       range: range,
     )));
 
-    // When candles finish loading, sync to webview
-    candlesAsync.whenData((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _syncCandlesToWebView();
-        _syncPositionLinesToWebView();
-        _syncIndicatorsToWebView();
-      });
+    // When candles finish loading, sync to webview only when query changes (prevents zoom/stretch jumps)
+    final currentQueryKey = '${instrument.symbol}_${interval}_$range';
+    candlesAsync.whenData((candlesList) {
+      if (_lastSyncedQueryKey != currentQueryKey && candlesList.isNotEmpty) {
+        _lastSyncedQueryKey = currentQueryKey;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _syncCandlesToWebView();
+          _syncPositionLinesToWebView();
+          _syncIndicatorsToWebView();
+        });
+      }
     });
 
     // Active position lookup for this stock

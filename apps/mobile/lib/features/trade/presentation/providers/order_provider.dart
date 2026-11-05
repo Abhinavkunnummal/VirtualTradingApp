@@ -408,14 +408,22 @@ class SubmitOrderService {
       // Add to demo orders state
       ref.read(demoOrdersStateProvider.notifier).update((orders) => [newOrder, ...orders]);
 
-      // Add to portfolio holdings
+      // Update portfolio holdings (add on BUY, reduce/short on SELL)
       try {
-        ref.read(portfolioProvider.notifier).addHolding(
-          symbol: symbol,
-          exchange: exchange,
-          quantity: quantity.toInt(),
-          buyPrice: fillPrice,
-        );
+        if (side.toUpperCase() == 'SELL') {
+          ref.read(portfolioProvider.notifier).reduceHolding(
+            symbol: symbol,
+            quantity: quantity.toInt(),
+            exitPrice: fillPrice,
+          );
+        } else {
+          ref.read(portfolioProvider.notifier).addHolding(
+            symbol: symbol,
+            exchange: exchange,
+            quantity: quantity.toInt(),
+            buyPrice: fillPrice,
+          );
+        }
       } catch (_) {
         // Safe when portfolioProvider is mocked in widget tests without addHolding
       }

@@ -121,6 +121,9 @@
           borderColor: '#2a2e39',
           timeVisible: true,
           secondsVisible: false,
+          rightOffset: 6,
+          barSpacing: 9,
+          minBarSpacing: 1,
         },
         rightPriceScale: {
           borderColor: '#2a2e39',
@@ -148,6 +151,9 @@
           borderColor: '#e0e3eb',
           timeVisible: true,
           secondsVisible: false,
+          rightOffset: 6,
+          barSpacing: 9,
+          minBarSpacing: 1,
         },
         rightPriceScale: {
           borderColor: '#e0e3eb',
@@ -354,7 +360,16 @@
         if (autoAnalysisEnabled) {
           runAutoAnalysis(cachedCandles);
         }
-        chart.timeScale().fitContent();
+        if (candles.length > 0) {
+          const lastIdx = candles.length - 1;
+          const fromIdx = Math.max(0, lastIdx - 45);
+          chart.timeScale().setVisibleLogicalRange({
+            from: fromIdx,
+            to: lastIdx + 5,
+          });
+        } else {
+          chart.timeScale().fitContent();
+        }
         redrawDrawings();
       }
 

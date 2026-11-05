@@ -451,21 +451,33 @@ export class PaperTradingEngine {
         description: `Executed SELL ${order.quantity} ${order.symbol} @ ₹${feeInfo.executionPrice} (Net credit: ₹${netProceeds})`,
       });
 
-      // Decrement Delivery Holding if CNC
-      if (order.product === 'CNC') {
-        const existingHolding = await Holding.findOne({
-          userId: order.userId,
-          symbol: order.symbol,
-        });
+      // Decrement existing position/holding on SELL
+      const existingHolding = await Holding.findOne({
+        userId: order.userId,
+        symbol: order.symbol,
+      });
 
-        if (existingHolding) {
-          if (existingHolding.quantity <= order.quantity) {
-            await Holding.deleteOne({ _id: existingHolding._id });
-          } else {
-            existingHolding.quantity -= order.quantity;
-            await existingHolding.save();
-          }
+      if (existingHolding) {
+        if (existingHolding.quantity <= order.quantity) {
+          await Holding.deleteOne({ _id: existingHolding._id });
+        } else {
+          existingHolding.quantity -= order.quantity;
+          await existingHolding.save();
         }
+      } else if (order.product === 'MIS') {
+        // Intraday Short Sell entry position
+        const holdingDoc = new Holding({
+          userId: order.userId,
+          paperAccountId: account._id,
+          instrumentId: order.symbol,
+          symbol: order.symbol,
+          exchange: order.exchange,
+          product: 'MIS',
+          quantity: order.quantity,
+          averageCost: feeInfo.executionPrice,
+          reservedMargin: parseFloat(((order.quantity * feeInfo.executionPrice) / 5).toFixed(2)),
+        });
+        await holdingDoc.save();
       }
     }
 

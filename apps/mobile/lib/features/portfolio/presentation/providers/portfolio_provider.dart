@@ -361,6 +361,82 @@ class PortfolioNotifier extends StateNotifier<AsyncValue<PortfolioModel>> {
       ),
     );
   }
+
+  void reduceHolding({
+    required String symbol,
+    required int quantity,
+    required double exitPrice,
+  }) {
+    final current = state.valueOrNull ?? PortfolioModel.demo();
+    final existingIndex = current.holdings.indexWhere((h) => h.symbol.toUpperCase() == symbol.toUpperCase());
+
+    final List<HoldingModel> newHoldings = List.from(current.holdings);
+    final double grossProceeds = quantity * exitPrice;
+
+    if (existingIndex >= 0) {
+      final existing = current.holdings[existingIndex];
+      if (existing.quantity <= quantity) {
+        newHoldings.removeAt(existingIndex);
+      } else {
+        final newQty = existing.quantity - quantity;
+        final invested = newQty * existing.averageBuyPrice;
+        final curVal = newQty * exitPrice;
+        final pnl = curVal - invested;
+        final pnlPct = invested > 0 ? (pnl / invested) * 100 : 0.0;
+
+        newHoldings[existingIndex] = HoldingModel(
+          id: existing.id,
+          symbol: existing.symbol,
+          exchange: existing.exchange,
+          quantity: newQty,
+          averageBuyPrice: existing.averageBuyPrice,
+          ltp: exitPrice,
+          investedValue: invested,
+          currentValue: curVal,
+          unrealizedPnl: pnl,
+          unrealizedPnlPercent: double.parse(pnlPct.toStringAsFixed(2)),
+        );
+      }
+    } else {
+      // Intraday Short position
+      final invested = quantity * exitPrice;
+      newHoldings.insert(
+        0,
+        HoldingModel(
+          id: 'short_${symbol.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}',
+          symbol: symbol,
+          exchange: 'NSE',
+          quantity: -quantity,
+          averageBuyPrice: exitPrice,
+          ltp: exitPrice,
+          investedValue: invested,
+          currentValue: invested,
+          unrealizedPnl: 0.0,
+          unrealizedPnlPercent: 0.0,
+        ),
+      );
+    }
+
+    final newInvested = newHoldings.fold<double>(0, (sum, h) => sum + h.investedValue.abs());
+    final newCurVal = newHoldings.fold<double>(0, (sum, h) => sum + h.currentValue.abs());
+    final newCash = current.availableCash + grossProceeds;
+    final totalVal = newCash + newCurVal;
+    final totalPnl = totalVal - current.startingCapital;
+    final totalPnlPct = current.startingCapital > 0 ? (totalPnl / current.startingCapital) * 100 : 0.0;
+
+    state = AsyncValue.data(
+      PortfolioModel(
+        totalPortfolioValue: totalVal,
+        availableCash: newCash,
+        investedValue: newInvested,
+        startingCapital: current.startingCapital,
+        totalPnl: totalPnl,
+        totalPnlPercent: double.parse(totalPnlPct.toStringAsFixed(2)),
+        isSimulated: current.isSimulated,
+        holdings: newHoldings,
+      ),
+    );
+  }
 }
 
 final walletTransactionsProvider = FutureProvider<List<WalletTransactionModel>>((ref) async {
