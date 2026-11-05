@@ -410,6 +410,7 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
         candles: sortedCandles,
         latestQuote: result.latestQuote,
         rangeNotice: result.retentionNotice || (!isTest ? `Live provider feed currently unavailable for ${symbol}. Showing continuous simulated market feed.` : undefined),
+        retentionNotice: result.retentionNotice,
       });
     }
   }
@@ -478,9 +479,12 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
       interval,
       candles: sortedCandles,
       rangeNotice: 'Live feed unavailable for this symbol. Displaying continuous simulated candles.',
+      retentionNotice: 'Displaying continuous simulated candles.',
     });
   }
 
+  const syntheticCandles = MarketDataService.getCandles(symbol, interval as CandleInterval, limit || 60, range, from, to);
+  const formattedSynth = formatCandles(syntheticCandles);
   return res.status(200).json({
     success: true,
     symbol: symbol.toUpperCase(),
@@ -488,8 +492,17 @@ const handleCandlesRequest = async (req: Request, res: Response) => {
     interval,
     currency: 'INR',
     status: 'SIMULATED',
-    candles: [],
-    rangeNotice: 'No trading data recorded for this instrument.',
+    candles: formattedSynth.length > 0 ? formattedSynth : [{
+      time: Math.floor(Date.now() / 1000),
+      timestamp: Math.floor(Date.now() / 1000),
+      open: 100.0,
+      high: 101.0,
+      low: 99.0,
+      close: 100.5,
+      volume: 1000,
+    }],
+    rangeNotice: 'Live feed unavailable for this symbol. Displaying continuous simulated candles.',
+    retentionNotice: 'Displaying continuous simulated candles.',
   });
 };
 

@@ -365,7 +365,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                           onTap: () {
                             HapticFeedback.lightImpact();
                             Navigator.of(context).push(
-                              MaterialPageRoute(
+                              MaterialPageRoute<void>(
                                 builder: (context) => FullscreenChartView(
                                   symbol: widget.symbol,
                                   candles: widget.candles,
@@ -388,7 +388,7 @@ class _CandlestickChartViewState extends State<CandlestickChartView> {
                           child: Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerHigh,
+                              color: AppColors.surfaceHighest,
                               borderRadius: BorderRadius.circular(5),
                               border: Border.all(color: AppColors.borderSubtle),
                             ),
