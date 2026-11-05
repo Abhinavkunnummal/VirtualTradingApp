@@ -60,7 +60,7 @@ class _MockSubmitOrderService implements SubmitOrderService {
   @override
   Future<Map<String, dynamic>> squareOffPosition({
     required String symbol,
-    int? quantity,
+    num? quantity,
     String orderType = 'MARKET',
     double? limitPrice,
   }) async {
